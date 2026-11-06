@@ -81,11 +81,43 @@
   .cab-setor{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-size:18px;color:var(--vinho);font-weight:700}
   .vazio{color:var(--suave);padding:20px 0;text-align:center}
   [hidden]{display:none!important}
+  /* Fichas de pedido para impressão */
+  #areaImpressao{display:none}
+  .ficha{font-family:Montserrat,Arial,sans-serif;color:#000;font-size:11pt;line-height:1.35}
+  .ficha .cab{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px}
+  .ficha .loja{font-family:"Great Vibes",cursive;font-size:26pt;line-height:1}
+  .ficha .loja small{display:block;font-family:Montserrat,Arial,sans-serif;font-size:9pt;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+  .ficha .numero{text-align:right}
+  .ficha .numero b{display:block;font-size:20pt;letter-spacing:.5px}
+  .ficha .destaque{border:2px solid #000;border-radius:6px;padding:8px 10px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;font-size:13pt;font-weight:700}
+  .ficha .secao{font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background:#e6e6e6;border:1px solid #000;border-bottom:0;padding:3px 8px;margin-top:10px}
+  .ficha .campos{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #000;border-right:0;border-bottom:0}
+  .ficha .campo{border-right:1px solid #000;border-bottom:1px solid #000;padding:4px 8px 6px;min-height:42px}
+  .ficha .campo span{display:block;font-size:7.5pt;text-transform:uppercase;letter-spacing:.4px;color:#333}
+  .ficha .campo b{font-size:11pt}
+  .ficha .c2{grid-column:span 2}.ficha .c3{grid-column:span 3}.ficha .c4{grid-column:span 4}
+  .ficha table{width:100%;border-collapse:collapse;font-size:10.5pt}
+  .ficha th{border:1px solid #000;background:#f2f2f2;font-size:8pt;text-transform:uppercase;letter-spacing:.4px;color:#000;padding:4px 5px;text-align:left}
+  .ficha td{border:1px solid #000;padding:6px 5px;vertical-align:top}
+  .ficha td.ck{width:26px;text-align:center}
+  .ficha td.num,.ficha th.num{text-align:right;white-space:nowrap}
+  .ficha .caixa{display:inline-block;width:13px;height:13px;border:1.5px solid #000;vertical-align:middle}
+  .ficha .obs-item{font-size:9.5pt;font-style:italic;margin-top:2px}
+  .ficha tr.tot td{font-size:12.5pt;font-weight:700;background:#f2f2f2}
+  .ficha .assin{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #000;border-right:0}
+  .ficha .assin div{border-right:1px solid #000;padding:4px 8px;min-height:58px;font-size:8pt;text-transform:uppercase;letter-spacing:.4px}
+  .ficha .assin div i{display:block;margin-top:22px;font-style:normal;text-transform:none;font-size:8.5pt;color:#333}
+  .ficha .rodape{margin-top:12px;font-size:8.5pt;color:#444;display:flex;justify-content:space-between}
   @media print{
     header,nav.abas,.nao-imprimir{display:none!important}
     body{background:#fff;font-size:12pt}
     .card{border:0;padding:0}
     main{padding:0}
+    body.imprimindo > *:not(#areaImpressao){display:none!important}
+    body.imprimindo #areaImpressao{display:block}
+    .ficha{break-after:page;page-break-after:always}
+    .ficha:last-child{break-after:auto;page-break-after:auto}
+    @page{size:A4;margin:14mm}
   }
 </style>
 </head>
@@ -305,10 +337,14 @@
       var ps = r.data || [];
       if (!ps.length) { box.innerHTML = '<p class="vazio">Nenhum pedido encontrado para esse filtro.</p>'; return; }
       var total = 0; ps.forEach(function(p){ if (p.status !== "cancelado") total += p.total_centavos; });
-      var h = '<p class="dica" style="margin:0 0 10px">' + ps.length + ' pedido(s) · ' + reais(total) + ' (sem cancelados)</p>';
+      ultimosPedidos = ps;
+      var h = '<div class="barra-acoes" style="align-items:center"><p class="dica cresce" style="margin:0">' + ps.length + ' pedido(s) · ' + reais(total) + ' (sem cancelados)</p>';
+      h += '<button class="btn sec" type="button" id="imprimirTodos">🖨 Imprimir os ' + ps.length + ' pedido(s) listados</button></div>';
       ps.forEach(function(p){ h += cartaoPedido(p); });
       box.innerHTML = h;
       box.querySelectorAll("select[data-status]").forEach(function(sel){ sel.onchange = function(){ mudarStatus(+sel.dataset.status, sel.value, sel); }; });
+      document.getElementById("imprimirTodos").onclick = function(){ imprimirPedidos(ultimosPedidos); };
+      box.querySelectorAll("[data-imprimir]").forEach(function(b){ b.onclick = function(){ imprimirPedidos(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.imprimir; })); }; });
     });
   }
   function cartaoPedido(p){
@@ -317,7 +353,7 @@
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
     if (p.modalidade === "entrega") h += '<div class="meta">' + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
-    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div></div>';
+    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button></div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
     (p.pedido_itens || []).forEach(function(i){ h += '<tr><td>' + esc(i.codigo) + '</td><td>' + esc(i.nome) + (i.observacao ? '<div class="meta">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td><td class="num">' + numBR(i.quantidade) + ' ' + unid(i.unidade) + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>'; });
     h += '</tbody></table></div>';
@@ -328,6 +364,45 @@
     h += '</details></div>';
     return h;
   }
+  /* ---------- Impressão dos pedidos (formulário, um por folha) ---------- */
+  var ultimosPedidos = [];
+  function formularioPedido(p){
+    var dt = new Date(p.data_desejada + "T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});
+    var entrega = p.modalidade === "entrega";
+    var c = function(rot, val, cls){ return '<div class="campo' + (cls ? ' ' + cls : '') + '"><span>' + rot + '</span><b>' + (val ? esc(val) : '&nbsp;') + '</b></div>'; };
+    var h = '<section class="ficha">';
+    h += '<div class="cab"><div class="loja">Di Mercatto<small>Formulário de encomenda</small></div><div class="numero">Pedido nº<b>' + esc(p.numero) + '</b>' + esc(statusNome(p.status)) + '</div></div>';
+    h += '<div class="destaque"><span>' + (entrega ? 'ENTREGA' : 'RETIRADA NA LOJA') + '</span><span>' + esc(dt.charAt(0).toUpperCase() + dt.slice(1)) + (p.horario ? ' — ' + esc(p.horario) : '') + '</span></div>';
+    h += '<div class="secao">Cliente</div><div class="campos">';
+    h += c("Nome", p.cliente_nome, "c3") + c("WhatsApp", p.cliente_whatsapp);
+    if (entrega) h += c("Endereço", p.endereco, "c2") + c("Bairro", p.bairro) + c("Referência", p.referencia);
+    h += c("Forma de pagamento", p.pagamento || "A combinar", "c2") + c("Pedido feito em", dataHora(p.criado_em)) + c("Vendedor", p.vendedor);
+    h += '</div>';
+    h += '<div class="secao">Itens</div><table><thead><tr><th class="ck">✓</th><th>Código</th><th>Produto</th><th class="num">Quantidade</th><th class="num">Preço un.</th><th class="num">Subtotal</th></tr></thead><tbody>';
+    (p.pedido_itens || []).forEach(function(i){
+      h += '<tr><td class="ck"><span class="caixa"></span></td><td>' + esc(i.codigo) + '</td><td><b>' + esc(i.nome) + '</b>' + (i.observacao ? '<div class="obs-item">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td>';
+      h += '<td class="num"><b>' + numBR(i.quantidade) + ' ' + unid(i.unidade) + '</b></td><td class="num">' + (i.preco_centavos != null ? reais(i.preco_centavos) : '—') + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>';
+    });
+    h += '<tr class="tot"><td colspan="5" class="num">TOTAL ' + (p.total_estimado ? 'ESTIMADO (confirmar após pesagem)' : '') + '</td><td class="num">' + reais(p.total_centavos) + '</td></tr>';
+    if (p.total_estimado) h += '<tr><td colspan="5" class="num">Total final após pesagem</td><td class="num">R$ ____________</td></tr>';
+    h += '</tbody></table>';
+    h += '<div class="secao">Observações do cliente</div><div class="campos"><div class="campo c4" style="min-height:52px"><b>' + (p.observacoes ? esc(p.observacoes) : '&nbsp;') + '</b></div></div>';
+    h += '<div class="secao">Controle interno</div><div class="assin"><div>Separado por<i>Data/hora: ____/____ ____:____</i></div><div>Conferido por<i>Data/hora: ____/____ ____:____</i></div><div>' + (entrega ? 'Entregue por' : 'Retirado por') + '<i>Data/hora: ____/____ ____:____</i></div></div>';
+    h += '<div class="rodape"><span>Impresso em ' + esc(new Date().toLocaleString("pt-BR")) + '</span><span>' + esc(p.numero) + '</span></div>';
+    return h + '</section>';
+  }
+  function imprimirPedidos(lista){
+    if (!lista || !lista.length) return;
+    var area = document.getElementById("areaImpressao");
+    if (!area) { area = document.createElement("div"); area.id = "areaImpressao"; document.body.appendChild(area); }
+    var ord = lista.slice().sort(function(a,b){ return (a.data_desejada + (a.horario||"") + a.numero).localeCompare(b.data_desejada + (b.horario||"") + b.numero); });
+    area.innerHTML = ord.map(formularioPedido).join("");
+    document.body.classList.add("imprimindo");
+    var fim = function(){ document.body.classList.remove("imprimindo"); window.removeEventListener("afterprint", fim); };
+    window.addEventListener("afterprint", fim);
+    setTimeout(function(){ window.print(); }, 50);
+  }
+
   function mudarStatus(id, st, sel){
     sel.disabled = true;
     sb.from("pedidos").update({status: st}).eq("id", id).select("id").then(function(r){

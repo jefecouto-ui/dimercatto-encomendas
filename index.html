@@ -130,6 +130,28 @@
   .passo-final{display:flex;gap:14px;align-items:flex-start;margin:12px 0}
   .passo-final .b{flex:none;width:36px;height:36px;border-radius:50%;background:var(--vinho);color:#fff;display:grid;place-items:center;font-weight:700}
   footer.rodape{text-align:center;color:var(--texto-suave);font-size:15px;padding:24px 16px 10px}
+
+  /* Resumo lateral (só no computador) */
+  .lateral{display:none}
+  .lateral h2{margin:0 0 6px;font-size:22px;color:var(--vinho)}
+  .lateral .linha-item{font-size:16px;padding:8px 0}
+  .lateral .vazio{padding:16px 0;font-size:16px}
+  .lateral .btn-principal{width:100%;margin-top:14px}
+
+  /* Computador: mais largo, produtos em 2 colunas e pedido na lateral */
+  @media (min-width:960px){
+    .wrap{max-width:1180px}
+    main.etapa-form{max-width:760px}
+    .abertura{padding-top:36px}
+    .abertura h1{font-size:68px}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start}
+    .grade-prod{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .grade-prod .produto{margin-bottom:0}
+    .lateral{display:block;position:sticky;top:150px;background:#fff;border:1px solid var(--borda);border-radius:var(--raio);padding:18px;margin-top:28px;max-height:calc(100vh - 170px);overflow:auto}
+    .barra,.espaco-barra{display:none!important}
+    .cat-btn:hover,.btn-sec:hover{background:var(--creme)}
+    .btn-add:hover,.btn-principal:not(:disabled):hover{filter:brightness(.92)}
+  }
   [hidden]{display:none!important}
 </style>
 </head>
@@ -260,6 +282,7 @@
   /* ---------- navegação ---------- */
   function irPara(n, semRolar){
     estado.etapa = n;
+    document.getElementById("app").className = n === 1 ? "wrap" : "wrap etapa-form";
     [1,2,3].forEach(function(i){
       var li = document.getElementById("et"+i);
       li.className = i === n ? "atual" : (i < n ? "feita" : "");
@@ -291,17 +314,19 @@
       cats.forEach(function(c){ h += '<button type="button" class="cat-btn" data-cat="' + c.id + '">' + DM_svg(c.icone, 22) + esc(c.nome) + '</button>'; });
       h += '</div></nav>';
     }
+    h += '<div class="layout"><div class="col-produtos">';
     if (!estado.produtos.length) h += '<div class="vazio">O cardápio ainda está sendo preparado. Volte em breve!</div>';
     cats.forEach(function(c){
-      h += '<section class="categoria" id="cat-' + c.id + '"><h2>' + DM_svg(c.icone, 28) + esc(c.nome) + '</h2>';
+      h += '<section class="categoria" id="cat-' + c.id + '"><h2>' + DM_svg(c.icone, 28) + esc(c.nome) + '</h2><div class="grade-prod">';
       estado.produtos.filter(function(p){ return p.categoria_id === c.id; }).forEach(function(p){ h += cartao(p, c.icone); });
-      h += '</section>';
+      h += '</div></section>';
     });
     if (semCat.length) {
-      h += '<section class="categoria"><h2>Outros</h2>';
+      h += '<section class="categoria"><h2>Outros</h2><div class="grade-prod">';
       semCat.forEach(function(p){ h += cartao(p, "talheres"); });
-      h += '</section>';
+      h += '</div></section>';
     }
+    h += '</div><aside class="lateral" id="lateral" aria-label="Resumo do pedido"></aside></div>';
     document.getElementById("app").innerHTML = h;
   }
   function cartao(p, icone){
@@ -349,6 +374,17 @@
   function atualizarBarra(){
     var barra = document.getElementById("barra"), t = totais();
     var mostrar = (estado.etapa === 1);
+    var lat = document.getElementById("lateral");
+    if (lat && mostrar) {
+      var hl = '<h2>Seu pedido</h2>';
+      if (!t.n) hl += '<p class="vazio">Toque em <strong>Adicionar</strong> nos produtos que deseja.</p>';
+      else {
+        itensCarrinho().forEach(function(i){ hl += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div><div class="q">' + esc(qtdTxt(i.p.unidade, i.q)) + '</div></div><div class="v">' + reais(subtotal(i.p, i.q)) + '</div></div>'; });
+        hl += '<div class="total"><div>Total' + (t.estimado ? '<small>Estimado</small>' : '') + '</div><div>' + reais(t.total) + '</div></div>';
+      }
+      hl += '<button class="btn-principal" type="button" id="lateralBtn"' + (t.n ? '' : ' disabled') + '>Continuar →</button>';
+      lat.innerHTML = hl;
+    }
     barra.hidden = !mostrar; document.getElementById("espacoBarra").hidden = !mostrar;
     if (!mostrar) return;
     var btn = document.getElementById("barraBtn");
@@ -589,7 +625,7 @@
       return;
     }
     if (t.dataset.ir) { if (estado.etapa === 2) lerFormulario(); irPara(+t.dataset.ir); return; }
-    if (t.id === "barraBtn") { irPara(2); return; }
+    if (t.id === "barraBtn" || t.id === "lateralBtn") { irPara(2); return; }
     if (t.id === "btnConferir") { if (validarDados()) irPara(3); return; }
     if (t.id === "btnEnviar") { enviar(); return; }
     if (t.id === "btnCopiar") { copiar(); return; }

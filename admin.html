@@ -80,6 +80,9 @@
   .icone-cat{display:inline-flex;vertical-align:middle;color:var(--vinho);margin-right:6px}
   .cab-setor{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-size:18px;color:var(--vinho);font-weight:700}
   .vazio{color:var(--suave);padding:20px 0;text-align:center}
+  #alerta{position:fixed;right:16px;bottom:16px;z-index:50;background:#1E7B45;color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:340px;font-weight:600}
+  #alerta button{margin-top:10px;margin-right:6px}
+  #somAviso{font-size:13px}
   [hidden]{display:none!important}
   /* Fichas de pedido para impressão */
   #areaImpressao{display:none}
@@ -126,7 +129,7 @@
 <header>
   <div class="wrap">
     <div class="marca">Di Mercatto <small>Painel de encomendas</small></div>
-    <div class="usuario" id="usuario" hidden><span id="usuarioEmail"></span><button type="button" id="btnSair">Sair</button></div>
+    <div class="usuario" id="usuario" hidden><button type="button" id="somAviso" title="Som de aviso de pedido novo">🔔 Som: ativar</button><span id="usuarioEmail"></span><button type="button" id="btnSair">Sair</button></div>
   </div>
 </header>
 <nav class="abas" id="abas" hidden>
@@ -325,7 +328,7 @@
         document.getElementById("usuarioEmail").textContent = eu.nome || u.email;
         document.getElementById("usuario").hidden = false;
         document.getElementById("abas").hidden = false;
-        return carregarBase().then(function(){ abrirAba(S.aba); });
+        return carregarBase().then(function(){ abrirAba(S.aba); iniciarAlertas(); });
       });
     });
   }
@@ -835,6 +838,65 @@
       document.getElementById("eqEmail").value = ""; document.getElementById("eqNome").value = ""; carregarEquipe();
     });
   }
+
+  /* ================= AVISO DE PEDIDO NOVO ================= */
+  var ultimoId = null, timerAlerta = null, novos = [], tituloOriginal = document.title, piscar = null, audioCtx = null;
+  var somLigado = false;
+  try { somLigado = localStorage.getItem("dm_som") === "1"; } catch(e){}
+  function rotuloSom(){ document.getElementById("somAviso").textContent = somLigado ? "🔔 Som: ligado" : "🔕 Som: ativar"; }
+  function prepararAudio(){ try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === "suspended") audioCtx.resume(); } catch(e){} }
+  document.getElementById("somAviso").onclick = function(){
+    somLigado = !somLigado; try { localStorage.setItem("dm_som", somLigado ? "1" : "0"); } catch(e){}
+    prepararAudio(); rotuloSom(); if (somLigado) tocar();
+  };
+  // navegadores só liberam som depois de um clique na página
+  document.addEventListener("click", prepararAudio, {once:true});
+  function tocar(){
+    if (!somLigado || !audioCtx) return;
+    [0, 0.25, 0.5].forEach(function(t, k){
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine"; o.frequency.value = k === 2 ? 1046 : 880;
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + t + 0.22);
+      o.connect(g); g.connect(audioCtx.destination); o.start(audioCtx.currentTime + t); o.stop(audioCtx.currentTime + t + 0.25);
+    });
+  }
+  function iniciarAlertas(){
+    rotuloSom();
+    if (timerAlerta) return;
+    sb.from("pedidos").select("id").order("id", {ascending:false}).limit(1).then(function(r){
+      ultimoId = (r.data && r.data[0]) ? r.data[0].id : 0;
+      timerAlerta = setInterval(verificarNovos, 30000);
+    });
+    document.addEventListener("visibilitychange", function(){ if (!document.hidden) { pararPiscar(); verificarNovos(); } });
+  }
+  function verificarNovos(){
+    if (ultimoId == null) return;
+    sb.from("pedidos").select("id,numero,cliente_nome,data_desejada,total_centavos").gt("id", ultimoId).order("id").then(function(r){
+      if (r.error || !r.data || !r.data.length) return;
+      ultimoId = r.data[r.data.length - 1].id;
+      novos = novos.concat(r.data);
+      mostrarAlerta(); tocar(); comecarPiscar();
+      if (S.aba === "pedidos" && document.getElementById("listaPedidos")) carregarPedidos();
+    });
+  }
+  function mostrarAlerta(){
+    var a = document.getElementById("alerta");
+    if (!a) { a = document.createElement("div"); a.id = "alerta"; a.setAttribute("role","alert"); document.body.appendChild(a); }
+    a.hidden = false;
+    a.innerHTML = '🔔 ' + (novos.length === 1 ? 'Novo pedido!' : novos.length + ' novos pedidos!') + '<div style="font-weight:500;font-size:14px;margin-top:6px">' +
+      novos.slice(-4).map(function(p){ return esc(p.numero) + ' · ' + esc(p.cliente_nome) + ' · ' + esc(dataBR(p.data_desejada)) + ' · ' + reais(p.total_centavos); }).join("<br>") + '</div>' +
+      '<button type="button" class="btn sec peq" id="alertaVer">Ver pedidos</button><button type="button" class="btn sec peq" id="alertaOk">OK</button>';
+    document.getElementById("alertaVer").onclick = function(){ fecharAlerta(); filtroPed.status = ""; abrirAba("pedidos"); };
+    document.getElementById("alertaOk").onclick = fecharAlerta;
+  }
+  function fecharAlerta(){ novos = []; var a = document.getElementById("alerta"); if (a) a.hidden = true; pararPiscar(); }
+  function comecarPiscar(){
+    if (piscar) return; var on = false;
+    piscar = setInterval(function(){ on = !on; document.title = on ? "🔔 (" + novos.length + ") Novo pedido!" : tituloOriginal; }, 1000);
+  }
+  function pararPiscar(){ if (piscar) { clearInterval(piscar); piscar = null; } document.title = tituloOriginal; }
 
   /* ================= INÍCIO ================= */
   sb.auth.getSession().then(function(r){

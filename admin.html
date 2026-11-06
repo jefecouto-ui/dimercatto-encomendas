@@ -89,6 +89,7 @@
   .ficha .loja small{display:block;font-family:Montserrat,Arial,sans-serif;font-size:9pt;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
   .ficha .numero{text-align:right}
   .ficha .numero b{display:block;font-size:20pt;letter-spacing:.5px}
+  .ficha .alterado{border:2px dashed #000;padding:6px 10px;margin-bottom:8px;font-weight:700;font-size:10.5pt}
   .ficha .destaque{border:2px solid #000;border-radius:6px;padding:8px 10px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;font-size:13pt;font-weight:700}
   .ficha .secao{font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background:#e6e6e6;border:1px solid #000;border-bottom:0;padding:3px 8px;margin-top:10px}
   .ficha .campos{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #000;border-right:0;border-bottom:0}
@@ -173,6 +174,43 @@
   </form>
 </dialog>
 
+<!-- Edição de pedido -->
+<dialog id="dlgPedido" style="width:min(860px,calc(100% - 24px))">
+  <form method="dialog" id="formPedido" novalidate>
+    <h2 id="dlgPedidoTitulo">Editar pedido</h2>
+    <div class="grade">
+      <div><label for="ePNome">Cliente *</label><input type="text" id="ePNome" maxlength="120"></div>
+      <div><label for="ePWpp">WhatsApp</label><input type="tel" id="ePWpp" maxlength="30"></div>
+      <div><label for="ePData">Data *</label><input type="date" id="ePData"></div>
+      <div><label for="ePHora">Horário <span class="dica">opcional</span></label><input type="text" id="ePHora" maxlength="60"></div>
+      <div><label for="ePMod">Recebimento</label><select id="ePMod"><option value="retirada">Retirada na loja</option><option value="entrega">Entrega</option></select></div>
+      <div><label for="ePPag">Pagamento</label><input type="text" id="ePPag" maxlength="80" placeholder="A combinar"></div>
+    </div>
+    <div class="grade" id="ePEntrega" style="margin-top:12px">
+      <div><label for="ePEnd">Endereço</label><input type="text" id="ePEnd" maxlength="300"></div>
+      <div><label for="ePBairro">Bairro</label><input type="text" id="ePBairro" maxlength="120"></div>
+      <div><label for="ePRef">Referência</label><input type="text" id="ePRef" maxlength="200"></div>
+    </div>
+    <h2 style="margin-top:18px">Itens</h2>
+    <div class="tabela"><table><thead><tr><th>Produto</th><th style="width:130px">Quantidade</th><th>Observação do item</th><th class="num">Subtotal</th><th></th></tr></thead><tbody id="ePItens"></tbody></table></div>
+    <div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="ePNovo">Adicionar produto</label><select id="ePNovo"></select></div><button type="button" class="btn sec" id="ePAdd">+ Adicionar</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">
+      <label class="check"><input type="checkbox" id="ePFinal"> Quantidades já pesadas — valor final (não estimado)</label>
+      <div style="font-size:20px;font-weight:700">Total: <span id="ePTotal">R$ 0,00</span></div>
+    </div>
+    <div class="grade" style="margin-top:14px">
+      <div><label for="ePObsCli">Observações do cliente</label><textarea id="ePObsCli" maxlength="600"></textarea></div>
+      <div><label for="ePObsCoz">Observação para a cozinha <span class="dica">sai em destaque no formulário</span></label><textarea id="ePObsCoz" maxlength="600" style="border-color:var(--dourado)"></textarea></div>
+    </div>
+    <div id="ePErro" class="msg erro" hidden></div>
+    <div class="rodape">
+      <button type="button" class="btn sec" id="ePCancelar">Cancelar</button>
+      <button type="button" class="btn sec" id="ePSalvarImprimir">Salvar e imprimir</button>
+      <button type="submit" class="btn" id="ePSalvar">Salvar alterações</button>
+    </div>
+  </form>
+</dialog>
+
 <!-- Formulário de categoria -->
 <dialog id="dlgCategoria">
   <form method="dialog" id="formCategoria" novalidate>
@@ -214,7 +252,7 @@
   function hojeISO(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function dataBR(iso){ if (!iso) return ""; var p = iso.split("-"); return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"}); }
   function dataHora(ts){ return new Date(ts).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }
-  function statusNome(s){ for (var i=0;i<STATUS.length;i++) if (STATUS[i][0]===s) return STATUS[i][1]; return s; }
+  function statusNome(s){ if (s === "alterado") return "Pedido alterado"; for (var i=0;i<STATUS.length;i++) if (STATUS[i][0]===s) return STATUS[i][1]; return s; }
   function catPorId(id){ for (var i=0;i<S.categorias.length;i++) if (S.categorias[i].id === id) return S.categorias[i]; return null; }
   function soDig(s){ return String(s||"").replace(/\D/g,""); }
   function erroTxt(e){
@@ -344,16 +382,18 @@
       box.innerHTML = h;
       box.querySelectorAll("select[data-status]").forEach(function(sel){ sel.onchange = function(){ mudarStatus(+sel.dataset.status, sel.value, sel); }; });
       document.getElementById("imprimirTodos").onclick = function(){ imprimirPedidos(ultimosPedidos); };
+      box.querySelectorAll("[data-editped]").forEach(function(b){ b.onclick = function(){ abrirEdicao(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.editped; })[0]); }; });
       box.querySelectorAll("[data-imprimir]").forEach(function(b){ b.onclick = function(){ imprimirPedidos(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.imprimir; })); }; });
     });
   }
   function cartaoPedido(p){
-    var h = '<div class="pedido"><div class="topo"><div><span class="num">' + esc(p.numero) + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>';
+    var h = '<div class="pedido"><div class="topo"><div><span class="num">' + esc(p.numero) + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>' + (p.alterado_em ? ' <span class="tag" title="Alterado em ' + esc(dataHora(p.alterado_em)) + '">✎ alterado</span>' : '');
     h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + '</div></div>';
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
     if (p.modalidade === "entrega") h += '<div class="meta">' + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
-    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button></div>';
+    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button></div>';
+    if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
     (p.pedido_itens || []).forEach(function(i){ h += '<tr><td>' + esc(i.codigo) + '</td><td>' + esc(i.nome) + (i.observacao ? '<div class="meta">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td><td class="num">' + numBR(i.quantidade) + ' ' + unid(i.unidade) + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>'; });
     h += '</tbody></table></div>';
@@ -364,6 +404,89 @@
     h += '</details></div>';
     return h;
   }
+  /* ---------- Edição de pedido ---------- */
+  var dlgE = document.getElementById("dlgPedido"), pedEdit = null, itensEdit = [];
+  function qtdParaTexto(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
+  function abrirEdicao(p){
+    if (!p) return;
+    pedEdit = p;
+    document.getElementById("dlgPedidoTitulo").textContent = "Editar pedido " + p.numero;
+    var v = function(id, val){ document.getElementById(id).value = val == null ? "" : val; };
+    v("ePNome", p.cliente_nome); v("ePWpp", p.cliente_whatsapp); v("ePData", p.data_desejada); v("ePHora", p.horario);
+    v("ePMod", p.modalidade); v("ePPag", p.pagamento); v("ePEnd", p.endereco); v("ePBairro", p.bairro); v("ePRef", p.referencia);
+    v("ePObsCli", p.observacoes); v("ePObsCoz", p.obs_cozinha);
+    document.getElementById("ePFinal").checked = !p.total_estimado && (p.pedido_itens || []).some(function(i){ var pr = prodPorCodigo(i.codigo); return pr && pr.valor_estimado; });
+    itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), obs:i.observacao || ""}; });
+    document.getElementById("ePNovo").innerHTML = '<option value="">— escolha o produto —</option>' + S.categorias.concat([{id:null, nome:"Outros"}]).map(function(c){
+      var ps = S.produtos.filter(function(x){ return c.id === null ? !catPorId(x.categoria_id) : x.categoria_id === c.id; });
+      if (!ps.length) return "";
+      return '<optgroup label="' + esc(c.nome) + '">' + ps.map(function(x){ return '<option value="' + esc(x.codigo) + '">' + esc(x.codigo + " — " + x.nome + " (" + reais(x.preco_centavos) + "/" + unid(x.unidade) + ")") + (x.ativo ? "" : " [fora da loja]") + '</option>'; }).join("") + '</optgroup>';
+    }).join("");
+    document.getElementById("ePErro").hidden = true;
+    mostrarEntregaEdit(); desenharItensEdit();
+    dlgE.showModal();
+  }
+  function prodPorCodigo(c){ for (var i=0;i<S.produtos.length;i++) if (S.produtos[i].codigo === c) return S.produtos[i]; return null; }
+  function mostrarEntregaEdit(){ document.getElementById("ePEntrega").hidden = document.getElementById("ePMod").value !== "entrega"; }
+  document.getElementById("ePMod").onchange = mostrarEntregaEdit;
+  function totalEdit(){ return itensEdit.reduce(function(a,i){ return a + (i.qtd > 0 ? Math.round(i.qtd * i.preco) : 0); }, 0); }
+  function desenharItensEdit(){
+    var tb = document.getElementById("ePItens");
+    tb.innerHTML = itensEdit.length ? itensEdit.map(function(i, k){
+      return '<tr><td><strong>' + esc(i.nome) + '</strong><div class="dica">' + esc(i.codigo) + ' · ' + reais(i.preco) + '/' + unid(i.unidade) + '</div></td>' +
+        '<td><div style="display:flex;align-items:center;gap:6px"><input type="text" inputmode="decimal" data-q="' + k + '" value="' + esc(qtdParaTexto(i.qtd)) + '" style="min-height:40px"><span class="dica" style="margin:0">' + unid(i.unidade) + '</span></div></td>' +
+        '<td><input type="text" data-o="' + k + '" maxlength="300" value="' + esc(i.obs) + '" placeholder="Ex.: sem passas" style="min-height:40px"></td>' +
+        '<td class="num" data-s="' + k + '">' + (i.qtd > 0 ? reais(Math.round(i.qtd * i.preco)) : '<span style="color:var(--erro)">inválido</span>') + '</td>' +
+        '<td><button type="button" class="btn perigo peq" data-rm="' + k + '" aria-label="Remover ' + esc(i.nome) + '">Remover</button></td></tr>';
+    }).join("") : '<tr><td colspan="5" class="vazio">Nenhum item. Adicione pelo menos um produto.</td></tr>';
+    document.getElementById("ePTotal").textContent = reais(totalEdit());
+    tb.querySelectorAll("[data-q]").forEach(function(inp){ inp.oninput = function(){
+      var k = +inp.dataset.q, n = lerNum(inp.value); itensEdit[k].qtd = n > 0 ? n : 0;
+      document.querySelector('[data-s="' + k + '"]').innerHTML = n > 0 ? reais(Math.round(n * itensEdit[k].preco)) : '<span style="color:var(--erro)">inválido</span>';
+      document.getElementById("ePTotal").textContent = reais(totalEdit());
+    }; });
+    tb.querySelectorAll("[data-o]").forEach(function(inp){ inp.oninput = function(){ itensEdit[+inp.dataset.o].obs = inp.value; }; });
+    tb.querySelectorAll("[data-rm]").forEach(function(b){ b.onclick = function(){ itensEdit.splice(+b.dataset.rm, 1); desenharItensEdit(); }; });
+  }
+  document.getElementById("ePAdd").onclick = function(){
+    var c = document.getElementById("ePNovo").value; if (!c) return;
+    var ja = itensEdit.filter(function(i){ return i.codigo === c; })[0];
+    if (ja) { ja.qtd = Math.round((ja.qtd + Number(prodPorCodigo(c).incremento)) * 1000) / 1000; }
+    else { var x = prodPorCodigo(c); itensEdit.push({codigo:x.codigo, nome:x.nome, unidade:x.unidade, preco:x.preco_centavos, qtd:Number(x.minimo), obs:""}); }
+    document.getElementById("ePNovo").value = ""; desenharItensEdit();
+  };
+  document.getElementById("ePCancelar").onclick = function(){ dlgE.close(); };
+  function salvarEdicao(imprimir){
+    var er = document.getElementById("ePErro"); er.hidden = true;
+    function falha(m){ er.textContent = m; er.hidden = false; }
+    var g = function(id){ return document.getElementById(id).value.trim(); };
+    if (!g("ePNome")) return falha("Informe o nome do cliente.");
+    if (!g("ePData")) return falha("Informe a data.");
+    if (!itensEdit.length) return falha("O pedido precisa ter pelo menos um item.");
+    if (itensEdit.some(function(i){ return !(i.qtd > 0); })) return falha("Há item com quantidade inválida. Use, por exemplo, 1,5.");
+    var mod = g("ePMod");
+    if (mod === "entrega" && (!g("ePEnd") || !g("ePBairro"))) return falha("Para entrega, informe endereço e bairro.");
+    var dados = { cliente_nome:g("ePNome"), cliente_whatsapp:g("ePWpp"), data_desejada:g("ePData"), horario:g("ePHora"), modalidade:mod, pagamento:g("ePPag"),
+      endereco:g("ePEnd"), bairro:g("ePBairro"), referencia:g("ePRef"), observacoes:g("ePObsCli"), obs_cozinha:g("ePObsCoz"),
+      valor_final: document.getElementById("ePFinal").checked,
+      itens: itensEdit.map(function(i){ return {codigo:i.codigo, quantidade:i.qtd, observacao:i.obs}; }) };
+    var b1 = document.getElementById("ePSalvar"), b2 = document.getElementById("ePSalvarImprimir"); b1.disabled = b2.disabled = true;
+    var id = pedEdit.id;
+    sb.rpc("editar_pedido", {p_pedido_id: id, dados: dados}).then(function(r){
+      b1.disabled = b2.disabled = false;
+      if (r.error) return falha(erroTxt(r.error));
+      dlgE.close();
+      sb.from("pedidos").select("*, pedido_itens(*), pedido_historico(status,por,em)").eq("id", id).then(function(q){
+        var novo = q.data && q.data[0];
+        if (novo) ultimosPedidos = ultimosPedidos.map(function(p){ return p.id === id ? novo : p; });
+        if (imprimir && novo) imprimirPedidos([novo]);
+        carregarPedidos();
+      });
+    });
+  }
+  document.getElementById("formPedido").onsubmit = function(ev){ ev.preventDefault(); salvarEdicao(false); };
+  document.getElementById("ePSalvarImprimir").onclick = function(){ salvarEdicao(true); };
+
   /* ---------- Impressão dos pedidos (formulário, um por folha) ---------- */
   var ultimosPedidos = [];
   function formularioPedido(p){
@@ -372,6 +495,7 @@
     var c = function(rot, val, cls){ return '<div class="campo' + (cls ? ' ' + cls : '') + '"><span>' + rot + '</span><b>' + (val ? esc(val) : '&nbsp;') + '</b></div>'; };
     var h = '<section class="ficha">';
     h += '<div class="cab"><div class="loja">Di Mercatto<small>Formulário de encomenda</small></div><div class="numero">Pedido nº<b>' + esc(p.numero) + '</b>' + esc(statusNome(p.status)) + '</div></div>';
+    if (p.alterado_em) h += '<div class="alterado">✎ PEDIDO ALTERADO em ' + esc(dataHora(p.alterado_em)) + (p.alterado_por ? ' por ' + esc(p.alterado_por) : '') + ' — versão ' + (p.versao || 2) + '. Descarte a via anterior.</div>';
     h += '<div class="destaque"><span>' + (entrega ? 'ENTREGA' : 'RETIRADA NA LOJA') + '</span><span>' + esc(dt.charAt(0).toUpperCase() + dt.slice(1)) + (p.horario ? ' — ' + esc(p.horario) : '') + '</span></div>';
     h += '<div class="secao">Cliente</div><div class="campos">';
     h += c("Nome", p.cliente_nome, "c3") + c("WhatsApp", p.cliente_whatsapp);
@@ -386,6 +510,7 @@
     h += '<tr class="tot"><td colspan="5" class="num">TOTAL ' + (p.total_estimado ? 'ESTIMADO (confirmar após pesagem)' : '') + '</td><td class="num">' + reais(p.total_centavos) + '</td></tr>';
     if (p.total_estimado) h += '<tr><td colspan="5" class="num">Total final após pesagem</td><td class="num">R$ ____________</td></tr>';
     h += '</tbody></table>';
+    if (p.obs_cozinha) h += '<div class="secao" style="background:#000;color:#fff">⚠ Observação para a cozinha</div><div class="campos"><div class="campo c4" style="min-height:40px;border-width:2px"><b style="font-size:12.5pt">' + esc(p.obs_cozinha) + '</b></div></div>';
     h += '<div class="secao">Observações do cliente</div><div class="campos"><div class="campo c4" style="min-height:52px"><b>' + (p.observacoes ? esc(p.observacoes) : '&nbsp;') + '</b></div></div>';
     h += '<div class="secao">Controle interno</div><div class="assin"><div>Separado por<i>Data/hora: ____/____ ____:____</i></div><div>Conferido por<i>Data/hora: ____/____ ____:____</i></div><div>' + (entrega ? 'Entregue por' : 'Retirado por') + '<i>Data/hora: ____/____ ____:____</i></div></div>';
     h += '<div class="rodape"><span>Impresso em ' + esc(new Date().toLocaleString("pt-BR")) + '</span><span>' + esc(p.numero) + '</span></div>';

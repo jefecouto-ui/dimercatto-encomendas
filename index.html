@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encomendas Di Mercatto</title>
+<meta name="description" content="Faça sua encomenda na Di Mercatto: escolha os produtos, a data e envie pelo WhatsApp.">
+<meta property="og:title" content="Encomendas de Natal — Di Mercatto">
+<meta property="og:description" content="Escolha seus produtos, a data e envie seu pedido pelo WhatsApp. Simples e rápido.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#94392D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+  :root{
+    --vinho:#94392D; --vinho-escuro:#6E271E; --creme:#FFEDDC; --creme-claro:#FFF7EF;
+    --laranja:#E07F40; --dourado:#B8913A; --dourado-claro:#E9D7A8; --verde:#2F5D46;
+    --texto:#2E211B; --texto-suave:#5C4A40; --borda:#E8D3C0; --branco:#FFFFFF;
+    --erro:#B3261E; --ok:#2F5D46;
+    --raio:18px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--creme-claro);color:var(--texto);font-family:Montserrat,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:19px;line-height:1.45}
+  button,input,textarea,select{font:inherit;color:inherit}
+  button{cursor:pointer}
+  :focus-visible{outline:3px solid var(--laranja);outline-offset:3px}
+  .wrap{max-width:620px;margin:0 auto;padding:0 16px}
+
+  /* Topo */
+  header.topo{background:var(--vinho);color:#fff;position:sticky;top:0;z-index:20;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+  .topo .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:66px}
+  .marca{font-family:"Great Vibes",cursive;font-size:36px;line-height:1;white-space:nowrap}
+  .ajuda{display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--vinho);border:0;border-radius:999px;padding:10px 16px;font-weight:700;font-size:16px;text-decoration:none;white-space:nowrap}
+  .ajuda svg{flex:none}
+
+  /* Etapas */
+  .etapas{background:#fff;border-bottom:1px solid var(--borda)}
+  .etapas ol{list-style:none;margin:0;padding:12px 0;display:flex;gap:6px;justify-content:space-between}
+  .etapas li{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:15px;font-weight:600;color:var(--texto-suave);text-align:center}
+  .etapas .num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--borda);background:#fff;font-weight:700;font-size:17px}
+  .etapas li.atual{color:var(--vinho)}
+  .etapas li.atual .num{background:var(--vinho);border-color:var(--vinho);color:#fff}
+  .etapas li.feita .num{background:var(--creme);border-color:var(--vinho);color:var(--vinho)}
+
+  .faixa-teste{background:#FFF3C4;color:#5A4500;text-align:center;font-size:15px;font-weight:600;padding:8px 16px}
+
+  /* Abertura */
+  .abertura{padding:26px 0 8px;text-align:center}
+  .abertura .enfeite{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--dourado);margin-bottom:6px}
+  .abertura .enfeite span{display:block;height:1px;width:56px;background:var(--dourado)}
+  .abertura h1{margin:0;font-family:"Great Vibes",cursive;font-weight:400;font-size:52px;line-height:1.05;color:var(--vinho)}
+  .abertura p.sub{margin:6px 0 0;font-size:20px;font-weight:600;color:var(--texto)}
+  .abertura p.como{margin:14px auto 0;max-width:30em;color:var(--texto-suave);font-size:18px}
+  .aviso-prazo{margin:16px 0 0;background:#fff;border:2px solid var(--dourado-claro);border-radius:14px;padding:12px 14px;font-weight:600}
+
+  /* Categorias */
+  .cats{position:sticky;top:66px;z-index:10;background:var(--creme-claro);padding:12px 0;margin-top:10px}
+  .cats .lista{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .cats .lista::-webkit-scrollbar{display:none}
+  .cat-btn{flex:none;display:inline-flex;align-items:center;gap:8px;border:2px solid var(--vinho);background:#fff;color:var(--vinho);border-radius:999px;padding:10px 16px;font-weight:700;font-size:17px}
+  .cat-btn.ativa{background:var(--vinho);color:#fff}
+
+  section.categoria{padding-top:10px;scroll-margin-top:140px}
+  section.categoria h2{display:flex;align-items:center;gap:10px;margin:18px 0 12px;font-size:24px;color:var(--vinho)}
+
+  /* Cartão de produto */
+  .produto{background:#fff;border:1px solid var(--borda);border-radius:var(--raio);overflow:hidden;margin-bottom:16px;display:grid;grid-template-columns:112px 1fr}
+  .produto .arte{background:var(--creme);display:grid;place-items:center;color:var(--vinho);position:relative;min-height:150px}
+  .produto .arte::after{content:"";position:absolute;inset:8px;border:1.5px solid var(--dourado-claro);border-radius:12px;pointer-events:none}
+  .produto .arte img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .produto .corpo{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px}
+  .produto h3{margin:0;font-size:21px;line-height:1.25}
+  .produto .desc{margin:0;color:var(--texto-suave);font-size:16px}
+  .produto .preco{font-size:22px;font-weight:700;color:var(--vinho)}
+  .produto .preco small{font-size:16px;font-weight:600;color:var(--texto-suave)}
+  .produto .nota{font-size:15px;color:var(--texto-suave)}
+  .btn-add{margin-top:6px;min-height:54px;border:0;border-radius:14px;background:var(--vinho);color:#fff;font-weight:700;font-size:19px;padding:0 18px;width:100%}
+  .btn-add:active{background:var(--vinho-escuro)}
+  .qtd{margin-top:6px;display:flex;align-items:center;gap:10px}
+  .qtd button{width:56px;height:56px;border-radius:14px;border:2px solid var(--vinho);background:#fff;color:var(--vinho);font-size:30px;font-weight:700;line-height:1;display:grid;place-items:center;flex:none}
+  .qtd .valor{flex:1;text-align:center;font-size:21px;font-weight:700}
+  .qtd .valor small{display:block;font-size:15px;font-weight:600;color:var(--texto-suave)}
+  @media (max-width:380px){.produto{grid-template-columns:84px 1fr}.qtd button{width:50px;height:50px}}
+
+  /* Barra do carrinho */
+  .barra{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--borda);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:12px 0 calc(12px + env(safe-area-inset-bottom))}
+  .barra .wrap{display:flex;align-items:center;gap:12px}
+  .barra .resumo{flex:1;font-size:16px;color:var(--texto-suave);line-height:1.25}
+  .barra .resumo strong{display:block;font-size:22px;color:var(--texto)}
+  .btn-principal{min-height:60px;border:0;border-radius:16px;background:var(--vinho);color:#fff;font-weight:700;font-size:20px;padding:8px 22px;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;text-align:center;line-height:1.25}
+  .btn-principal:disabled{background:#C9B7AA;cursor:not-allowed}
+  .btn-wpp{background:#1E7B45}
+  .btn-sec{min-height:56px;border:2px solid var(--vinho);border-radius:16px;background:#fff;color:var(--vinho);font-weight:700;font-size:18px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+  .espaco-barra{height:110px}
+
+  /* Formulário */
+  .painel{background:#fff;border:1px solid var(--borda);border-radius:var(--raio);padding:18px 16px;margin:16px 0}
+  .painel h2{margin:0 0 12px;font-size:23px;color:var(--vinho)}
+  .titulo-etapa{margin:22px 0 4px;font-size:28px;color:var(--vinho)}
+  .linha-item{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px dashed var(--borda)}
+  .linha-item:last-child{border-bottom:0}
+  .linha-item .n{font-weight:600}
+  .linha-item .q{color:var(--texto-suave);font-size:16px}
+  .linha-item .v{font-weight:700;white-space:nowrap}
+  .total{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding-top:12px;border-top:2px solid var(--creme);font-size:22px;font-weight:700}
+  .total small{display:block;font-size:15px;font-weight:600;color:var(--texto-suave)}
+  label.campo{display:block;margin:14px 0 6px;font-weight:700}
+  .dica{display:block;font-weight:500;font-size:15px;color:var(--texto-suave);margin-top:2px}
+  input[type=text],input[type=tel],input[type=date],textarea{width:100%;min-height:58px;border:2px solid var(--borda);border-radius:14px;padding:12px 14px;background:#fff;font-size:19px}
+  textarea{min-height:96px;resize:vertical}
+  input:focus,textarea:focus{border-color:var(--vinho);outline:none;box-shadow:0 0 0 3px rgba(148,57,45,.15)}
+  .erro-campo{color:var(--erro);font-weight:600;font-size:16px;margin-top:6px}
+  .invalido{border-color:var(--erro)!important}
+  .opcoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .opcoes.uma{grid-template-columns:1fr}
+  .opcao{min-height:64px;border:2px solid var(--borda);border-radius:14px;background:#fff;font-weight:700;font-size:18px;padding:10px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+  .opcao small{font-weight:500;font-size:14px;color:var(--texto-suave)}
+  .opcao[aria-pressed=true]{border-color:var(--vinho);background:var(--creme);color:var(--vinho);box-shadow:inset 0 0 0 1px var(--vinho)}
+  .acoes{display:flex;flex-direction:column;gap:12px;margin:22px 0}
+  .confirmo{display:flex;gap:14px;align-items:flex-start;background:var(--creme);border-radius:14px;padding:14px;font-weight:600;cursor:pointer}
+  .confirmo input{width:30px;height:30px;flex:none;accent-color:var(--vinho);margin:0}
+  .aviso{background:#fff;border-left:5px solid var(--dourado);border-radius:10px;padding:12px 14px;font-size:17px;color:var(--texto)}
+  .vazio{text-align:center;padding:40px 10px;color:var(--texto-suave)}
+  .carregando{text-align:center;padding:60px 10px;color:var(--texto-suave);font-weight:600}
+  .msg-erro{background:#FDECEA;color:var(--erro);border-radius:12px;padding:12px 14px;font-weight:600;margin:12px 0}
+  .ok-num{font-size:30px;font-weight:700;color:var(--vinho);letter-spacing:.5px}
+  .passo-final{display:flex;gap:14px;align-items:flex-start;margin:12px 0}
+  .passo-final .b{flex:none;width:36px;height:36px;border-radius:50%;background:var(--vinho);color:#fff;display:grid;place-items:center;font-weight:700}
+  footer.rodape{text-align:center;color:var(--texto-suave);font-size:15px;padding:24px 16px 10px}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="wrap">
+    <div class="marca" aria-label="Di Mercatto">Di Mercatto</div>
+    <a class="ajuda" id="btnAjuda" href="#" target="_blank" rel="noopener">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>
+      Ajuda
+    </a>
+  </div>
+</header>
+<div id="faixaTeste" class="faixa-teste" hidden>Versão de teste — os pedidos vão para o número de testes</div>
+<nav class="etapas" aria-label="Etapas do pedido">
+  <div class="wrap">
+    <ol>
+      <li id="et1" class="atual"><span class="num">1</span>Escolher</li>
+      <li id="et2"><span class="num">2</span>Seus dados</li>
+      <li id="et3"><span class="num">3</span>Enviar</li>
+    </ol>
+  </div>
+</nav>
+
+<main id="app" class="wrap">
+  <div class="carregando">Carregando o cardápio…</div>
+</main>
+
+<footer class="rodape">Di Mercatto · Graça, Salvador — BA<br>Prefere ajuda? <a href="#" id="linkAjudaRodape" target="_blank" rel="noopener">Fale com a gente pelo WhatsApp</a></footer>
+<div class="espaco-barra" id="espacoBarra" hidden></div>
+
+<div class="barra" id="barra" hidden>
+  <div class="wrap">
+    <div class="resumo" id="barraResumo"></div>
+    <button class="btn-principal" id="barraBtn" type="button">Continuar →</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var CFG = window.DM_CONFIG;
+  var CHAVE_CARRINHO = "dm_encomenda_v1";
+  var estado = {
+    etapa: 1,
+    categorias: [], produtos: [], config: {},
+    carrinho: {},           // codigo -> {q: numero, obs: texto}
+    dados: { nome:"", whatsapp:"", modalidade:"", data:"", horario:"", endereco:"", bairro:"", referencia:"", pagamento:"", observacoes:"" },
+    resultado: null,
+    vendedor: null
+  };
+
+  /* ---------- utilidades ---------- */
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function reais(c){ return (c/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
+  function numBR(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
+  function unidadeTxt(u, q){
+    if (u === "kg") return "kg";
+    if (u === "cento") return q === 1 ? "cento" : "centos";
+    return q === 1 ? "unidade" : "unidades";
+  }
+  function precoUnTxt(u){ return u === "kg" ? "o kg" : (u === "cento" ? "o cento" : "a unidade"); }
+  function qtdTxt(u, q){ return numBR(q) + " " + unidadeTxt(u, q); }
+  function arred(n){ return Math.round(n*1000)/1000; }
+  function subtotal(p, q){ return Math.round(q * p.preco_centavos); }
+  function soDigitos(s){ return String(s||"").replace(/\D/g,""); }
+  function guardar(){
+    try { localStorage.setItem(CHAVE_CARRINHO, JSON.stringify({carrinho:estado.carrinho, dados:estado.dados, vendedor:estado.vendedor})); } catch(e){}
+  }
+  function recuperar(){
+    try {
+      var s = JSON.parse(localStorage.getItem(CHAVE_CARRINHO) || "null");
+      if (s && s.carrinho) estado.carrinho = s.carrinho;
+      if (s && s.dados) for (var k in estado.dados) if (s.dados[k] != null) estado.dados[k] = s.dados[k];
+      if (s && s.vendedor) estado.vendedor = s.vendedor;
+    } catch(e){}
+  }
+  function api(caminho, opcoes){
+    opcoes = opcoes || {};
+    var h = { apikey: CFG.SUPABASE_KEY, "Content-Type":"application/json" };
+    return fetch(CFG.SUPABASE_URL + "/rest/v1/" + caminho, { method: opcoes.method || "GET", headers: h, body: opcoes.body ? JSON.stringify(opcoes.body) : undefined })
+      .then(function(r){ return r.json().then(function(j){ if (!r.ok) { var e = new Error((j && (j.message || j.hint)) || "Erro"); e.dados = j; throw e; } return j; }); });
+  }
+  function produtoPorCodigo(c){ for (var i=0;i<estado.produtos.length;i++) if (estado.produtos[i].codigo === c) return estado.produtos[i]; return null; }
+  function itensCarrinho(){
+    var lista = [];
+    estado.produtos.forEach(function(p){ var it = estado.carrinho[p.codigo]; if (it && it.q > 0) lista.push({p:p, q:it.q, obs:it.obs||""}); });
+    return lista;
+  }
+  function totais(){
+    var t = 0, est = false, n = 0;
+    itensCarrinho().forEach(function(i){ t += subtotal(i.p, i.q); est = est || i.p.valor_estimado; n++; });
+    return { total:t, estimado:est, n:n };
+  }
+  function linkWhats(texto){
+    var num = soDigitos(estado.config.whatsapp);
+    return "https://wa.me/" + num + (texto ? "?text=" + encodeURIComponent(texto) : "");
+  }
+  function dataBR(iso){ if(!iso) return ""; var p = iso.split("-"); var d = new Date(+p[0], +p[1]-1, +p[2]); return d.toLocaleDateString("pt-BR",{weekday:"long", day:"2-digit", month:"long"}); }
+  function amanhaISO(){ var d = new Date(); d.setDate(d.getDate()+1); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+
+  /* ---------- carregar dados ---------- */
+  function carregar(){
+    var p = new URLSearchParams(location.search);
+    if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); }
+    recuperar();
+    Promise.all([
+      api("categorias?select=id,nome,icone,ordem&ativo=eq.true&order=ordem.asc,nome.asc"),
+      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem&ativo=eq.true&order=ordem.asc,nome.asc"),
+      api("configuracoes?select=chave,valor")
+    ]).then(function(r){
+      estado.categorias = r[0];
+      estado.produtos = r[1].map(function(x){ x.minimo = Number(x.minimo); x.incremento = Number(x.incremento); x.maximo = x.maximo == null ? null : Number(x.maximo); return x; });
+      r[2].forEach(function(c){ estado.config[c.chave] = c.valor; });
+      // limpa do carrinho o que não existe mais
+      Object.keys(estado.carrinho).forEach(function(c){ if (!produtoPorCodigo(c)) delete estado.carrinho[c]; });
+      var ajuda = linkWhats("Olá! Gostaria de ajuda para fazer uma encomenda.");
+      document.getElementById("btnAjuda").href = ajuda;
+      document.getElementById("linkAjudaRodape").href = ajuda;
+      document.getElementById("faixaTeste").hidden = !estado.config.modo_teste;
+      if (estado.config.campanha_titulo) document.title = "Encomendas — " + estado.config.campanha_titulo;
+      irPara(1, true);
+    }).catch(function(){
+      document.getElementById("app").innerHTML = '<div class="msg-erro">Não conseguimos carregar o cardápio agora. Verifique sua internet e tente novamente.</div><div class="acoes"><button class="btn-principal" onclick="location.reload()">Tentar de novo</button></div>';
+    });
+  }
+
+  /* ---------- navegação ---------- */
+  function irPara(n, semRolar){
+    estado.etapa = n;
+    [1,2,3].forEach(function(i){
+      var li = document.getElementById("et"+i);
+      li.className = i === n ? "atual" : (i < n ? "feita" : "");
+      if (i === n) li.setAttribute("aria-current","step"); else li.removeAttribute("aria-current");
+    });
+    if (n === 1) telaCardapio();
+    if (n === 2) telaDados();
+    if (n === 3) telaConferir();
+    if (n === 4) telaFinal();
+    atualizarBarra();
+    if (!semRolar) window.scrollTo(0,0);
+  }
+
+  /* ---------- etapa 1: cardápio ---------- */
+  function telaCardapio(){
+    var cfg = estado.config, h = "";
+    h += '<div class="abertura">';
+    h += '<div class="enfeite"><span></span>✦<span></span></div>';
+    h += '<h1>' + esc(cfg.campanha_titulo || "Encomendas Di Mercatto") + '</h1>';
+    if (cfg.campanha_subtitulo) h += '<p class="sub">' + esc(cfg.campanha_subtitulo) + '</p>';
+    h += '<p class="como">Escolha os produtos e as quantidades. Depois informe seus dados e envie o pedido pelo WhatsApp.</p>';
+    if (cfg.prazo_aviso) h += '<p class="aviso-prazo">' + esc(cfg.prazo_aviso) + '</p>';
+    h += '</div>';
+
+    var cats = estado.categorias.filter(function(c){ return estado.produtos.some(function(p){ return p.categoria_id === c.id; }); });
+    var semCat = estado.produtos.filter(function(p){ return !estado.categorias.some(function(c){ return c.id === p.categoria_id; }); });
+    if (cats.length > 1) {
+      h += '<nav class="cats" aria-label="Categorias"><div class="lista">';
+      cats.forEach(function(c){ h += '<button type="button" class="cat-btn" data-cat="' + c.id + '">' + DM_svg(c.icone, 22) + esc(c.nome) + '</button>'; });
+      h += '</div></nav>';
+    }
+    if (!estado.produtos.length) h += '<div class="vazio">O cardápio ainda está sendo preparado. Volte em breve!</div>';
+    cats.forEach(function(c){
+      h += '<section class="categoria" id="cat-' + c.id + '"><h2>' + DM_svg(c.icone, 28) + esc(c.nome) + '</h2>';
+      estado.produtos.filter(function(p){ return p.categoria_id === c.id; }).forEach(function(p){ h += cartao(p, c.icone); });
+      h += '</section>';
+    });
+    if (semCat.length) {
+      h += '<section class="categoria"><h2>Outros</h2>';
+      semCat.forEach(function(p){ h += cartao(p, "talheres"); });
+      h += '</section>';
+    }
+    document.getElementById("app").innerHTML = h;
+  }
+  function cartao(p, icone){
+    var it = estado.carrinho[p.codigo];
+    var h = '<article class="produto" id="p-' + esc(p.codigo) + '">';
+    h += '<div class="arte">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="' + esc(p.nome) + '" loading="lazy">' : DM_svg(icone, 54)) + '</div>';
+    h += '<div class="corpo">';
+    h += '<h3>' + esc(p.nome) + '</h3>';
+    if (p.descricao) h += '<p class="desc">' + esc(p.descricao) + '</p>';
+    h += '<div class="preco">' + reais(p.preco_centavos) + ' <small>' + precoUnTxt(p.unidade) + '</small></div>';
+    var notas = [];
+    if (p.minimo > 0 && !(p.unidade !== "kg" && p.minimo === 1)) notas.push("Mínimo: " + qtdTxt(p.unidade, p.minimo));
+    if (p.valor_estimado) notas.push("Valor final confirmado após a pesagem");
+    if (notas.length) h += '<div class="nota">' + esc(notas.join(" · ")) + '</div>';
+    h += '<div class="ctrl" data-codigo="' + esc(p.codigo) + '">' + controle(p, it) + '</div>';
+    h += '</div></article>';
+    return h;
+  }
+  function controle(p, it){
+    if (!it || !it.q) return '<button type="button" class="btn-add" data-acao="add">Adicionar</button>';
+    return '<div class="qtd">' +
+      '<button type="button" data-acao="menos" aria-label="Diminuir ' + esc(p.nome) + '">−</button>' +
+      '<div class="valor" aria-live="polite">' + esc(qtdTxt(p.unidade, it.q)) + '<small>' + reais(subtotal(p, it.q)) + '</small></div>' +
+      '<button type="button" data-acao="mais" aria-label="Aumentar ' + esc(p.nome) + '">+</button>' +
+      '</div>';
+  }
+  function mudarQtd(codigo, acao){
+    var p = produtoPorCodigo(codigo); if (!p) return;
+    var it = estado.carrinho[codigo] || {q:0, obs:""};
+    if (acao === "add") it.q = p.minimo;
+    else if (acao === "mais") { var nq = arred(it.q + p.incremento); if (p.maximo == null || nq <= p.maximo) it.q = nq; }
+    else if (acao === "menos") { var mq = arred(it.q - p.incremento); it.q = mq < p.minimo ? 0 : mq; }
+    if (it.q > 0) estado.carrinho[codigo] = it; else delete estado.carrinho[codigo];
+    guardar();
+    var box = document.querySelector('.ctrl[data-codigo="' + CSS.escape(codigo) + '"]');
+    if (box) {
+      box.innerHTML = controle(p, estado.carrinho[codigo]);
+      var foco = box.querySelector(acao === "menos" && !estado.carrinho[codigo] ? ".btn-add" : (acao === "menos" ? '[data-acao="menos"]' : '[data-acao="mais"]'));
+      if (foco) foco.focus();
+    }
+    atualizarBarra();
+  }
+
+  /* ---------- barra inferior ---------- */
+  function atualizarBarra(){
+    var barra = document.getElementById("barra"), t = totais();
+    var mostrar = (estado.etapa === 1);
+    barra.hidden = !mostrar; document.getElementById("espacoBarra").hidden = !mostrar;
+    if (!mostrar) return;
+    var btn = document.getElementById("barraBtn");
+    if (!t.n) {
+      document.getElementById("barraResumo").innerHTML = 'Nenhum produto escolhido<strong>' + reais(0) + '</strong>';
+      btn.disabled = true;
+    } else {
+      document.getElementById("barraResumo").innerHTML = t.n + (t.n === 1 ? " produto" : " produtos") + (t.estimado ? " · total estimado" : "") + '<strong>' + reais(t.total) + '</strong>';
+      btn.disabled = false;
+    }
+  }
+
+  /* ---------- etapa 2: dados ---------- */
+  function resumoItensHTML(editavel){
+    var h = "", t = totais();
+    itensCarrinho().forEach(function(i){
+      h += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div><div class="q">' + esc(qtdTxt(i.p.unidade, i.q)) + ' × ' + reais(i.p.preco_centavos) + '</div>';
+      if (editavel) h += '<label class="campo" style="margin-top:8px;font-size:15px" for="obs-' + esc(i.p.codigo) + '">Observação deste item <span class="dica">Opcional</span></label><input type="text" id="obs-' + esc(i.p.codigo) + '" data-obs="' + esc(i.p.codigo) + '" maxlength="300" value="' + esc(i.obs) + '" placeholder="Ex.: cortar em fatias">';
+      else if (i.obs) h += '<div class="q">Obs.: ' + esc(i.obs) + '</div>';
+      h += '</div><div class="v">' + reais(subtotal(i.p, i.q)) + '</div></div>';
+    });
+    h += '<div class="total"><div>Total' + (t.estimado ? '<small>Estimado — o valor final é confirmado após a pesagem</small>' : '') + '</div><div>' + reais(t.total) + '</div></div>';
+    return h;
+  }
+  function botoesOpcao(nome, lista, valorAtual, rotulo){
+    var h = '<div class="opcoes' + (lista.length === 1 ? ' uma' : '') + '" role="group" aria-label="' + esc(rotulo) + '">';
+    lista.forEach(function(o){
+      var v = typeof o === "string" ? o : o.valor, t = typeof o === "string" ? o : o.texto, s = typeof o === "string" ? "" : (o.sub || "");
+      h += '<button type="button" class="opcao" data-grupo="' + nome + '" data-valor="' + esc(v) + '" aria-pressed="' + (valorAtual === v) + '">' + esc(t) + (s ? '<small>' + esc(s) + '</small>' : '') + '</button>';
+    });
+    return h + '</div>';
+  }
+  function telaDados(){
+    if (!totais().n) return irPara(1);
+    var cfg = estado.config, d = estado.dados, h = "";
+    h += '<h1 class="titulo-etapa">Seus dados</h1>';
+    h += '<div class="painel"><h2>Seu pedido</h2>' + resumoItensHTML(true) + '<div class="acoes" style="margin:14px 0 0"><button type="button" class="btn-sec" data-ir="1">← Alterar produtos</button></div></div>';
+
+    h += '<div class="painel"><h2>Quem vai receber</h2>';
+    h += '<label class="campo" for="fNome">Seu nome</label><input type="text" id="fNome" autocomplete="name" maxlength="120" value="' + esc(d.nome) + '"><div class="erro-campo" id="eNome" hidden></div>';
+    h += '<label class="campo" for="fWpp">Seu WhatsApp <span class="dica">Com DDD. Ex.: (71) 98765-4321</span></label><input type="tel" id="fWpp" inputmode="tel" autocomplete="tel" maxlength="20" value="' + esc(d.whatsapp) + '"><div class="erro-campo" id="eWpp" hidden></div>';
+    h += '</div>';
+
+    var mods = [{valor:"retirada", texto:"Retirar na loja", sub: cfg.retirada_endereco || "Di Mercatto"}];
+    if (cfg.entrega_ativa) mods.push({valor:"entrega", texto:"Receber em casa", sub:"Entrega"});
+    h += '<div class="painel"><h2>Como prefere receber?</h2>' + botoesOpcao("modalidade", mods, d.modalidade, "Como prefere receber") + '<div class="erro-campo" id="eMod" hidden></div>';
+    h += '<div id="blocoEntrega"' + (d.modalidade === "entrega" ? '' : ' hidden') + '>';
+    if (cfg.entrega_aviso) h += '<p class="aviso" style="margin-top:14px">' + esc(cfg.entrega_aviso) + '</p>';
+    h += '<label class="campo" for="fEnd">Endereço <span class="dica">Rua, número e complemento</span></label><input type="text" id="fEnd" autocomplete="street-address" maxlength="300" value="' + esc(d.endereco) + '"><div class="erro-campo" id="eEnd" hidden></div>';
+    h += '<label class="campo" for="fBairro">Bairro</label><input type="text" id="fBairro" maxlength="120" value="' + esc(d.bairro) + '"><div class="erro-campo" id="eBairro" hidden></div>';
+    h += '<label class="campo" for="fRef">Ponto de referência <span class="dica">Opcional</span></label><input type="text" id="fRef" maxlength="200" value="' + esc(d.referencia) + '">';
+    h += '</div></div>';
+
+    h += '<div class="painel"><h2>Para quando?</h2>';
+    var datas = Array.isArray(cfg.datas) ? cfg.datas.filter(function(x){ return x >= amanhaISO(); }) : [];
+    if (datas.length) {
+      h += botoesOpcao("data", datas.map(function(x){ var t = dataBR(x); return {valor:x, texto:t.charAt(0).toUpperCase()+t.slice(1)}; }), d.data, "Data");
+    } else {
+      h += '<label class="campo" for="fData" style="margin-top:0">Escolha a data</label><input type="date" id="fData" min="' + amanhaISO() + '" value="' + esc(d.data) + '">';
+    }
+    h += '<div class="erro-campo" id="eData" hidden></div>';
+    var hor = Array.isArray(cfg.horarios) ? cfg.horarios : [];
+    if (hor.length) { h += '<label class="campo">Horário</label>' + botoesOpcao("horario", hor, d.horario, "Horário") + '<div class="erro-campo" id="eHor" hidden></div>'; }
+    h += '</div>';
+
+    var pags = Array.isArray(cfg.pagamentos) ? cfg.pagamentos : [];
+    if (pags.length) h += '<div class="painel"><h2>Forma de pagamento</h2>' + botoesOpcao("pagamento", pags, d.pagamento, "Forma de pagamento") + '<div class="erro-campo" id="ePag" hidden></div></div>';
+
+    h += '<div class="painel"><h2>Observações</h2><label class="campo" for="fObs" style="margin-top:0">Algo mais que devemos saber? <span class="dica">Opcional</span></label><textarea id="fObs" maxlength="600">' + esc(d.observacoes) + '</textarea></div>';
+
+    h += '<div class="acoes"><button type="button" class="btn-principal" id="btnConferir">Continuar para conferir →</button><button type="button" class="btn-sec" data-ir="1">← Voltar ao cardápio</button></div>';
+    document.getElementById("app").innerHTML = h;
+  }
+  function lerFormulario(){
+    var d = estado.dados, g = function(id){ var e = document.getElementById(id); return e ? e.value.trim() : null; };
+    if (g("fNome") != null) d.nome = g("fNome");
+    if (g("fWpp") != null) d.whatsapp = g("fWpp");
+    if (g("fEnd") != null) d.endereco = g("fEnd");
+    if (g("fBairro") != null) d.bairro = g("fBairro");
+    if (g("fRef") != null) d.referencia = g("fRef");
+    if (g("fData") != null) d.data = g("fData");
+    if (g("fObs") != null) d.observacoes = g("fObs");
+    document.querySelectorAll("[data-obs]").forEach(function(i){ var c = i.getAttribute("data-obs"); if (estado.carrinho[c]) estado.carrinho[c].obs = i.value.trim(); });
+    guardar();
+  }
+  function marcarErro(idErro, idCampo, msg){
+    var e = document.getElementById(idErro); if (e) { e.textContent = msg; e.hidden = false; }
+    var c = idCampo && document.getElementById(idCampo); if (c) { c.classList.add("invalido"); c.setAttribute("aria-invalid","true"); }
+    return e;
+  }
+  function validarDados(){
+    lerFormulario();
+    document.querySelectorAll(".erro-campo").forEach(function(e){ e.hidden = true; });
+    document.querySelectorAll(".invalido").forEach(function(e){ e.classList.remove("invalido"); e.removeAttribute("aria-invalid"); });
+    var d = estado.dados, cfg = estado.config, primeiro = null;
+    function erro(a,b,m){ var e = marcarErro(a,b,m); if (!primeiro) primeiro = document.getElementById(b) || e; }
+    if (d.nome.length < 2) erro("eNome","fNome","Falta informar seu nome.");
+    var dig = soDigitos(d.whatsapp);
+    if (dig.length < 10 || dig.length > 13) erro("eWpp","fWpp","Confira seu WhatsApp com DDD. Ex.: (71) 98765-4321");
+    if (!d.modalidade) erro("eMod",null,"Escolha se vai retirar na loja ou receber em casa.");
+    if (d.modalidade === "entrega") {
+      if (d.endereco.length < 5) erro("eEnd","fEnd","Falta informar o endereço.");
+      if (d.bairro.length < 2) erro("eBairro","fBairro","Falta informar o bairro.");
+    }
+    if (!d.data || d.data < amanhaISO()) erro("eData","fData","Escolha a data (a partir de amanhã).");
+    if (Array.isArray(cfg.horarios) && cfg.horarios.length && !d.horario) erro("eHor",null,"Escolha o horário.");
+    if (Array.isArray(cfg.pagamentos) && cfg.pagamentos.length && !d.pagamento) erro("ePag",null,"Escolha a forma de pagamento.");
+    if (primeiro) { primeiro.scrollIntoView({behavior:"smooth", block:"center"}); if (primeiro.focus) primeiro.focus({preventScroll:true}); return false; }
+    return true;
+  }
+
+  /* ---------- etapa 3: conferir ---------- */
+  function telaConferir(){
+    if (!totais().n) return irPara(1);
+    var d = estado.dados, h = "";
+    h += '<h1 class="titulo-etapa">Confira seu pedido</h1>';
+    h += '<div class="painel"><h2>Produtos</h2>' + resumoItensHTML(false) + '</div>';
+    h += '<div class="painel"><h2>Seus dados</h2>';
+    h += linha("Nome", d.nome) + linha("WhatsApp", d.whatsapp);
+    h += linha("Recebimento", d.modalidade === "entrega" ? "Receber em casa" : "Retirar na loja");
+    if (d.modalidade === "entrega") { h += linha("Endereço", d.endereco) + linha("Bairro", d.bairro); if (d.referencia) h += linha("Referência", d.referencia); }
+    var dt = dataBR(d.data); h += linha("Data", dt.charAt(0).toUpperCase()+dt.slice(1));
+    if (d.horario) h += linha("Horário", d.horario);
+    if (d.pagamento) h += linha("Pagamento", d.pagamento);
+    if (d.observacoes) h += linha("Observações", d.observacoes);
+    h += '<div class="acoes" style="margin:14px 0 0"><button type="button" class="btn-sec" data-ir="2">← Corrigir meus dados</button></div></div>';
+    h += '<label class="confirmo"><input type="checkbox" id="fConfirmo"> <span>Confirmo que revisei os produtos, quantidades e informações da minha encomenda.</span></label>';
+    h += '<div class="erro-campo" id="eConf" hidden></div><div id="erroEnvio"></div>';
+    h += '<p class="aviso" style="margin-top:16px">Ao continuar, vamos abrir o WhatsApp com o seu pedido já escrito. <strong>É só apertar ENVIAR.</strong></p>';
+    h += '<div class="acoes"><button type="button" class="btn-principal btn-wpp" id="btnEnviar">' + iconeWpp() + ' Continuar no WhatsApp para enviar o pedido</button></div>';
+    document.getElementById("app").innerHTML = h;
+  }
+  function linha(r, v){ return '<div class="linha-item"><div class="q">' + esc(r) + '</div><div class="n" style="text-align:right">' + esc(v) + '</div></div>'; }
+  function iconeWpp(){ return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>'; }
+
+  function montarMensagem(r){
+    var d = estado.dados, L = [];
+    L.push("*ENCOMENDA — DI MERCATTO*  #" + r.numero);
+    L.push("");
+    L.push("Cliente: " + d.nome);
+    L.push("WhatsApp: " + d.whatsapp);
+    L.push("");
+    L.push("*ITENS*");
+    r.itens.forEach(function(i){
+      var q = Number(i.quantidade);
+      L.push("- [" + i.codigo + "] " + i.nome + " — " + qtdTxt(i.unidade, q) + " — " + reais(i.preco_centavos) + " — " + reais(i.subtotal_centavos));
+      if (i.observacao) L.push("   Obs.: " + i.observacao);
+    });
+    L.push("");
+    L.push("*Total " + (r.total_estimado ? "estimado" : "final") + ": " + reais(r.total_centavos) + "*");
+    if (r.total_estimado) L.push("(valor final confirmado após a pesagem)");
+    L.push("Recebimento: " + (d.modalidade === "entrega" ? "Entrega" : "Retirada na loja"));
+    var dt = dataBR(d.data);
+    L.push("Data: " + dt + (d.horario ? " — " + d.horario : ""));
+    if (d.modalidade === "entrega") L.push("Endereço: " + d.endereco + " — " + d.bairro + (d.referencia ? " (Ref.: " + d.referencia + ")" : ""));
+    if (d.pagamento) L.push("Pagamento: " + d.pagamento);
+    if (d.observacoes) L.push("Observações: " + d.observacoes);
+    L.push("");
+    L.push("Este pedido depende do envio desta mensagem e da confirmação da equipe DI MERCATTO.");
+    return L.join("\n");
+  }
+
+  var enviando = false;
+  function enviar(){
+    var chk = document.getElementById("fConfirmo");
+    document.getElementById("eConf").hidden = true;
+    if (!chk.checked) { marcarErro("eConf", null, "Marque a caixa acima para confirmar que revisou o pedido."); chk.focus(); return; }
+    if (enviando) return;
+    enviando = true;
+    var btn = document.getElementById("btnEnviar"); btn.disabled = true; btn.textContent = "Registrando seu pedido…";
+    var d = estado.dados;
+    var corpo = { dados: {
+      cliente_nome: d.nome, cliente_whatsapp: d.whatsapp, modalidade: d.modalidade, data_desejada: d.data,
+      horario: d.horario || null, endereco: d.modalidade === "entrega" ? d.endereco : null, bairro: d.modalidade === "entrega" ? d.bairro : null,
+      referencia: d.modalidade === "entrega" ? d.referencia : null, pagamento: d.pagamento || null, observacoes: d.observacoes || null,
+      vendedor: estado.vendedor || null,
+      itens: itensCarrinho().map(function(i){ return { codigo: i.p.codigo, quantidade: i.q, observacao: i.obs || null }; })
+    }};
+    api("rpc/criar_pedido", { method:"POST", body: corpo }).then(function(r){
+      r.mensagem = montarMensagem(r);
+      estado.resultado = r;
+      estado.carrinho = {};
+      d.observacoes = "";
+      guardar();
+      try { sessionStorage.setItem("dm_ultimo_pedido", JSON.stringify(r)); } catch(e){}
+      irPara(4);
+    }).catch(function(e){
+      enviando = false;
+      btn.disabled = false; btn.innerHTML = iconeWpp() + " Continuar no WhatsApp para enviar o pedido";
+      var msg = (e && e.message) ? e.message : "";
+      var amigavel = /indispon|mínima|máxima|inválid|Informe|Escolha|vazio/i.test(msg) ? msg : "Não conseguimos registrar seu pedido agora. Verifique sua internet e tente de novo, ou toque em Ajuda para falar com a gente.";
+      document.getElementById("erroEnvio").innerHTML = '<div class="msg-erro" role="alert">' + esc(amigavel) + '</div>';
+    });
+  }
+
+  /* ---------- etapa final ---------- */
+  function telaFinal(){
+    var r = estado.resultado;
+    if (!r) { try { r = JSON.parse(sessionStorage.getItem("dm_ultimo_pedido")||"null"); estado.resultado = r; } catch(e){} }
+    if (!r) return irPara(1);
+    [1,2,3].forEach(function(i){ document.getElementById("et"+i).className = i === 3 ? "atual" : "feita"; });
+    var url = linkWhats(r.mensagem), h = "";
+    h += '<h1 class="titulo-etapa">Falta só um passo!</h1>';
+    h += '<div class="painel"><p style="margin:0 0 4px">Número do seu pedido:</p><div class="ok-num">' + esc(r.numero) + '</div>';
+    h += '<div class="passo-final"><span class="b">1</span><div>Toque no botão verde abaixo. O WhatsApp vai abrir com o pedido já escrito.</div></div>';
+    h += '<div class="passo-final"><span class="b">2</span><div>No WhatsApp, <strong>aperte ENVIAR</strong>.</div></div>';
+    h += '<div class="passo-final"><span class="b">3</span><div>Aguarde a confirmação da nossa equipe pelo WhatsApp.</div></div>';
+    h += '</div>';
+    h += '<div class="acoes"><a class="btn-principal btn-wpp" href="' + esc(url) + '" target="_blank" rel="noopener">' + iconeWpp() + ' Abrir o WhatsApp com meu pedido</a>';
+    h += '<button type="button" class="btn-sec" id="btnCopiar">Copiar o texto do pedido</button><div id="copiado" class="aviso" hidden>Texto copiado! Cole no WhatsApp da Di Mercatto e envie.</div></div>';
+    h += '<p class="aviso">Seu pedido só é confirmado depois que você enviar a mensagem e nossa equipe responder.</p>';
+    h += '<div class="acoes"><button type="button" class="btn-sec" id="btnNovo">Fazer outro pedido</button></div>';
+    document.getElementById("app").innerHTML = h;
+  }
+  function copiar(){
+    var t = estado.resultado && estado.resultado.mensagem; if (!t) return;
+    var ok = function(){ document.getElementById("copiado").hidden = false; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, function(){ fallback(t); ok(); });
+    else { fallback(t); ok(); }
+  }
+  function fallback(t){ var a = document.createElement("textarea"); a.value = t; a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(a); }
+
+  /* ---------- eventos ---------- */
+  document.addEventListener("click", function(ev){
+    var t = ev.target.closest("button, a"); if (!t) return;
+    var ctrl = t.closest(".ctrl");
+    if (ctrl && t.dataset.acao) { mudarQtd(ctrl.dataset.codigo, t.dataset.acao); return; }
+    if (t.classList.contains("cat-btn")) {
+      var s = document.getElementById("cat-" + t.dataset.cat); if (s) s.scrollIntoView({behavior:"smooth"});
+      document.querySelectorAll(".cat-btn").forEach(function(b){ b.classList.toggle("ativa", b === t); });
+      return;
+    }
+    if (t.dataset.grupo) {
+      lerFormulario();
+      estado.dados[t.dataset.grupo] = t.dataset.valor; guardar();
+      document.querySelectorAll('[data-grupo="' + t.dataset.grupo + '"]').forEach(function(b){ b.setAttribute("aria-pressed", String(b === t)); });
+      if (t.dataset.grupo === "modalidade") document.getElementById("blocoEntrega").hidden = t.dataset.valor !== "entrega";
+      return;
+    }
+    if (t.dataset.ir) { if (estado.etapa === 2) lerFormulario(); irPara(+t.dataset.ir); return; }
+    if (t.id === "barraBtn") { irPara(2); return; }
+    if (t.id === "btnConferir") { if (validarDados()) irPara(3); return; }
+    if (t.id === "btnEnviar") { enviar(); return; }
+    if (t.id === "btnCopiar") { copiar(); return; }
+    if (t.id === "btnNovo") { estado.resultado = null; try { sessionStorage.removeItem("dm_ultimo_pedido"); } catch(e){} enviando = false; irPara(1); return; }
+  });
+  document.addEventListener("input", function(ev){
+    if (ev.target.matches("input, textarea")) { ev.target.classList.remove("invalido"); ev.target.removeAttribute("aria-invalid"); }
+  });
+  document.addEventListener("change", function(){ if (estado.etapa === 2) lerFormulario(); });
+
+  carregar();
+})();
+</script>
+</body>
+</html>

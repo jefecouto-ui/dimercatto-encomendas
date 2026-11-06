@@ -337,56 +337,75 @@
   }
 
   /* ================= PRODUÇÃO ================= */
-  var dataProd = "";
+  var prDe = "", prAte = "", datasComPedido = {};
+  function isoMais(iso, dias){ var p = iso.split("-"); var d = new Date(+p[0], +p[1]-1, +p[2]); d.setDate(d.getDate()+dias); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function abaProducao(){
-    var h = '<h1>Ordem de produção</h1><div class="card nao-imprimir"><div class="barra-acoes"><div><label for="prData">Data de entrega/retirada</label><input type="date" id="prData" value="' + esc(dataProd) + '"></div><button class="btn sec" type="button" id="prImprimir">Imprimir / PDF</button></div>';
-    h += '<div id="prDatas" style="margin-bottom:10px"></div>';
+    var h = '<h1>Ordem de produção</h1><div class="card nao-imprimir">';
+    h += '<div class="barra-acoes"><div><label for="prDe">De</label><input type="date" id="prDe" value="' + esc(prDe) + '"></div>';
+    h += '<div><label for="prAte">Até <span class="dica">deixe igual para um dia só</span></label><input type="date" id="prAte" value="' + esc(prAte) + '"></div>';
+    h += '<button class="btn sec" type="button" id="prImprimir">Imprimir / PDF</button></div>';
+    h += '<div id="prAtalhos" style="margin-bottom:10px"></div><div id="prDatas" style="margin-bottom:10px"></div>';
     h += '<p class="dica" style="margin:0">Soma <strong>só os pedidos confirmados</strong> (Confirmado, Em preparação, Pronto, Saiu, Concluído). Os que estão aguardando confirmação aparecem na coluna "Previsão", fora do total.</p></div><div id="prConteudo" class="card"><p class="vazio">Carregando…</p></div>';
     main.innerHTML = h;
-    document.getElementById("prData").onchange = function(){ dataProd = this.value; desenharDatasProd(); carregarProducao(); };
+    document.getElementById("prDe").onchange = function(){ prDe = this.value; if (!prAte || prAte < prDe) { prAte = prDe; document.getElementById("prAte").value = prAte; } atualizarProducao(); };
+    document.getElementById("prAte").onchange = function(){ prAte = this.value; if (prAte && prAte < prDe) { prDe = prAte; document.getElementById("prDe").value = prDe; } atualizarProducao(); };
     document.getElementById("prImprimir").onclick = function(){ window.print(); };
-    // datas futuras que têm pedidos (exceto cancelados)
     sb.from("pedidos").select("data_desejada,status").gte("data_desejada", hojeISO()).neq("status","cancelado").order("data_desejada").then(function(r){
       datasComPedido = {};
       (r.data || []).forEach(function(p){ var d = datasComPedido[p.data_desejada] || (datasComPedido[p.data_desejada] = {conf:0, prev:0}); if (p.status === "aguardando") d.prev++; else d.conf++; });
       var lista = Object.keys(datasComPedido).sort();
-      if (!dataProd) dataProd = lista[0] || hojeISO();
-      document.getElementById("prData").value = dataProd;
-      desenharDatasProd();
-      carregarProducao();
+      if (!prDe) { prDe = lista[0] || hojeISO(); prAte = prDe; }
+      atualizarProducao();
     });
   }
-  var datasComPedido = {};
-  function desenharDatasProd(){
-    var box = document.getElementById("prDatas"); if (!box) return;
+  function definirPeriodo(de, ate){ prDe = de; prAte = ate; atualizarProducao(); }
+  function atualizarProducao(){
+    var a = document.getElementById("prDe"), b = document.getElementById("prAte"); if (!a) return;
+    a.value = prDe; b.value = prAte;
     var lista = Object.keys(datasComPedido).sort();
-    if (!lista.length) { box.innerHTML = '<p class="dica" style="margin:0">Nenhum pedido para os próximos dias.</p>'; return; }
-    box.innerHTML = '<label>Datas com pedidos</label><div class="chips">' + lista.map(function(d){
-      var x = datasComPedido[d], sel = d === dataProd;
-      return '<button type="button" class="btn ' + (sel ? '' : 'sec ') + 'peq" data-prdata="' + d + '">' + esc(dataBR(d)) + ' · ' + x.conf + ' conf.' + (x.prev ? ' + ' + x.prev + ' aguard.' : '') + '</button>';
+    // atalhos de período
+    var at = document.getElementById("prAtalhos");
+    var semana = [hojeISO(), isoMais(hojeISO(), 6)];
+    var todas = lista.length ? [lista[0], lista[lista.length-1]] : null;
+    var natal = [new Date().getFullYear() + "-12-20", new Date().getFullYear() + "-12-31"];
+    function botao(rot, p){ var sel = p && p[0] === prDe && p[1] === prAte; return p ? '<button type="button" class="btn ' + (sel ? '' : 'sec ') + 'peq" data-per="' + p[0] + '|' + p[1] + '">' + rot + '</button>' : ''; }
+    at.innerHTML = '<label>Período</label><div class="chips">' + botao("Próximos 7 dias", semana) + botao("Semana do Natal (20 a 31/12)", natal) + botao("Todas as datas com pedidos", todas) + '</div>';
+    // datas individuais
+    var box = document.getElementById("prDatas");
+    if (!lista.length) box.innerHTML = '<p class="dica" style="margin:0">Nenhum pedido para os próximos dias.</p>';
+    else box.innerHTML = '<label>Um dia só</label><div class="chips">' + lista.map(function(d){
+      var x = datasComPedido[d], sel = d === prDe && d === prAte;
+      return '<button type="button" class="btn ' + (sel ? '' : 'sec ') + 'peq" data-per="' + d + '|' + d + '">' + esc(dataBR(d)) + ' · ' + x.conf + ' conf.' + (x.prev ? ' + ' + x.prev + ' aguard.' : '') + '</button>';
     }).join("") + '</div>';
-    box.querySelectorAll("[data-prdata]").forEach(function(b){ b.onclick = function(){ dataProd = b.dataset.prdata; document.getElementById("prData").value = dataProd; desenharDatasProd(); carregarProducao(); }; });
+    document.querySelectorAll("[data-per]").forEach(function(btn){ btn.onclick = function(){ var p = btn.dataset.per.split("|"); definirPeriodo(p[0], p[1]); }; });
+    carregarProducao();
   }
   function carregarProducao(){
-    sb.from("pedidos").select("numero,status,cliente_nome,pedido_itens(codigo,nome,unidade,quantidade,observacao,produto_id)").eq("data_desejada", dataProd).neq("status","cancelado").then(function(r){
+    var de = prDe, ate = prAte || prDe, umDia = de === ate;
+    sb.from("pedidos").select("numero,status,data_desejada,pedido_itens(codigo,nome,unidade,quantidade,observacao,produto_id)").gte("data_desejada", de).lte("data_desejada", ate).neq("status","cancelado").then(function(r){
       var box = document.getElementById("prConteudo"); if (!box) return;
+      if (de !== prDe || ate !== (prAte || prDe)) return; // resposta antiga
       if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
-      var mapa = {}, nConf = 0, nPrev = 0;
+      var mapa = {}, nConf = 0, nPrev = 0, diasVistos = {};
       (r.data || []).forEach(function(p){
         var conf = STATUS_PRODUCAO.indexOf(p.status) >= 0, prev = p.status === "aguardando";
         if (conf) nConf++; else if (prev) nPrev++; else return;
         (p.pedido_itens || []).forEach(function(i){
           var k = i.codigo + "|" + i.unidade;
-          if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.codigo, nome:i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, pedidos:[], obs:[]}; }
-          var m = mapa[k];
-          if (conf) { m.total += Number(i.quantidade); m.pedidos.push(p.numero); if (i.observacao) m.obs.push(p.numero + ": " + i.observacao); }
-          else m.prev += Number(i.quantidade);
+          if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.codigo, nome:i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, pedidos:[], obs:[], porDia:{}}; }
+          var m = mapa[k], q = Number(i.quantidade);
+          if (conf) {
+            m.total += q; m.pedidos.push(p.numero); if (i.observacao) m.obs.push(p.numero + ": " + i.observacao);
+            m.porDia[p.data_desejada] = (m.porDia[p.data_desejada] || 0) + q; diasVistos[p.data_desejada] = 1;
+          } else m.prev += q;
         });
       });
       var linhas = Object.keys(mapa).map(function(k){ return mapa[k]; });
-      var dt = new Date(dataProd + "T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
-      var h = '<h2>Produção para ' + esc(dt) + '</h2><p class="dica">' + nConf + ' pedido(s) confirmado(s) · ' + nPrev + ' aguardando confirmação · gerado em ' + esc(new Date().toLocaleString("pt-BR")) + '</p>';
-      if (!linhas.length) { box.innerHTML = h + '<p class="vazio">Nenhum pedido para essa data.</p>'; return; }
+      var fmt = function(iso, o){ return new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", o); };
+      var titulo = umDia ? fmt(de, {weekday:"long",day:"2-digit",month:"long",year:"numeric"}) : fmt(de, {day:"2-digit",month:"2-digit"}) + " a " + fmt(ate, {day:"2-digit",month:"2-digit",year:"numeric"});
+      var h = '<h2>Produção ' + (umDia ? 'para ' : 'de ') + esc(titulo) + '</h2><p class="dica">' + nConf + ' pedido(s) confirmado(s) · ' + nPrev + ' aguardando confirmação · gerado em ' + esc(new Date().toLocaleString("pt-BR")) + '</p>';
+      if (!linhas.length) { box.innerHTML = h + '<p class="vazio">Nenhum pedido ' + (umDia ? 'para essa data' : 'nesse período') + '.</p>'; return; }
+      var mostrarDias = !umDia && Object.keys(diasVistos).length > 1;
       var grupos = S.categorias.map(function(c){ return {cat:c, itens: linhas.filter(function(l){ return l.cat === c.id; })}; });
       grupos.push({cat:{nome:"Outros", icone:"talheres"}, itens: linhas.filter(function(l){ return !catPorId(l.cat); })});
       grupos.forEach(function(g){
@@ -395,6 +414,7 @@
         h += '<div class="cab-setor"><span class="icone-cat">' + DM_svg(g.cat.icone, 22) + '</span>' + esc(g.cat.nome) + '</div><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Total a produzir</th><th class="num">Nº pedidos</th><th class="num">Previsão (aguardando)</th></tr></thead><tbody>';
         g.itens.forEach(function(l){
           h += '<tr><td>' + esc(l.codigo) + '</td><td><strong>' + esc(l.nome) + '</strong>';
+          if (mostrarDias && l.total) h += '<div class="dica">' + Object.keys(l.porDia).sort().map(function(d){ return esc(dataBR(d)) + ': ' + numBR(l.porDia[d]) + ' ' + unid(l.unidade); }).join(" · ") + '</div>';
           if (l.pedidos.length) h += '<details class="nao-imprimir"><summary class="dica">Pedidos</summary><div class="dica">' + esc(l.pedidos.join(", ")) + '</div></details>';
           if (l.obs.length) h += '<div class="dica">Obs.: ' + l.obs.map(esc).join(" · ") + '</div>';
           h += '</td><td class="num" style="font-size:17px;font-weight:700">' + (l.total ? numBR(l.total) + ' ' + unid(l.unidade) : '—') + '</td><td class="num">' + (l.pedidos.length || '—') + '</td><td class="num">' + (l.prev ? numBR(l.prev) + ' ' + unid(l.unidade) : '—') + '</td></tr>';

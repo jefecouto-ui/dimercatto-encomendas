@@ -339,13 +339,33 @@
   /* ================= PRODUÇÃO ================= */
   var dataProd = "";
   function abaProducao(){
-    if (!dataProd) { var d = new Date(); d.setDate(d.getDate()+1); dataProd = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
     var h = '<h1>Ordem de produção</h1><div class="card nao-imprimir"><div class="barra-acoes"><div><label for="prData">Data de entrega/retirada</label><input type="date" id="prData" value="' + esc(dataProd) + '"></div><button class="btn sec" type="button" id="prImprimir">Imprimir / PDF</button></div>';
+    h += '<div id="prDatas" style="margin-bottom:10px"></div>';
     h += '<p class="dica" style="margin:0">Soma <strong>só os pedidos confirmados</strong> (Confirmado, Em preparação, Pronto, Saiu, Concluído). Os que estão aguardando confirmação aparecem na coluna "Previsão", fora do total.</p></div><div id="prConteudo" class="card"><p class="vazio">Carregando…</p></div>';
     main.innerHTML = h;
-    document.getElementById("prData").onchange = function(){ dataProd = this.value; carregarProducao(); };
+    document.getElementById("prData").onchange = function(){ dataProd = this.value; desenharDatasProd(); carregarProducao(); };
     document.getElementById("prImprimir").onclick = function(){ window.print(); };
-    carregarProducao();
+    // datas futuras que têm pedidos (exceto cancelados)
+    sb.from("pedidos").select("data_desejada,status").gte("data_desejada", hojeISO()).neq("status","cancelado").order("data_desejada").then(function(r){
+      datasComPedido = {};
+      (r.data || []).forEach(function(p){ var d = datasComPedido[p.data_desejada] || (datasComPedido[p.data_desejada] = {conf:0, prev:0}); if (p.status === "aguardando") d.prev++; else d.conf++; });
+      var lista = Object.keys(datasComPedido).sort();
+      if (!dataProd) dataProd = lista[0] || hojeISO();
+      document.getElementById("prData").value = dataProd;
+      desenharDatasProd();
+      carregarProducao();
+    });
+  }
+  var datasComPedido = {};
+  function desenharDatasProd(){
+    var box = document.getElementById("prDatas"); if (!box) return;
+    var lista = Object.keys(datasComPedido).sort();
+    if (!lista.length) { box.innerHTML = '<p class="dica" style="margin:0">Nenhum pedido para os próximos dias.</p>'; return; }
+    box.innerHTML = '<label>Datas com pedidos</label><div class="chips">' + lista.map(function(d){
+      var x = datasComPedido[d], sel = d === dataProd;
+      return '<button type="button" class="btn ' + (sel ? '' : 'sec ') + 'peq" data-prdata="' + d + '">' + esc(dataBR(d)) + ' · ' + x.conf + ' conf.' + (x.prev ? ' + ' + x.prev + ' aguard.' : '') + '</button>';
+    }).join("") + '</div>';
+    box.querySelectorAll("[data-prdata]").forEach(function(b){ b.onclick = function(){ dataProd = b.dataset.prdata; document.getElementById("prData").value = dataProd; desenharDatasProd(); carregarProducao(); }; });
   }
   function carregarProducao(){
     sb.from("pedidos").select("numero,status,cliente_nome,pedido_itens(codigo,nome,unidade,quantidade,observacao,produto_id)").eq("data_desejada", dataProd).neq("status","cancelado").then(function(r){

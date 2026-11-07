@@ -80,6 +80,10 @@
   .icone-cat{display:inline-flex;vertical-align:middle;color:var(--vinho);margin-right:6px}
   .cab-setor{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-size:18px;color:var(--vinho);font-weight:700}
   .vazio{color:var(--suave);padding:20px 0;text-align:center}
+  .faixa-prod{border:2px solid var(--vinho);border-radius:14px;padding:4px 14px 12px;margin:16px 0;break-inside:avoid-page}
+  .faixa-cab{font-size:20px;font-weight:800;color:var(--vinho);margin:10px 0 0}
+  .faixa-cab span{font-size:14px;font-weight:600;color:var(--suave);margin-left:8px}
+  @media print{.faixa-prod{border-width:1.5px;border-color:#000}.faixa-cab{color:#000}}
   #alerta{position:fixed;right:16px;bottom:16px;z-index:50;background:#1E7B45;color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:340px;font-weight:600}
   #alerta button{margin-top:10px;margin-right:6px}
   #somAviso{font-size:13px}
@@ -361,15 +365,17 @@
   }
 
   /* ================= PEDIDOS ================= */
-  var filtroPed = { de: hojeISO(), ate: "", status: "" };
+  var filtroPed = { de: hojeISO(), ate: "", status: "", horario: "" };
   function abaPedidos(){
     var h = '<h1>Pedidos</h1><div class="card nao-imprimir"><div class="barra-acoes">';
     h += '<div><label for="fDe">Data de entrega — de</label><input type="date" id="fDe" value="' + esc(filtroPed.de) + '"></div>';
     h += '<div><label for="fAte">até <span class="dica">opcional</span></label><input type="date" id="fAte" value="' + esc(filtroPed.ate) + '"></div>';
     h += '<div><label for="fSt">Situação</label><select id="fSt"><option value="">Todas</option>' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (filtroPed.status === s[0] ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div>';
+    var fx = ordemFaixas();
+    if (fx.length) h += '<div><label for="fHor">Faixa de horário</label><select id="fHor"><option value="">Todas</option>' + fx.map(function(f){ return '<option' + (filtroPed.horario === f ? " selected" : "") + '>' + esc(f) + '</option>'; }).join("") + '</select></div>';
     h += '<button class="btn sec" id="fAtualizar" type="button">Atualizar</button></div></div><div id="listaPedidos"><p class="vazio">Carregando pedidos…</p></div>';
     main.innerHTML = h;
-    ["fDe","fAte","fSt"].forEach(function(id){ document.getElementById(id).onchange = function(){ filtroPed.de = document.getElementById("fDe").value; filtroPed.ate = document.getElementById("fAte").value; filtroPed.status = document.getElementById("fSt").value; carregarPedidos(); }; });
+    ["fDe","fAte","fSt","fHor"].forEach(function(id){ var el = document.getElementById(id); if (el) el.onchange = function(){ filtroPed.de = document.getElementById("fDe").value; filtroPed.ate = document.getElementById("fAte").value; filtroPed.status = document.getElementById("fSt").value; var fh = document.getElementById("fHor"); filtroPed.horario = fh ? fh.value : ""; carregarPedidos(); }; });
     document.getElementById("fAtualizar").onclick = carregarPedidos;
     carregarPedidos();
   }
@@ -378,6 +384,7 @@
     if (filtroPed.de) q = q.gte("data_desejada", filtroPed.de);
     if (filtroPed.ate) q = q.lte("data_desejada", filtroPed.ate);
     if (filtroPed.status) q = q.eq("status", filtroPed.status);
+    if (filtroPed.horario) q = q.eq("horario", filtroPed.horario);
     q.then(function(r){
       var box = document.getElementById("listaPedidos"); if (!box) return;
       if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
@@ -593,50 +600,69 @@
     document.querySelectorAll("[data-per]").forEach(function(btn){ btn.onclick = function(){ var p = btn.dataset.per.split("|"); definirPeriodo(p[0], p[1]); }; });
     carregarProducao();
   }
+  var prPorHora = true;
+  function ordemFaixas(){ return (Array.isArray(S.config.faixas) ? S.config.faixas : []).map(function(f){ return f.rotulo; }); }
+  function tabelasProducao(pedidos, mostrarDiasPermitido){
+    var mapa = {}, diasVistos = {};
+    pedidos.forEach(function(p){
+      var conf = STATUS_PRODUCAO.indexOf(p.status) >= 0;
+      (p.pedido_itens || []).forEach(function(i){
+        var k = i.codigo + "|" + i.unidade;
+        if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.codigo, nome:i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, pedidos:[], obs:[], porDia:{}}; }
+        var m = mapa[k], q = Number(i.quantidade);
+        if (conf) {
+          m.total += q; m.pedidos.push(p.numero); if (i.observacao) m.obs.push(p.numero + ": " + i.observacao);
+          m.porDia[p.data_desejada] = (m.porDia[p.data_desejada] || 0) + q; diasVistos[p.data_desejada] = 1;
+        } else m.prev += q;
+      });
+    });
+    var linhas = Object.keys(mapa).map(function(k){ return mapa[k]; });
+    if (!linhas.length) return '';
+    var mostrarDias = mostrarDiasPermitido && Object.keys(diasVistos).length > 1, h = '';
+    var grupos = S.categorias.map(function(c){ return {cat:c, itens: linhas.filter(function(l){ return l.cat === c.id; })}; });
+    grupos.push({cat:{nome:"Outros", icone:"talheres"}, itens: linhas.filter(function(l){ return !catPorId(l.cat); })});
+    grupos.forEach(function(g){
+      if (!g.itens.length) return;
+      g.itens.sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+      h += '<div class="cab-setor"><span class="icone-cat">' + DM_svg(g.cat.icone, 22) + '</span>' + esc(g.cat.nome) + '</div><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Total a produzir</th><th class="num">Nº pedidos</th><th class="num">Previsão (aguardando)</th></tr></thead><tbody>';
+      g.itens.forEach(function(l){
+        h += '<tr><td>' + esc(l.codigo) + '</td><td><strong>' + esc(l.nome) + '</strong>';
+        if (mostrarDias && l.total) h += '<div class="dica">' + Object.keys(l.porDia).sort().map(function(d){ return esc(dataBR(d)) + ': ' + numBR(l.porDia[d]) + ' ' + unid(l.unidade); }).join(" · ") + '</div>';
+        if (l.pedidos.length) h += '<details class="nao-imprimir"><summary class="dica">Pedidos</summary><div class="dica">' + esc(l.pedidos.join(", ")) + '</div></details>';
+        if (l.obs.length) h += '<div class="dica">Obs.: ' + l.obs.map(esc).join(" · ") + '</div>';
+        h += '</td><td class="num" style="font-size:17px;font-weight:700">' + (l.total ? numBR(l.total) + ' ' + unid(l.unidade) : '—') + '</td><td class="num">' + (l.pedidos.length || '—') + '</td><td class="num">' + (l.prev ? numBR(l.prev) + ' ' + unid(l.unidade) : '—') + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    });
+    return h;
+  }
   function carregarProducao(){
     var de = prDe, ate = prAte || prDe, umDia = de === ate;
-    sb.from("pedidos").select("numero,status,data_desejada,pedido_itens(codigo,nome,unidade,quantidade,observacao,produto_id)").gte("data_desejada", de).lte("data_desejada", ate).neq("status","cancelado").then(function(r){
+    sb.from("pedidos").select("numero,status,data_desejada,horario,pedido_itens(codigo,nome,unidade,quantidade,observacao,produto_id)").gte("data_desejada", de).lte("data_desejada", ate).neq("status","cancelado").then(function(r){
       var box = document.getElementById("prConteudo"); if (!box) return;
       if (de !== prDe || ate !== (prAte || prDe)) return; // resposta antiga
       if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
-      var mapa = {}, nConf = 0, nPrev = 0, diasVistos = {};
-      (r.data || []).forEach(function(p){
-        var conf = STATUS_PRODUCAO.indexOf(p.status) >= 0, prev = p.status === "aguardando";
-        if (conf) nConf++; else if (prev) nPrev++; else return;
-        (p.pedido_itens || []).forEach(function(i){
-          var k = i.codigo + "|" + i.unidade;
-          if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.codigo, nome:i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, pedidos:[], obs:[], porDia:{}}; }
-          var m = mapa[k], q = Number(i.quantidade);
-          if (conf) {
-            m.total += q; m.pedidos.push(p.numero); if (i.observacao) m.obs.push(p.numero + ": " + i.observacao);
-            m.porDia[p.data_desejada] = (m.porDia[p.data_desejada] || 0) + q; diasVistos[p.data_desejada] = 1;
-          } else m.prev += q;
-        });
-      });
-      var linhas = Object.keys(mapa).map(function(k){ return mapa[k]; });
+      var ps = (r.data || []).filter(function(p){ return STATUS_PRODUCAO.indexOf(p.status) >= 0 || p.status === "aguardando"; });
+      var nConf = ps.filter(function(p){ return p.status !== "aguardando"; }).length, nPrev = ps.length - nConf;
       var fmt = function(iso, o){ return new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", o); };
       var titulo = umDia ? fmt(de, {weekday:"long",day:"2-digit",month:"long",year:"numeric"}) : fmt(de, {day:"2-digit",month:"2-digit"}) + " a " + fmt(ate, {day:"2-digit",month:"2-digit",year:"numeric"});
       var h = '<h2>Produção ' + (umDia ? 'para ' : 'de ') + esc(titulo) + '</h2><p class="dica">' + nConf + ' pedido(s) confirmado(s) · ' + nPrev + ' aguardando confirmação · gerado em ' + esc(new Date().toLocaleString("pt-BR")) + '</p>';
-      if (!linhas.length) { box.innerHTML = h + '<p class="vazio">Nenhum pedido ' + (umDia ? 'para essa data' : 'nesse período') + '.</p>'; return; }
-      var mostrarDias = !umDia && Object.keys(diasVistos).length > 1;
-      var grupos = S.categorias.map(function(c){ return {cat:c, itens: linhas.filter(function(l){ return l.cat === c.id; })}; });
-      grupos.push({cat:{nome:"Outros", icone:"talheres"}, itens: linhas.filter(function(l){ return !catPorId(l.cat); })});
-      grupos.forEach(function(g){
-        if (!g.itens.length) return;
-        g.itens.sort(function(a,b){ return a.nome.localeCompare(b.nome); });
-        h += '<div class="cab-setor"><span class="icone-cat">' + DM_svg(g.cat.icone, 22) + '</span>' + esc(g.cat.nome) + '</div><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Total a produzir</th><th class="num">Nº pedidos</th><th class="num">Previsão (aguardando)</th></tr></thead><tbody>';
-        g.itens.forEach(function(l){
-          h += '<tr><td>' + esc(l.codigo) + '</td><td><strong>' + esc(l.nome) + '</strong>';
-          if (mostrarDias && l.total) h += '<div class="dica">' + Object.keys(l.porDia).sort().map(function(d){ return esc(dataBR(d)) + ': ' + numBR(l.porDia[d]) + ' ' + unid(l.unidade); }).join(" · ") + '</div>';
-          if (l.pedidos.length) h += '<details class="nao-imprimir"><summary class="dica">Pedidos</summary><div class="dica">' + esc(l.pedidos.join(", ")) + '</div></details>';
-          if (l.obs.length) h += '<div class="dica">Obs.: ' + l.obs.map(esc).join(" · ") + '</div>';
-          h += '</td><td class="num" style="font-size:17px;font-weight:700">' + (l.total ? numBR(l.total) + ' ' + unid(l.unidade) : '—') + '</td><td class="num">' + (l.pedidos.length || '—') + '</td><td class="num">' + (l.prev ? numBR(l.prev) + ' ' + unid(l.unidade) : '—') + '</td></tr>';
+      h += '<label class="check nao-imprimir" style="margin:6px 0 4px"><input type="checkbox" id="prPorHora"' + (prPorHora ? ' checked' : '') + '> Separar por faixa de horário</label>';
+      if (!ps.length) { box.innerHTML = h + '<p class="vazio">Nenhum pedido ' + (umDia ? 'para essa data' : 'nesse período') + '.</p>'; ligarPorHora(); return; }
+      if (prPorHora) {
+        var ordem = ordemFaixas(), chaves = [];
+        ps.forEach(function(p){ var k = p.horario || "Sem horário"; if (chaves.indexOf(k) < 0) chaves.push(k); });
+        chaves.sort(function(a, b){ var ia = ordem.indexOf(a), ib = ordem.indexOf(b); if (ia < 0) ia = 999; if (ib < 0) ib = 999; return ia - ib || a.localeCompare(b); });
+        chaves.forEach(function(k){
+          var grupo = ps.filter(function(p){ return (p.horario || "Sem horário") === k; });
+          var nc = grupo.filter(function(p){ return p.status !== "aguardando"; }).length;
+          h += '<div class="faixa-prod"><div class="faixa-cab">⏰ ' + esc(k) + ' <span>' + nc + ' confirmado(s)' + (grupo.length - nc ? ' · ' + (grupo.length - nc) + ' aguardando' : '') + '</span></div>' + tabelasProducao(grupo, !umDia) + '</div>';
         });
-        h += '</tbody></table></div>';
-      });
-      box.innerHTML = h;
+      } else h += tabelasProducao(ps, !umDia);
+      box.innerHTML = h; ligarPorHora();
     });
   }
+  function ligarPorHora(){ var c = document.getElementById("prPorHora"); if (c) c.onchange = function(){ prPorHora = this.checked; carregarProducao(); }; }
 
   /* ================= PRODUTOS ================= */
   var buscaProd = "";
@@ -784,7 +810,7 @@
   var listasCfg = {};
   function abaConfig(){
     var c = S.config;
-    listasCfg = { datas: (c.datas || []).slice().sort(), horarios: (c.horarios || []).slice(), pagamentos: (c.pagamentos || []).slice() };
+    listasCfg = { datas: (c.datas || []).slice().sort(), horarios: (c.horarios || []).slice(), pagamentos: (c.pagamentos || []).slice(), faixas: JSON.parse(JSON.stringify(c.faixas || [])) };
     var h = '<h1>Configurações</h1><form id="formCfg" novalidate>';
     h += '<div class="card"><h2>WhatsApp que recebe os pedidos</h2><label for="cfgWpp">Número com 55 + DDD <span class="dica">Ex.: 5571987654321</span></label><input type="tel" id="cfgWpp" value="' + esc(c.whatsapp || "") + '">';
     h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgTeste"' + (c.modo_teste ? " checked" : "") + '> Modo teste (mostra o aviso "Versão de teste" na loja)</label></div>';
@@ -793,6 +819,7 @@
     h += '<div class="grade" style="margin-top:12px"><div><label for="cfgPrazoData">Data limite das encomendas <span class="dica">mostra a contagem regressiva</span></label><input type="date" id="cfgPrazoData" value="' + esc(c.prazo_data || "") + '"></div>';
     h += '<div><label for="cfgPrazo">Aviso de prazo <span class="dica">usado só se não houver data limite</span></label><input type="text" id="cfgPrazo" value="' + esc(c.prazo_aviso || "") + '"></div></div></div>';
     h += '<div class="card"><h2>Datas disponíveis</h2><p class="dica" style="margin-top:0">Se nenhuma data for cadastrada, o cliente escolhe qualquer data a partir de amanhã.</p><div class="linha-add"><input type="date" id="addData"><button class="btn sec" type="button" data-add="datas">Adicionar</button></div><div class="chips" id="chips-datas"></div></div>';
+    h += '<div class="card"><h2>Faixas de horário (produção)</h2><p class="dica" style="margin-top:0">O cliente escolhe uma faixa. Com <b>limite</b>, a faixa fica "Esgotado" quando lota. <b>Dias</b>: deixe vazio para valer todos os dias, ou informe datas (ex.: 24/12, 31/12). Com faixas cadastradas, a lista "Horários" abaixo é ignorada.</p><div class="tabela"><table><thead><tr><th>Faixa (como o cliente vê)</th><th style="width:110px">Limite de pedidos</th><th>Só nos dias</th><th></th></tr></thead><tbody id="faixasLista"></tbody></table></div><button class="btn sec" type="button" id="addFaixa" style="margin-top:10px">+ Adicionar faixa</button></div>';
     h += '<div class="card"><h2>Horários</h2><p class="dica" style="margin-top:0">Opcional. Ex.: "Manhã (8h às 12h)". Sem horários, o cliente não escolhe horário.</p><div class="linha-add"><input type="text" id="addHorario" maxlength="60"><button class="btn sec" type="button" data-add="horarios">Adicionar</button></div><div class="chips" id="chips-horarios"></div></div>';
     h += '<div class="card"><h2>Formas de pagamento</h2><p class="dica" style="margin-top:0">Opcional. Ex.: "Pix", "Cartão na retirada". Sem formas cadastradas, o pagamento é combinado com a equipe.</p><div class="linha-add"><input type="text" id="addPagamento" maxlength="60"><button class="btn sec" type="button" data-add="pagamentos">Adicionar</button></div><div class="chips" id="chips-pagamentos"></div></div>';
     h += '<div class="card"><h2>Retirada e entrega</h2><label for="cfgRet">Endereço para retirada</label><input type="text" id="cfgRet" value="' + esc(c.retirada_endereco || "") + '">';
@@ -802,6 +829,8 @@
     h += '<div class="card" style="margin-top:20px"><h2>Equipe com acesso ao painel</h2><div id="equipeLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="eqEmail">E-mail</label><input type="email" id="eqEmail"></div><div class="cresce"><label for="eqNome">Nome</label><input type="text" id="eqNome"></div><button class="btn sec" type="button" id="eqAdd">Adicionar</button></div><p class="dica">Depois de adicionada, a pessoa entra em "Primeiro acesso? Crie sua senha" com o mesmo e-mail.</p></div>';
     main.innerHTML = h;
     ["datas","horarios","pagamentos"].forEach(desenharChips);
+    desenharFaixas();
+    document.getElementById("addFaixa").onclick = function(){ listasCfg.faixas.push({rotulo:"", limite:null, datas:[]}); desenharFaixas(); var ins = document.querySelectorAll('[data-fx="rotulo"]'); if (ins.length) ins[ins.length-1].focus(); };
     main.querySelectorAll("[data-add]").forEach(function(b){ b.onclick = function(){
       var k = b.dataset.add, inp = document.getElementById({datas:"addData",horarios:"addHorario",pagamentos:"addPagamento"}[k]);
       var v = inp.value.trim(); if (!v || listasCfg[k].indexOf(v) >= 0) return;
@@ -811,6 +840,29 @@
     document.getElementById("eqAdd").onclick = addEquipe;
     carregarEquipe();
   }
+  function ddmmParaISO(t){
+    var m = String(t).trim().match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/); if (!m) return null;
+    var hoje = new Date(), dia = +m[1], mes = +m[2], ano = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : (mes < hoje.getMonth() + 1 ? hoje.getFullYear() + 1 : hoje.getFullYear());
+    if (dia < 1 || dia > 31 || mes < 1 || mes > 12) return null;
+    return ano + "-" + String(mes).padStart(2,"0") + "-" + String(dia).padStart(2,"0");
+  }
+  function isoParaDDMM(iso){ var p = iso.split("-"); return p[2] + "/" + p[1]; }
+  function desenharFaixas(){
+    var tb = document.getElementById("faixasLista"); if (!tb) return;
+    tb.innerHTML = listasCfg.faixas.length ? listasCfg.faixas.map(function(f, i){
+      return '<tr><td><input type="text" data-fx="rotulo" data-i="' + i + '" maxlength="40" placeholder="ex.: 08h às 10h" value="' + esc(f.rotulo || "") + '"></td>' +
+        '<td><input type="number" min="0" data-fx="limite" data-i="' + i + '" placeholder="sem limite" value="' + (f.limite || "") + '"></td>' +
+        '<td><input type="text" data-fx="datas" data-i="' + i + '" placeholder="todos os dias" value="' + esc((f.datas || []).map(isoParaDDMM).join(", ")) + '"></td>' +
+        '<td><button class="btn perigo peq" type="button" data-rmfx="' + i + '">Remover</button></td></tr>';
+    }).join("") : '<tr><td colspan="4" class="dica">Nenhuma faixa cadastrada.</td></tr>';
+    tb.querySelectorAll("[data-fx]").forEach(function(inp){ inp.oninput = function(){
+      var f = listasCfg.faixas[+inp.dataset.i], k = inp.dataset.fx;
+      if (k === "rotulo") f.rotulo = inp.value;
+      else if (k === "limite") f.limite = inp.value === "" ? null : Math.max(0, parseInt(inp.value, 10) || 0);
+      else f.datasTxt = inp.value;
+    }; });
+    tb.querySelectorAll("[data-rmfx]").forEach(function(b){ b.onclick = function(){ listasCfg.faixas.splice(+b.dataset.rmfx, 1); desenharFaixas(); }; });
+  }
   function desenharChips(k){
     var box = document.getElementById("chips-" + k);
     box.innerHTML = listasCfg[k].length ? listasCfg[k].map(function(v, i){ return '<span class="chip">' + esc(k === "datas" ? dataBR(v) : v) + '<button type="button" aria-label="Remover" data-rem="' + i + '">×</button></span>'; }).join("") : '<span class="dica">Nenhum cadastrado.</span>';
@@ -819,17 +871,27 @@
   function salvarConfig(ev){
     ev.preventDefault();
     var msg = document.getElementById("cfgMsg"), g = function(id){ return document.getElementById(id).value.trim(); };
+    var faixasOk = [], erroFx = "";
+    listasCfg.faixas.forEach(function(f){
+      var rot = String(f.rotulo || "").trim(); if (!rot) return;
+      var datas = f.datas || [];
+      if (f.datasTxt != null) { datas = []; String(f.datasTxt).split(/[,;]+/).forEach(function(t){ if (!t.trim()) return; var iso = ddmmParaISO(t); if (iso) datas.push(iso); else erroFx = 'Data inválida na faixa "' + rot + '": ' + t.trim() + ' (use dd/mm)'; }); }
+      if (faixasOk.some(function(x){ return x.rotulo === rot; })) erroFx = 'Faixa repetida: ' + rot;
+      faixasOk.push({rotulo: rot, limite: f.limite || null, datas: datas.sort()});
+    });
+    if (erroFx) { msg.innerHTML = '<div class="msg erro">' + esc(erroFx) + '</div>'; return; }
     var wpp = soDig(g("cfgWpp"));
     if (wpp.length < 12 || wpp.length > 13 || wpp.indexOf("55") !== 0) { msg.innerHTML = '<div class="msg erro">WhatsApp inválido. Use 55 + DDD + número, ex.: 5571987654321.</div>'; return; }
     var linhas = [
       ["whatsapp", wpp], ["modo_teste", document.getElementById("cfgTeste").checked],
       ["campanha_titulo", g("cfgTit")], ["campanha_subtitulo", g("cfgSub")], ["prefixo_pedido", g("cfgPref").toUpperCase() || "ENC"],
-      ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["pagamentos", listasCfg.pagamentos],
+      ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["faixas", faixasOk], ["pagamentos", listasCfg.pagamentos],
       ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")]
     ].map(function(x){ return {chave:x[0], valor:x[1]}; });
     sb.from("configuracoes").upsert(linhas).select().then(function(r){
       if (r.error) { msg.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
       (r.data || []).forEach(function(c){ S.config[c.chave] = c.valor; });
+      listasCfg.faixas = JSON.parse(JSON.stringify(S.config.faixas || [])); desenharFaixas();
       msg.innerHTML = '<div class="msg ok">Configurações salvas. A loja já está usando os novos dados.</div>';
     });
   }

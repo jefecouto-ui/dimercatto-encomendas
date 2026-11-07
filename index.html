@@ -192,6 +192,8 @@
   .opcoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .opcoes.uma{grid-template-columns:1fr}
   .opcao{min-height:64px;border:2px solid var(--borda);border-radius:14px;background:#fff;font-weight:700;font-size:18px;padding:10px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+  .opcao.esgotado{opacity:.6;background:#F3ECE6;color:#8A7B72;cursor:not-allowed}
+  .opcao.esgotado small{text-decoration:none;color:var(--erro);font-weight:700}
   .opcao small{font-weight:500;font-size:14px;color:var(--texto-suave)}
   .opcao[aria-pressed=true]{border-color:var(--vinho);background:var(--creme);color:var(--vinho);box-shadow:inset 0 0 0 1px var(--vinho)}
   .acoes{display:flex;flex-direction:column;gap:12px;margin:22px 0}
@@ -672,7 +674,8 @@
     }
     h += '<div class="erro-campo" id="eData" hidden></div>';
     var hor = Array.isArray(cfg.horarios) ? cfg.horarios : [];
-    if (hor.length) { h += '<label class="campo">Horário</label>' + botoesOpcao("horario", hor, d.horario, "Horário") + '<div class="erro-campo" id="eHor" hidden></div>'; }
+    if (temFaixas()) { h += '<label class="campo">Horário</label><div id="faixasBox"><p class="dica">Escolha a data para ver os horários disponíveis.</p></div><div class="erro-campo" id="eHor" hidden></div>'; }
+    else if (hor.length) { h += '<label class="campo">Horário</label>' + botoesOpcao("horario", hor, d.horario, "Horário") + '<div class="erro-campo" id="eHor" hidden></div>'; }
     else { h += '<label class="campo" for="fHora">Horário desejado</label><input type="time" id="fHora" step="900" value="' + esc(/^\d{2}:\d{2}$/.test(d.horario) ? d.horario : "") + '"><div class="erro-campo" id="eHor" hidden></div>'; }
     h += '</div>';
 
@@ -683,6 +686,29 @@
 
     h += '<div class="acoes"><button type="button" class="btn-principal" id="btnConferir">Continuar para conferir →</button><button type="button" class="btn-sec" data-ir="1">← Voltar ao cardápio</button></div>';
     document.getElementById("app").innerHTML = h;
+    if (temFaixas() && estado.dados.data) carregarFaixas();
+  }
+  function temFaixas(){ return Array.isArray(estado.config.faixas) && estado.config.faixas.length > 0; }
+  var pedidoFaixas = 0;
+  function carregarFaixas(){
+    var box = document.getElementById("faixasBox"), d = estado.dados; if (!box) return;
+    if (!d.data) { box.innerHTML = '<p class="dica">Escolha a data para ver os horários disponíveis.</p>'; return; }
+    box.innerHTML = '<p class="dica">Carregando horários…</p>';
+    var meu = ++pedidoFaixas;
+    api("rpc/disponibilidade_faixas", { method:"POST", body:{ p_data: d.data } }).then(function(lista){
+      if (meu !== pedidoFaixas) return;
+      var livres = lista.filter(function(f){ return f.livre; }).map(function(f){ return f.rotulo; });
+      if (d.horario && livres.indexOf(d.horario) < 0) { d.horario = ""; guardar(); }
+      if (!lista.length) { box.innerHTML = '<p class="aviso">Não há horários para esta data. Escolha outra data.</p>'; return; }
+      if (!livres.length) { box.innerHTML = '<p class="aviso">Todos os horários desta data já estão lotados. Escolha outra data.</p>'; return; }
+      var h = '<div class="opcoes' + (lista.length === 1 ? ' uma' : '') + '" role="group" aria-label="Horário">';
+      lista.forEach(function(f){
+        h += f.livre
+          ? '<button type="button" class="opcao" data-grupo="horario" data-valor="' + esc(f.rotulo) + '" aria-pressed="' + (d.horario === f.rotulo) + '">' + esc(f.rotulo) + '</button>'
+          : '<button type="button" class="opcao esgotado" disabled>' + esc(f.rotulo) + '<small>Esgotado</small></button>';
+      });
+      box.innerHTML = h + '</div>';
+    }).catch(function(){ box.innerHTML = '<p class="aviso">Não foi possível carregar os horários. Verifique a internet.</p>'; });
   }
   function lerFormulario(){
     var d = estado.dados, g = function(id){ var e = document.getElementById(id); return e ? e.value.trim() : null; };
@@ -853,6 +879,8 @@
       estado.dados[t.dataset.grupo] = t.dataset.valor; guardar();
       document.querySelectorAll('[data-grupo="' + t.dataset.grupo + '"]').forEach(function(b){ b.setAttribute("aria-pressed", String(b === t)); });
       if (t.dataset.grupo === "modalidade") document.getElementById("blocoEntrega").hidden = t.dataset.valor !== "entrega";
+      if (t.dataset.grupo === "data" && temFaixas()) carregarFaixas();
+      var eg = { horario:"eHor", modalidade:"eMod", data:"eData", pagamento:"ePag" }[t.dataset.grupo]; if (eg && document.getElementById(eg)) document.getElementById(eg).hidden = true;
       return;
     }
     if (t.dataset.ir) { if (estado.etapa === 2) lerFormulario(); irPara(+t.dataset.ir); return; }
@@ -886,7 +914,7 @@
   }
   document.addEventListener("change", function(ev){
     if (ev.target.dataset && ev.target.dataset.qtdin) { digitarQtd(ev.target); return; }
-    if (estado.etapa === 2) lerFormulario();
+    if (estado.etapa === 2) { lerFormulario(); if (ev.target.id === "fData" && temFaixas()) carregarFaixas(); }
   });
   document.addEventListener("keydown", function(ev){ if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.qtdin) { ev.preventDefault(); ev.target.blur(); } });
   document.addEventListener("focusin", function(ev){ if (ev.target.dataset && ev.target.dataset.qtdin) { try { ev.target.select(); } catch(e){} } });

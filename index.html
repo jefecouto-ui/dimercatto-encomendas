@@ -164,6 +164,13 @@
   .barra .resumo{flex:1;font-size:13.5px;color:#E9D7A8;line-height:1.2}
   .barra .resumo strong{display:block;font-size:19px;color:#fff}
   .barra .btn-principal{background:#E07F40}
+  .barra .sacola{position:relative;flex:none;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);display:grid;place-items:center;color:#E9D7A8;margin-left:4px}
+  .barra .sacola b{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#E07F40;color:#fff;font-size:12.5px;font-weight:800;display:grid;place-items:center;border:2px solid #2E211B;line-height:1}
+  .barra .sacola b[hidden]{display:none}
+  .produto.esgotado .arte,.produto.esgotado .corpo{opacity:.45;filter:grayscale(1)}
+  .produto.esgotado .tarja{position:absolute;right:6px;bottom:6px;background:#2E211B;color:#fff;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.4px}
+  .produto.esgotado .arte{position:relative}
+  .btn-esg{width:100%;min-height:36px;border:0;border-radius:9px;background:#E8E2DC;color:#6B5E55;font-weight:800;font-size:13px}
   .barra .btn-principal:disabled{background:#5C4A40;color:#CDBBA8}
   .btn-principal{min-height:60px;border:0;border-radius:16px;background:var(--vinho);color:#fff;font-weight:700;font-size:20px;padding:8px 22px;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;text-align:center;line-height:1.25}
   .btn-principal:disabled{background:#C9B7AA;cursor:not-allowed}
@@ -325,6 +332,7 @@
 
 <div class="barra" id="barra" hidden>
   <div class="wrap">
+    <span class="sacola" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><b id="barraQtd" hidden>0</b></span>
     <div class="resumo" id="barraResumo"></div>
     <button class="btn-principal" id="barraBtn" type="button" style="min-height:52px;font-size:18px">Continuar →</button>
   </div>
@@ -352,9 +360,11 @@
   function unidadeTxt(u, q){
     if (u === "kg") return "kg";
     if (u === "cento") return q === 1 ? "cento" : "centos";
+    if (u === "embalagem") return q === 1 ? "embalagem" : "embalagens";
+    if (u === "porcao") return q === 1 ? "porção" : "porções";
     return q === 1 ? "unidade" : "unidades";
   }
-  function precoUnTxt(u){ return u === "kg" ? "o kg" : (u === "cento" ? "o cento" : "a unidade"); }
+  function precoUnTxt(u){ return {kg:"o kg", cento:"o cento", embalagem:"a embalagem", porcao:"a porção"}[u] || "a unidade"; }
   function qtdTxt(u, q){ return numBR(q) + " " + unidadeTxt(u, q); }
   function normal(t){ return String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
   function filtrarBusca(q){
@@ -402,7 +412,14 @@
     return "https://wa.me/" + num + (texto ? "?text=" + encodeURIComponent(texto) : "");
   }
   function dataBR(iso){ if(!iso) return ""; var p = iso.split("-"); var d = new Date(+p[0], +p[1]-1, +p[2]); return d.toLocaleDateString("pt-BR",{weekday:"long", day:"2-digit", month:"long"}); }
-  function amanhaISO(){ var d = new Date(); d.setDate(d.getDate()+1); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+  function isoMais(n){ var d = new Date(); d.setDate(d.getDate()+n); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+  function diasAntecedencia(){
+    var n = Math.max(parseInt(estado.config.antecedencia_dias, 10) || 1, 1);
+    itensCarrinho().forEach(function(i){ if (i.p.antecedencia_dias != null) n = Math.max(n, +i.p.antecedencia_dias); });
+    return n;
+  }
+  function amanhaISO(){ return isoMais(diasAntecedencia()); }
+  function ddmm(iso){ var p = iso.split("-"); return p[2] + "/" + p[1]; }
 
   /* ---------- carregar dados ---------- */
   function carregar(){
@@ -411,14 +428,14 @@
     recuperar();
     Promise.all([
       api("categorias?select=id,nome,icone,ordem&ativo=eq.true&order=ordem.asc,nome.asc"),
-      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria&ativo=eq.true&order=ordem.asc,nome.asc"),
+      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria,esgotado,antecedencia_dias&ativo=eq.true&order=ordem.asc,nome.asc"),
       api("configuracoes?select=chave,valor")
     ]).then(function(r){
       estado.categorias = r[0];
       estado.produtos = r[1].map(function(x){ x.minimo = Number(x.minimo); x.incremento = Number(x.incremento); x.maximo = x.maximo == null ? null : Number(x.maximo); return x; });
       r[2].forEach(function(c){ estado.config[c.chave] = c.valor; });
       // limpa do carrinho o que não existe mais
-      Object.keys(estado.carrinho).forEach(function(c){ if (!produtoPorCodigo(c)) delete estado.carrinho[c]; });
+      Object.keys(estado.carrinho).forEach(function(c){ var pp = produtoPorCodigo(c); if (!pp || pp.esgotado) delete estado.carrinho[c]; });
       var ajuda = linkWhats("Olá! Gostaria de ajuda para fazer uma encomenda.");
       document.getElementById("btnAjuda").href = ajuda;
       document.getElementById("linkAjudaRodape").href = ajuda;
@@ -555,8 +572,8 @@
   }
   function cartao(p, noCarrossel){
     var it = estado.carrinho[p.codigo], cor = corCat(p.categoria_id);
-    var h = '<article class="produto' + (it && it.q ? ' no-pedido' : '') + '" ' + (noCarrossel ? '' : 'id="p-' + esc(p.codigo) + '" ') + 'data-cod="' + esc(p.codigo) + '" data-busca="' + esc(normal(p.nome + ' ' + (p.descricao || ''))) + '">';
-    h += '<div class="arte a' + cor + '">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="" loading="lazy">' : DM_svg(iconeCat(p.categoria_id), noCarrossel ? 64 : 48)) + (p.selo ? '<span class="selo">' + esc(p.selo) + '</span>' : '') + '</div>';
+    var h = '<article class="produto' + (it && it.q ? ' no-pedido' : '') + (p.esgotado ? ' esgotado' : '') + '" ' + (noCarrossel ? '' : 'id="p-' + esc(p.codigo) + '" ') + 'data-cod="' + esc(p.codigo) + '" data-busca="' + esc(normal(p.nome + ' ' + (p.descricao || ''))) + '">';
+    h += '<div class="arte a' + cor + '">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="" loading="lazy">' : DM_svg(iconeCat(p.categoria_id), noCarrossel ? 64 : 48)) + (p.selo && !p.esgotado ? '<span class="selo">' + esc(p.selo) + '</span>' : '') + (p.esgotado ? '<span class="tarja">ESGOTADO</span>' : '') + '</div>';
     h += '<div class="corpo"><h3>' + esc(p.nome) + '</h3>';
     if (p.descricao) h += '<p class="desc">' + esc(p.descricao) + '</p>';
     h += '<div class="preco">' + reais(p.preco_centavos) + ' <small>' + precoUnTxt(p.unidade) + '</small></div>';
@@ -568,6 +585,7 @@
     return h;
   }
   function controle(p, it){
+    if (p.esgotado) return '<button type="button" class="btn-esg" disabled>Esgotado</button>';
     if (!it || !it.q) return '<button type="button" class="btn-add" data-acao="add" aria-label="Adicionar ' + esc(p.nome) + '">+ Adicionar</button>';
     return '<div class="qtd">' +
       '<button type="button" data-acao="menos" aria-label="Diminuir ' + esc(p.nome) + '">−</button>' +
@@ -579,6 +597,7 @@
   }
   function mudarQtd(codigo, acao){
     var p = produtoPorCodigo(codigo); if (!p) return;
+    if (p.esgotado) return;
     var it = estado.carrinho[codigo] || {q:0, obs:""};
     if (acao === "add") it.q = p.minimo;
     else if (acao === "mais") { var nq = arred(it.q + p.incremento); if (p.maximo == null || nq <= p.maximo) it.q = nq; }
@@ -614,7 +633,8 @@
     }
     barra.hidden = !mostrar; document.getElementById("espacoBarra").hidden = !mostrar;
     if (!mostrar) return;
-    var btn = document.getElementById("barraBtn");
+    var btn = document.getElementById("barraBtn"), bq = document.getElementById("barraQtd");
+    bq.textContent = t.n; bq.hidden = !t.n;
     if (!t.n) {
       document.getElementById("barraResumo").innerHTML = 'Nenhum produto escolhido<strong>' + reais(0) + '</strong>';
       btn.disabled = true;
@@ -666,6 +686,7 @@
     h += '</div></div>';
 
     h += '<div class="painel"><h2>Para quando?</h2>';
+    if (diasAntecedencia() > 1) h += '<p class="aviso" style="margin:0 0 12px">Alguns itens precisam de mais tempo de preparo: datas a partir de <strong>' + ddmm(amanhaISO()) + '</strong>.</p>';
     var datas = Array.isArray(cfg.datas) ? cfg.datas.filter(function(x){ return x >= amanhaISO(); }) : [];
     if (datas.length) {
       h += botoesOpcao("data", datas.map(function(x){ var t = dataBR(x); return {valor:x, texto:t.charAt(0).toUpperCase()+t.slice(1)}; }), d.data, "Data");
@@ -742,7 +763,7 @@
       if (d.endereco.length < 5) erro("eEnd","fEnd","Falta informar o endereço.");
       if (d.bairro.length < 2) erro("eBairro","fBairro","Falta informar o bairro.");
     }
-    if (!d.data || d.data < amanhaISO()) erro("eData","fData","Escolha a data (a partir de amanhã).");
+    if (!d.data || d.data < amanhaISO()) erro("eData","fData", diasAntecedencia() > 1 ? "Para esse pedido, escolha uma data a partir de " + ddmm(amanhaISO()) + "." : "Escolha a data (a partir de amanhã).");
     if (!d.horario) erro("eHor", document.getElementById("fHora") ? "fHora" : null, "Escolha o horário.");
     if (Array.isArray(cfg.pagamentos) && cfg.pagamentos.length && !d.pagamento) erro("ePag",null,"Escolha a forma de pagamento.");
     if (primeiro) { primeiro.scrollIntoView({behavior:"smooth", block:"center"}); if (primeiro.focus) primeiro.focus({preventScroll:true}); return false; }

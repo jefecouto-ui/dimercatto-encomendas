@@ -163,19 +163,21 @@
     <div class="grade" style="margin-top:12px">
       <div><label for="pCategoria">Categoria</label><select id="pCategoria"></select></div>
       <div><label for="pSub">Subcategoria <span class="dica">opcional — ex.: Risoles</span></label><input type="text" id="pSub" maxlength="40" list="listaSubs"><datalist id="listaSubs"></datalist></div>
-      <div><label for="pUnidade">Vendido por</label><select id="pUnidade"><option value="kg">Quilo (kg)</option><option value="un">Unidade</option><option value="cento">Cento</option></select></div>
+      <div><label for="pUnidade">Vendido por</label><select id="pUnidade"><option value="kg">Quilo (kg)</option><option value="un">Unidade</option><option value="cento">Cento</option><option value="embalagem">Embalagem</option><option value="porcao">Porção</option></select></div>
     </div>
     <div class="grade" style="margin-top:12px">
       <div><label for="pMin">Quantidade mínima</label><input type="text" id="pMin" inputmode="decimal" value="1"></div>
       <div><label for="pInc">Aumenta de quanto em quanto</label><input type="text" id="pInc" inputmode="decimal" value="1"></div>
       <div><label for="pMax">Máximo <span class="dica">opcional</span></label><input type="text" id="pMax" inputmode="decimal"></div>
       <div><label for="pOrdem">Ordem na lista</label><input type="number" id="pOrdem" value="0"></div>
+      <div><label for="pAntec">Antecedência (dias) <span class="dica">opcional — vazio usa a regra geral</span></label><input type="number" id="pAntec" min="0" max="60" placeholder="geral"></div>
     </div>
     <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
       <label class="check"><input type="checkbox" id="pEstimado"> Valor estimado (confirmado após a pesagem)</label>
-      <label class="check"><input type="checkbox" id="pDestaque"> Destaque do Natal (aparece no carrossel do topo)</label>
+      <label class="check"><input type="checkbox" id="pDestaque"> Destaque do Natal (aparece em "Destaques" no topo)</label>
       <div><label for="pSelo">Selo no cartão <span class="dica">opcional, curto — ex.: CLÁSSICO, NOVIDADE</span></label><input type="text" id="pSelo" maxlength="20"></div>
       <label class="check"><input type="checkbox" id="pAtivo" checked> Disponível na loja</label>
+      <label class="check"><input type="checkbox" id="pEsgotado"> Esgotado (aparece em cinza, sem poder pedir)</label>
     </div>
     <div id="pErro" class="msg erro" hidden></div>
     <div class="rodape">
@@ -261,7 +263,7 @@
   function reais(c){ return (c/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
   function numBR(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
   function lerNum(s){ if (s == null) return NaN; s = String(s).trim().replace(/\s/g,""); if (!s) return NaN; if (s.indexOf(",") >= 0) s = s.replace(/\./g,"").replace(",","."); return Number(s); }
-  function unid(u){ return u === "kg" ? "kg" : (u === "cento" ? "cento(s)" : "un"); }
+  function unid(u){ return {kg:"kg", cento:"cento(s)", embalagem:"emb.", porcao:"porç."}[u] || "un"; }
   function hojeISO(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function dataBR(iso){ if (!iso) return ""; var p = iso.split("-"); return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"}); }
   function dataHora(ts){ return new Date(ts).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }
@@ -690,7 +692,7 @@
       g.itens.forEach(function(p){
         h += '<tr><td>' + esc(p.codigo) + '</td><td><strong>' + esc(p.nome) + '</strong>' + (p.descricao_caixa ? '<div class="dica">' + esc(p.descricao_caixa) + '</div>' : '') + '</td>';
         h += '<td class="num">' + reais(p.preco_centavos) + '</td><td>' + unid(p.unidade) + ' · mín. ' + numBR(p.minimo) + ' · +' + numBR(p.incremento) + (p.valor_estimado ? '<div class="dica">valor estimado</div>' : '') + '</td>';
-        h += '<td><button type="button" class="btn sec peq" data-toggle="' + p.id + '" title="Mudar disponibilidade">' + (p.ativo ? '✓ Na loja' : 'Fora da loja') + '</button></td>';
+        h += '<td><button type="button" class="btn sec peq" data-toggle="' + p.id + '" title="Mudar disponibilidade">' + (p.ativo ? '✓ Na loja' : 'Fora da loja') + '</button> <button type="button" class="btn sec peq" data-esg="' + p.id + '" title="Marcar/desmarcar esgotado"' + (p.esgotado ? ' style="background:#2E211B;color:#fff"' : '') + '>' + (p.esgotado ? 'Esgotado' : 'Tem estoque') + '</button>' + (p.antecedencia_dias != null ? '<div class="dica">antecedência: ' + p.antecedencia_dias + ' dia(s)</div>' : '') + '</td>';
         h += '<td><button type="button" class="btn peq" data-edit="' + p.id + '">Editar</button></td></tr>';
       });
       h += '</tbody></table></div>';
@@ -699,6 +701,10 @@
     var box = document.getElementById("listaProd"); box.innerHTML = h;
     box.querySelectorAll("[data-edit]").forEach(function(x){ x.onclick = function(){ abrirProduto(S.produtos.filter(function(p){ return p.id === +x.dataset.edit; })[0]); }; });
     box.querySelectorAll("[data-editcat]").forEach(function(x){ x.onclick = function(){ abrirCategoria(catPorId(+x.dataset.editcat)); }; });
+    box.querySelectorAll("[data-esg]").forEach(function(x){ x.onclick = function(){
+      var p = S.produtos.filter(function(q){ return q.id === +x.dataset.esg; })[0]; x.disabled = true;
+      sb.from("produtos").update({esgotado: !p.esgotado}).eq("id", p.id).select().then(function(r){ if (r.error) { alert(erroTxt(r.error)); x.disabled = false; return; } p.esgotado = r.data[0].esgotado; desenharProdutos(); });
+    }; });
     box.querySelectorAll("[data-toggle]").forEach(function(x){ x.onclick = function(){
       var p = S.produtos.filter(function(q){ return q.id === +x.dataset.toggle; })[0]; x.disabled = true;
       sb.from("produtos").update({ativo: !p.ativo}).eq("id", p.id).select().then(function(r){ if (r.error) { alert(erroTxt(r.error)); x.disabled = false; return; } p.ativo = r.data[0].ativo; desenharProdutos(); });
@@ -725,6 +731,8 @@
     document.getElementById("pSub").value = p && p.subcategoria ? p.subcategoria : "";
     document.getElementById("listaSubs").innerHTML = S.produtos.map(function(x){ return x.subcategoria; }).filter(function(v, i, a){ return v && a.indexOf(v) === i; }).map(function(v){ return '<option value="' + esc(v) + '">'; }).join("");
     document.getElementById("pAtivo").checked = p ? p.ativo : true;
+    document.getElementById("pEsgotado").checked = p ? !!p.esgotado : false;
+    v("pAntec", p && p.antecedencia_dias != null ? p.antecedencia_dias : "");
     document.getElementById("pExcluir").hidden = !p;
     document.getElementById("pErro").hidden = true;
     dlgP.showModal();
@@ -746,14 +754,17 @@
     if (!(preco >= 0)) return falha("Preço inválido. Use, por exemplo, 129,90.");
     if (!(min > 0)) return falha("A quantidade mínima precisa ser maior que zero.");
     if (!(inc > 0)) return falha("O incremento precisa ser maior que zero.");
-    if (un !== "kg" && (min % 1 !== 0 || inc % 1 !== 0)) return falha("Para unidade ou cento, use números inteiros no mínimo e no incremento.");
+    if (un !== "kg" && (min % 1 !== 0 || inc % 1 !== 0)) return falha("Para unidade, cento, embalagem ou porção, use números inteiros no mínimo e no incremento.");
+    var ant = g("pAntec") === "" ? null : parseInt(g("pAntec"), 10);
+    if (ant != null && !(ant >= 0 && ant <= 60)) return falha("Antecedência: use de 0 a 60 dias, ou deixe vazio.");
     if (max != null && !(max >= min)) return falha("O máximo precisa ser maior ou igual ao mínimo.");
     var dados = {
       codigo: g("pCodigo"), nome: g("pNome"), descricao: g("pDesc") || null, descricao_caixa: g("pCaixa") || null,
       categoria_id: g("pCategoria") ? +g("pCategoria") : null, unidade: un, preco_centavos: Math.round(preco*100),
       minimo: min, incremento: inc, maximo: max, ordem: parseInt(g("pOrdem"),10) || 0,
       valor_estimado: document.getElementById("pEstimado").checked, ativo: document.getElementById("pAtivo").checked,
-      destaque: document.getElementById("pDestaque").checked, subcategoria: (document.getElementById("pSub").value.trim() || null), selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null)
+      destaque: document.getElementById("pDestaque").checked, subcategoria: (document.getElementById("pSub").value.trim() || null), selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null),
+      esgotado: document.getElementById("pEsgotado").checked, antecedencia_dias: ant
     };
     var btn = document.getElementById("pSalvar"); btn.disabled = true;
     var q = editando ? sb.from("produtos").update(dados).eq("id", editando.id).select() : sb.from("produtos").insert(dados).select();
@@ -818,7 +829,8 @@
     h += '<label for="cfgTexto" style="margin-top:12px">Texto de apresentação</label><input type="text" id="cfgTexto" maxlength="200" value="' + esc(c.campanha_texto || "") + '">';
     h += '<div class="grade" style="margin-top:12px"><div><label for="cfgPrazoData">Data limite das encomendas <span class="dica">mostra a contagem regressiva</span></label><input type="date" id="cfgPrazoData" value="' + esc(c.prazo_data || "") + '"></div>';
     h += '<div><label for="cfgPrazo">Aviso de prazo <span class="dica">usado só se não houver data limite</span></label><input type="text" id="cfgPrazo" value="' + esc(c.prazo_aviso || "") + '"></div></div></div>';
-    h += '<div class="card"><h2>Datas disponíveis</h2><p class="dica" style="margin-top:0">Se nenhuma data for cadastrada, o cliente escolhe qualquer data a partir de amanhã.</p><div class="linha-add"><input type="date" id="addData"><button class="btn sec" type="button" data-add="datas">Adicionar</button></div><div class="chips" id="chips-datas"></div></div>';
+    h += '<div class="card"><h2>Antecedência mínima</h2><label for="cfgAntec">Dias de antecedência para encomendar <span class="dica">1 = a partir de amanhã. Cada produto pode pedir mais dias no cadastro dele.</span></label><input type="number" id="cfgAntec" min="1" max="60" style="max-width:140px" value="' + esc(c.antecedencia_dias != null ? c.antecedencia_dias : 1) + '"></div>';
+    h += '<div class="card"><h2>Datas disponíveis</h2><p class="dica" style="margin-top:0">Se nenhuma data for cadastrada, o cliente escolhe qualquer data respeitando a antecedência mínima.</p><div class="linha-add"><input type="date" id="addData"><button class="btn sec" type="button" data-add="datas">Adicionar</button></div><div class="chips" id="chips-datas"></div></div>';
     h += '<div class="card"><h2>Faixas de horário (produção)</h2><p class="dica" style="margin-top:0">O cliente escolhe uma faixa. Com <b>limite</b>, a faixa fica "Esgotado" quando lota. <b>Dias</b>: deixe vazio para valer todos os dias, ou informe datas (ex.: 24/12, 31/12). Com faixas cadastradas, a lista "Horários" abaixo é ignorada.</p><div class="tabela"><table><thead><tr><th>Faixa (como o cliente vê)</th><th style="width:110px">Limite de pedidos</th><th>Só nos dias</th><th></th></tr></thead><tbody id="faixasLista"></tbody></table></div><button class="btn sec" type="button" id="addFaixa" style="margin-top:10px">+ Adicionar faixa</button></div>';
     h += '<div class="card"><h2>Horários</h2><p class="dica" style="margin-top:0">Opcional. Ex.: "Manhã (8h às 12h)". Sem horários, o cliente não escolhe horário.</p><div class="linha-add"><input type="text" id="addHorario" maxlength="60"><button class="btn sec" type="button" data-add="horarios">Adicionar</button></div><div class="chips" id="chips-horarios"></div></div>';
     h += '<div class="card"><h2>Formas de pagamento</h2><p class="dica" style="margin-top:0">Opcional. Ex.: "Pix", "Cartão na retirada". Sem formas cadastradas, o pagamento é combinado com a equipe.</p><div class="linha-add"><input type="text" id="addPagamento" maxlength="60"><button class="btn sec" type="button" data-add="pagamentos">Adicionar</button></div><div class="chips" id="chips-pagamentos"></div></div>';
@@ -882,8 +894,10 @@
     if (erroFx) { msg.innerHTML = '<div class="msg erro">' + esc(erroFx) + '</div>'; return; }
     var wpp = soDig(g("cfgWpp"));
     if (wpp.length < 12 || wpp.length > 13 || wpp.indexOf("55") !== 0) { msg.innerHTML = '<div class="msg erro">WhatsApp inválido. Use 55 + DDD + número, ex.: 5571987654321.</div>'; return; }
+    var antG = parseInt(g("cfgAntec"), 10);
+    if (!(antG >= 1 && antG <= 60)) { msg.innerHTML = '<div class="msg erro">Antecedência mínima: use de 1 a 60 dias.</div>'; return; }
     var linhas = [
-      ["whatsapp", wpp], ["modo_teste", document.getElementById("cfgTeste").checked],
+      ["antecedencia_dias", antG], ["whatsapp", wpp], ["modo_teste", document.getElementById("cfgTeste").checked],
       ["campanha_titulo", g("cfgTit")], ["campanha_subtitulo", g("cfgSub")], ["prefixo_pedido", g("cfgPref").toUpperCase() || "ENC"],
       ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["faixas", faixasOk], ["pagamentos", listasCfg.pagamentos],
       ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")]

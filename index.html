@@ -261,6 +261,14 @@
   .qtd button{width:28px;height:36px;font-size:18px;border-radius:9px;border-width:1.5px}
   .qtd .valor{font-size:12px;min-width:0}
   .qtd .valor small{display:none}
+  .qtd .valor{display:flex;align-items:center;justify-content:center;gap:2px}
+  .qtd input.qtd-in{width:100%;min-width:0;max-width:64px;min-height:34px;height:34px;border:1.5px solid var(--borda);border-radius:8px;background:#FFF7EF;text-align:center;font-family:inherit;font-weight:800;font-size:12.5px;letter-spacing:-.3px;padding:0 1px;color:var(--texto);box-shadow:none}
+  .qtd input.qtd-in:focus{outline:none;border-color:var(--vinho);background:#fff}
+  .qtd .valor .un{display:none}
+  .grade-prod .qtd{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .grade-prod .qtd .valor{grid-column:1/-1;order:-1}
+  .grade-prod .qtd button{width:auto;height:34px}
+  .grade-prod .qtd input.qtd-in{max-width:none;font-size:14px}
   .grade-prod{gap:7px}
   @media (max-width:959px){ .grade-prod{grid-template-columns:repeat(3,minmax(0,1fr))} }
   @media (max-width:340px){ .grade-prod{grid-template-columns:repeat(2,minmax(0,1fr))} }
@@ -561,7 +569,9 @@
     if (!it || !it.q) return '<button type="button" class="btn-add" data-acao="add" aria-label="Adicionar ' + esc(p.nome) + '">+ Adicionar</button>';
     return '<div class="qtd">' +
       '<button type="button" data-acao="menos" aria-label="Diminuir ' + esc(p.nome) + '">−</button>' +
-      '<div class="valor" aria-live="polite">' + esc(qtdTxt(p.unidade, it.q)) + '<small>' + reais(subtotal(p, it.q)) + '</small></div>' +
+      (p.unidade === "kg"
+        ? '<label class="valor"><input class="qtd-in" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" data-qtdin="' + esc(p.codigo) + '" value="' + esc(numBR(it.q)) + '" aria-label="Quantidade em kg de ' + esc(p.nome) + '"><span class="un">kg</span><small>' + reais(subtotal(p, it.q)) + '</small></label>'
+        : '<div class="valor" aria-live="polite">' + esc(qtdTxt(p.unidade, it.q)) + '<small>' + reais(subtotal(p, it.q)) + '</small></div>') +
       '<button type="button" data-acao="mais" aria-label="Aumentar ' + esc(p.nome) + '">+</button>' +
       '</div>';
   }
@@ -856,7 +866,30 @@
     if (ev.target.id === "fBusca") { filtrarBusca(ev.target.value); return; }
     if (ev.target.matches("input, textarea")) { ev.target.classList.remove("invalido"); ev.target.removeAttribute("aria-invalid"); }
   });
-  document.addEventListener("change", function(){ if (estado.etapa === 2) lerFormulario(); });
+  function digitarQtd(inp){
+    var codigo = inp.dataset.qtdin, p = produtoPorCodigo(codigo); if (!p) return;
+    var t = String(inp.value || "").trim().replace(/\s/g, "");
+    if (t.indexOf(",") >= 0) t = t.replace(/\./g, "").replace(",", ".");
+    var n = Math.round(Number(t) * 1000) / 1000;
+    if (!(n > 0)) { delete estado.carrinho[codigo]; }
+    else {
+      if (n < p.minimo) n = p.minimo;
+      if (p.maximo != null && n > p.maximo) n = p.maximo;
+      var it = estado.carrinho[codigo] || {q:0, obs:""}; it.q = n; estado.carrinho[codigo] = it;
+    }
+    guardar();
+    document.querySelectorAll('.ctrl[data-codigo="' + CSS.escape(codigo) + '"]').forEach(function(box){
+      var art = box.closest(".produto"); if (art) art.classList.toggle("no-pedido", !!estado.carrinho[codigo]);
+      box.innerHTML = controle(p, estado.carrinho[codigo]);
+    });
+    atualizarBarra();
+  }
+  document.addEventListener("change", function(ev){
+    if (ev.target.dataset && ev.target.dataset.qtdin) { digitarQtd(ev.target); return; }
+    if (estado.etapa === 2) lerFormulario();
+  });
+  document.addEventListener("keydown", function(ev){ if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.qtdin) { ev.preventDefault(); ev.target.blur(); } });
+  document.addEventListener("focusin", function(ev){ if (ev.target.dataset && ev.target.dataset.qtdin) { try { ev.target.select(); } catch(e){} } });
 
   carregar();
 })();

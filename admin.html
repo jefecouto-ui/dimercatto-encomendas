@@ -158,6 +158,7 @@
     <div style="margin-top:12px"><label for="pCaixa">Descrição no caixa <span class="dica">opcional — como está no sistema da loja</span></label><input type="text" id="pCaixa" maxlength="120"></div>
     <div class="grade" style="margin-top:12px">
       <div><label for="pCategoria">Categoria</label><select id="pCategoria"></select></div>
+      <div><label for="pSub">Subcategoria <span class="dica">opcional — ex.: Risoles</span></label><input type="text" id="pSub" maxlength="40" list="listaSubs"><datalist id="listaSubs"></datalist></div>
       <div><label for="pUnidade">Vendido por</label><select id="pUnidade"><option value="kg">Quilo (kg)</option><option value="un">Unidade</option><option value="cento">Cento</option></select></div>
     </div>
     <div class="grade" style="margin-top:12px">
@@ -695,6 +696,8 @@
     document.getElementById("pEstimado").checked = p ? p.valor_estimado : false;
     document.getElementById("pDestaque").checked = p ? !!p.destaque : false;
     document.getElementById("pSelo").value = p && p.selo ? p.selo : "";
+    document.getElementById("pSub").value = p && p.subcategoria ? p.subcategoria : "";
+    document.getElementById("listaSubs").innerHTML = S.produtos.map(function(x){ return x.subcategoria; }).filter(function(v, i, a){ return v && a.indexOf(v) === i; }).map(function(v){ return '<option value="' + esc(v) + '">'; }).join("");
     document.getElementById("pAtivo").checked = p ? p.ativo : true;
     document.getElementById("pExcluir").hidden = !p;
     document.getElementById("pErro").hidden = true;
@@ -724,7 +727,7 @@
       categoria_id: g("pCategoria") ? +g("pCategoria") : null, unidade: un, preco_centavos: Math.round(preco*100),
       minimo: min, incremento: inc, maximo: max, ordem: parseInt(g("pOrdem"),10) || 0,
       valor_estimado: document.getElementById("pEstimado").checked, ativo: document.getElementById("pAtivo").checked,
-      destaque: document.getElementById("pDestaque").checked, selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null)
+      destaque: document.getElementById("pDestaque").checked, subcategoria: (document.getElementById("pSub").value.trim() || null), selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null)
     };
     var btn = document.getElementById("pSalvar"); btn.disabled = true;
     var q = editando ? sb.from("produtos").update(dados).eq("id", editando.id).select() : sb.from("produtos").insert(dados).select();

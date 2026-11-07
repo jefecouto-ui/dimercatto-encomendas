@@ -103,7 +103,7 @@
   .cat-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .cat-tile{position:relative;height:118px;border-radius:18px;border:0;color:#fff;text-align:left;padding:12px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
   .cat-tile svg{opacity:.95}
-  .cat-tile b{font-size:16px;line-height:1.15;overflow-wrap:anywhere}
+  .cat-tile b{font-size:15px;line-height:1.15;letter-spacing:-.2px}
   .cat-tile span{font-size:13px;font-weight:600;opacity:.9}
   .t0{background:#94392D}.t1{background:#B0703F}.t2{background:#2F5D46}.t3{background:#6E271E}
   .a0{background:radial-gradient(110% 90% at 30% 20%,#C9774F 0%,#94392D 55%,#5A2219 100%)}
@@ -228,11 +228,55 @@
     .cat-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
     .carrossel{margin:0;padding:0 0 14px}
     .guia-topo{margin:18px 0 0;border-radius:20px}
+    .barra-cat{margin:0;top:60px}
+    .subs{margin:0 0 12px;padding:2px 0}
     .lateral{display:block;position:sticky;top:150px;background:#fff;border:1px solid var(--borda);border-radius:var(--raio);padding:18px;margin-top:28px;max-height:calc(100vh - 170px);overflow:auto}
     .barra,.espaco-barra{display:none!important}
     .cat-btn:hover,.btn-sec:hover{background:var(--creme)}
     .btn-add:hover,.btn-principal:not(:disabled):hover{filter:brightness(.92)}
   }
+
+  /* Cartões compactos */
+  .produto .nota{display:none}
+  .cab-cat{display:none!important}
+  .barra-cat + .layout .grade-prod{margin-top:10px}
+  .produto{border-radius:12px}
+  .carrossel .produto{width:170px}
+  .carrossel .produto .arte{height:96px}
+  .carrossel .produto .arte svg{width:40px;height:40px}
+  .produto .arte{height:58px}
+  .produto .arte svg{width:26px;height:26px}
+  .produto .corpo{padding:6px 7px 0}
+  .produto h3{font-size:13px;line-height:1.2}
+  .produto .preco{font-size:13.5px;margin-top:2px}
+  .produto .preco small{font-size:11px}
+  .produto .ctrl{padding:6px 7px 8px}
+  .btn-add{min-height:36px;font-size:13px;border-radius:9px;padding:0 4px}
+  .qtd{gap:2px}
+  .qtd button{width:28px;height:36px;font-size:18px;border-radius:9px;border-width:1.5px}
+  .qtd .valor{font-size:12px;min-width:0}
+  .qtd .valor small{display:none}
+  .grade-prod{gap:7px}
+  @media (max-width:959px){ .grade-prod{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  @media (max-width:340px){ .grade-prod{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (min-width:960px){ .grade-prod{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px} .produto .arte{height:80px} .produto h3{font-size:14.5px} .produto .preco{font-size:15px} .btn-add{min-height:40px;font-size:14px} .qtd button{width:34px;height:40px} }
+  /* Tela de categoria */
+  .barra-cat{position:sticky;top:60px;z-index:12;background:var(--creme-claro);margin:0 -16px;padding:10px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--borda)}
+  .barra-cat .voltar-ini{flex:none;min-height:42px;border:0;border-radius:999px;background:var(--vinho);color:#fff;font-weight:800;font-size:15px;padding:0 14px}
+  .barra-cat .lista{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+  .barra-cat .lista::-webkit-scrollbar{display:none}
+  .barra-cat .cat-btn{min-height:42px}
+  .cab-cat{display:flex;align-items:center;gap:12px;color:#fff;border-radius:18px;padding:16px;margin:14px 0 12px}
+  .cab-cat h1{margin:0;font-family:"Playfair Display",Georgia,serif;font-size:26px;line-height:1.1}
+  .cab-cat span{font-size:14px;font-weight:600;opacity:.9}
+  .subs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 12px;padding:2px 16px}
+  .subs::-webkit-scrollbar{display:none}
+  .sub-btn{flex:none;min-height:44px;border:2px solid var(--borda);background:#fff;border-radius:999px;padding:0 16px;font-weight:700;font-size:15.5px;color:var(--texto)}
+  .sub-btn[aria-pressed=true]{background:var(--texto);border-color:var(--texto);color:#fff}
+  .nav-cat{display:flex;flex-direction:column;gap:10px;margin:22px 0 6px}
+  .busca-fixa{position:sticky;top:66px;z-index:11;margin:14px 0 0}
+  .busca-fixa::before{content:"";position:absolute;inset:-8px -16px;background:var(--creme-claro);z-index:-1}
+  .cat-tile span{white-space:nowrap}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -283,7 +327,7 @@
     dados: { nome:"", whatsapp:"", modalidade:"", data:"", horario:"", endereco:"", bairro:"", referencia:"", pagamento:"", observacoes:"" },
     resultado: null,
     vendedor: null,
-    guia: null
+    guia: null, cat: null, sub: null
   };
 
   /* ---------- utilidades ---------- */
@@ -299,11 +343,13 @@
   function qtdTxt(u, q){ return numBR(q) + " " + unidadeTxt(u, q); }
   function normal(t){ return String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
   function filtrarBusca(q){
-    q = normal(q).trim(); var algum = false;
-    document.querySelectorAll(".produto[data-busca]").forEach(function(a){ var ok = !q || a.dataset.busca.indexOf(q) >= 0; a.hidden = !ok; if (ok) algum = true; });
-    document.querySelectorAll("section.categoria").forEach(function(sec){ sec.hidden = !sec.querySelector(".produto:not([hidden])"); });
-    var cats = document.querySelector(".cats"); if (cats) cats.hidden = !!q;
-    var sr = document.getElementById("semResultado"); if (sr) sr.hidden = algum;
+    var qn = normal(q).trim(), ini = document.getElementById("blocoInicio"), res = document.getElementById("resultadoBusca");
+    if (!ini || !res) return;
+    if (!qn) { ini.hidden = false; res.hidden = true; res.innerHTML = ""; return; }
+    var achados = estado.produtos.filter(function(p){ return normal(p.nome + " " + (p.descricao || "") + " " + (p.subcategoria || "")).indexOf(qn) >= 0; });
+    ini.hidden = true; res.hidden = false;
+    res.innerHTML = '<div class="tit-sec"><h2>Resultado da busca</h2><span>' + achados.length + (achados.length === 1 ? ' item' : ' itens') + '</span></div>' +
+      (achados.length ? '<div class="grade-prod">' + achados.slice(0, 60).map(function(p){ return cartao(p); }).join("") + '</div>' : '<p class="sem-resultado">Nenhum produto encontrado. Tente outra palavra.</p>');
   }
   function arred(n){ return Math.round(n*1000)/1000; }
   function subtotal(p, q){ return Math.round(q * p.preco_centavos); }
@@ -350,7 +396,7 @@
     recuperar();
     Promise.all([
       api("categorias?select=id,nome,icone,ordem&ativo=eq.true&order=ordem.asc,nome.asc"),
-      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo&ativo=eq.true&order=ordem.asc,nome.asc"),
+      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria&ativo=eq.true&order=ordem.asc,nome.asc"),
       api("configuracoes?select=chave,valor")
     ]).then(function(r){
       estado.categorias = r[0];
@@ -363,6 +409,7 @@
       document.getElementById("linkAjudaRodape").href = ajuda;
       document.getElementById("faixaTeste").hidden = !estado.config.modo_teste;
       if (estado.config.campanha_titulo) document.title = "Encomendas — " + estado.config.campanha_titulo;
+      var mh = location.hash.match(/^#categoria-(\d+)$/); if (mh) estado.cat = +mh[1];
       irPara(1, true);
     }).catch(function(){
       document.getElementById("app").innerHTML = '<div class="msg-erro">Não conseguimos carregar o cardápio agora. Verifique sua internet e tente novamente.</div><div class="acoes"><button class="btn-principal" onclick="location.reload()">Tentar de novo</button></div>';
@@ -389,6 +436,19 @@
 
   /* ---------- etapa 1: cardápio ---------- */
   var RAMO = '<svg class="ramo" viewBox="0 0 240 250" fill="none" stroke="#D9B86A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M232 14 C170 58 118 112 74 214"/><path d="M212 28 l-6 -18 M212 28 l17 -5 M192 42 l-8 -18 M192 42 l18 -4 M172 58 l-9 -17 M172 58 l18 -2 M153 76 l-10 -16 M153 76 l18 0 M136 95 l-11 -15 M136 95 l17 2 M120 115 l-12 -14 M120 115 l17 4 M106 136 l-12 -13 M106 136 l16 6 M94 158 l-13 -11 M94 158 l15 8 M84 182 l-13 -9 M84 182 l14 9"/><path d="M160 66 v20"/><circle cx="160" cy="96" r="10" fill="#E9D7A8" stroke="none"/><path d="M118 118 v26"/><circle cx="118" cy="152" r="8" fill="#E07F40" stroke="none"/><path d="M196 40 v30"/><circle cx="196" cy="78" r="7" fill="#FFFFFF" stroke="none" opacity=".85"/></svg>';
+  function abrirCategoria(id){
+    var alvo = id == null ? "" : "#categoria-" + id;
+    if (location.hash !== alvo) { if (alvo) location.hash = alvo; else history.pushState(null, "", location.pathname + location.search); }
+    estado.cat = id; estado.sub = null; estado.guia = null; irPara(1);
+    if (id == null) { var c = document.getElementById("cardapio"); if (c) c.scrollIntoView(); }
+  }
+  window.addEventListener("hashchange", function(){
+    var m = location.hash.match(/^#categoria-(\d+)$/), id = m ? +m[1] : null;
+    if (estado.etapa === 1 && id !== estado.cat) { estado.cat = id; estado.sub = null; estado.guia = null; irPara(1); }
+  });
+  window.addEventListener("popstate", function(){
+    if (!location.hash && estado.etapa === 1 && estado.cat != null) { estado.cat = null; irPara(1); var c = document.getElementById("cardapio"); if (c) c.scrollIntoView(); }
+  });
   function catsComProdutos(){ return estado.categorias.filter(function(c){ return estado.produtos.some(function(p){ return p.categoria_id === c.id; }); }); }
   function corCat(id){ var cs = estado.categorias; for (var i=0;i<cs.length;i++) if (cs[i].id === id) return i % 4; return 0; }
   function iconeCat(id){ var c = estado.categorias.filter(function(x){ return x.id === id; })[0]; return c ? c.icone : "talheres"; }
@@ -405,6 +465,8 @@
   }
   function telaCardapio(){
     if (estado.guia != null) return telaGuia();
+    if (estado.cat != null && catsComProdutos().some(function(c){ return c.id === estado.cat; })) return telaCategoria();
+    estado.cat = null;
     var cfg = estado.config, h = "", cats = catsComProdutos();
     var semCat = estado.produtos.filter(function(p){ return !estado.categorias.some(function(c){ return c.id === p.categoria_id; }); });
     h += '<section class="vitrine" aria-label="Apresentação"><span class="moldura"></span><span class="moldura"></span>' + RAMO;
@@ -416,34 +478,45 @@
     h += '<div class="botoes"><a class="b1" href="#cardapio" data-irpara="cardapio">Ver o cardápio</a>' + (cats.length > 1 ? '<button type="button" class="b2" data-guia="0">Montar minha ceia</button>' : '') + '</div>';
     h += '</div></section>';
     h += '<div class="confianca"><div>Feito na nossa<br>cozinha</div><div>' + (cfg.entrega_ativa ? 'Retirada ou<br>entrega' : 'Retirada<br>na loja') + '</div><div>Pedido em<br>3 passos</div></div>';
-
     h += '<div class="layout"><div class="col-produtos">';
+    h += '<div class="busca busca-fixa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="fBusca" placeholder="Buscar produto (ex.: pernil)" aria-label="Buscar produto" autocomplete="off"></div>';
+    h += '<div id="resultadoBusca" hidden></div><div id="blocoInicio">';
     var dest = estado.produtos.filter(function(p){ return p.destaque; });
     if (dest.length) {
       h += '<div class="tit-sec"><h2>Destaques do Natal</h2><span>deslize →</span></div><div class="carrossel">';
       dest.forEach(function(p){ h += cartao(p, true); });
       h += '</div>';
     }
-    if (cats.length > 1) {
-      h += '<div class="ceia-banner"><small>NÃO SABE POR ONDE COMEÇAR?</small><h3>Monte sua ceia em ' + cats.length + ' passos</h3><p>' + esc(cats.map(function(c){ return c.nome; }).join(", ")) + '.</p><button type="button" data-guia="0">Começar →</button></div>';
-      h += '<div class="tit-sec" id="cardapio"><h2>Escolha por categoria</h2></div><div class="cat-tiles">';
-      cats.forEach(function(c){ var n = estado.produtos.filter(function(p){ return p.categoria_id === c.id; }).length; h += '<button type="button" class="cat-tile t' + corCat(c.id) + '" data-cat="' + c.id + '">' + DM_svg(c.icone, 30) + '<div><b>' + esc(c.nome) + '</b><br><span>' + n + (n === 1 ? ' opção' : ' opções') + '</span></div></button>'; });
-      h += '</div>';
-    } else h += '<span id="cardapio"></span>';
-    if (estado.produtos.length > 8) h += '<div class="busca"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="fBusca" placeholder="Buscar produto (ex.: pernil)" aria-label="Buscar produto" autocomplete="off"></div><p class="sem-resultado" id="semResultado" hidden>Nenhum produto encontrado.</p>';
     if (!estado.produtos.length) h += '<div class="vazio">O cardápio ainda está sendo preparado. Volte em breve!</div>';
-    cats.forEach(function(c){
-      var ps = estado.produtos.filter(function(p){ return p.categoria_id === c.id; });
-      h += '<section class="categoria" id="cat-' + c.id + '"><div class="tit-sec"><h2>' + esc(c.nome) + '</h2><span>' + ps.length + (ps.length === 1 ? ' item' : ' itens') + '</span></div><div class="grade-prod">';
-      ps.forEach(function(p){ h += cartao(p); });
-      h += '</div></section>';
-    });
-    if (semCat.length) {
-      h += '<section class="categoria"><div class="tit-sec"><h2>Outros</h2></div><div class="grade-prod">';
-      semCat.forEach(function(p){ h += cartao(p); });
-      h += '</div></section>';
-    }
+    h += '<div class="tit-sec" id="cardapio"><h2>Escolha por categoria</h2></div><div class="cat-tiles">';
+    cats.forEach(function(c){ var n = estado.produtos.filter(function(p){ return p.categoria_id === c.id; }).length; h += '<button type="button" class="cat-tile t' + corCat(c.id) + '" data-abrircat="' + c.id + '">' + DM_svg(c.icone, 30) + '<div><b>' + esc(c.nome) + '</b><br><span>' + n + (n === 1 ? ' opção' : ' opções') + ' →</span></div></button>'; });
+    h += '</div>';
+    if (cats.length > 1) h += '<div class="ceia-banner"><small>NÃO SABE POR ONDE COMEÇAR?</small><h3>Monte sua ceia em ' + cats.length + ' passos</h3><p>' + esc(cats.map(function(c){ return c.nome; }).join(", ")) + '.</p><button type="button" data-guia="0">Começar →</button></div>';
+    if (semCat.length) { h += '<div class="tit-sec"><h2>Outros</h2></div><div class="grade-prod">'; semCat.forEach(function(p){ h += cartao(p); }); h += '</div>'; }
+    h += '</div>';
     h += '<div class="fim-marca"><div style="color:var(--dourado)">✦</div><q>Tudo em um só lugar, desde 2005.</q><div class="dica">Di Mercatto · Graça, Salvador</div></div>';
+    h += '</div><aside class="lateral" id="lateral" aria-label="Resumo do pedido"></aside></div>';
+    document.getElementById("app").innerHTML = h;
+  }
+  function telaCategoria(){
+    var cats = catsComProdutos(), c = cats.filter(function(x){ return x.id === estado.cat; })[0], idx = cats.indexOf(c);
+    var ps = estado.produtos.filter(function(p){ return p.categoria_id === c.id; });
+    var subs = []; ps.forEach(function(p){ if (p.subcategoria && subs.indexOf(p.subcategoria) < 0) subs.push(p.subcategoria); });
+    if (estado.sub && subs.indexOf(estado.sub) < 0) estado.sub = null;
+    var vis = estado.sub ? ps.filter(function(p){ return p.subcategoria === estado.sub; }) : ps;
+    var h = '<div class="barra-cat"><button type="button" class="voltar-ini" data-abrircat="inicio" aria-label="Voltar ao início">← Início</button><div class="lista">';
+    cats.forEach(function(x){ h += '<button type="button" class="cat-btn' + (x.id === c.id ? ' ativa' : '') + '" data-abrircat="' + x.id + '"' + (x.id === c.id ? ' aria-current="true"' : '') + '>' + esc(x.nome) + '</button>'; });
+    h += '</div></div>';
+    h += '<div class="layout"><div class="col-produtos">';
+    h += '<div class="cab-cat t' + corCat(c.id) + '">' + DM_svg(c.icone, 34) + '<div><h1>' + esc(c.nome) + '</h1><span>' + ps.length + (ps.length === 1 ? ' opção' : ' opções') + '</span></div></div>';
+    if (subs.length > 1) {
+      h += '<div class="subs" role="group" aria-label="Filtrar ' + esc(c.nome) + '"><button type="button" class="sub-btn" data-sub="" aria-pressed="' + (!estado.sub) + '">Todos</button>';
+      subs.forEach(function(sb){ h += '<button type="button" class="sub-btn" data-sub="' + esc(sb) + '" aria-pressed="' + (estado.sub === sb) + '">' + esc(sb) + '</button>'; });
+      h += '</div>';
+    }
+    h += '<div class="grade-prod">'; vis.forEach(function(p){ h += cartao(p); }); h += '</div>';
+    var prox = cats[idx + 1];
+    h += '<div class="nav-cat">' + (prox ? '<button type="button" class="btn-sec" data-abrircat="' + prox.id + '">Ver ' + esc(prox.nome.toLowerCase()) + ' →</button>' : '') + '<button type="button" class="btn-sec" data-abrircat="inicio">← Voltar ao início</button></div>';
     h += '</div><aside class="lateral" id="lateral" aria-label="Resumo do pedido"></aside></div>';
     document.getElementById("app").innerHTML = h;
   }
@@ -751,7 +824,8 @@
     var t = ev.target.closest("button, a"); if (!t) return;
     var ctrl = t.closest(".ctrl");
     if (ctrl && t.dataset.acao) { mudarQtd(ctrl.dataset.codigo, t.dataset.acao); return; }
-    if (t.dataset.cat) { var s = document.getElementById("cat-" + t.dataset.cat); if (s) s.scrollIntoView({behavior:"smooth"}); return; }
+    if (t.dataset.abrircat) { abrirCategoria(t.dataset.abrircat === "inicio" ? null : +t.dataset.abrircat); return; }
+    if (t.dataset.sub != null && t.classList.contains("sub-btn")) { estado.sub = t.dataset.sub || null; telaCardapio(); atualizarBarra(); return; }
     if (t.dataset.irpara === "cardapio") { ev.preventDefault(); var c = document.getElementById("cardapio"); if (c) c.scrollIntoView({behavior:"smooth"}); return; }
     if (t.dataset.guia != null) {
       var g = t.dataset.guia;

@@ -22,7 +22,9 @@
     --raio:18px;
   }
   *{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%}
+  html{-webkit-text-size-adjust:100%;overflow-x:hidden}
+  body{overflow-x:hidden;max-width:100%}
+  main{overflow-x:clip}
   body{margin:0;background:var(--creme-claro);color:var(--texto);font-family:Montserrat,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:19px;line-height:1.45}
   button,input,textarea,select{font:inherit;color:inherit}
   button{cursor:pointer}

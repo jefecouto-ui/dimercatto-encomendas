@@ -168,6 +168,8 @@
     </div>
     <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
       <label class="check"><input type="checkbox" id="pEstimado"> Valor estimado (confirmado após a pesagem)</label>
+      <label class="check"><input type="checkbox" id="pDestaque"> Destaque do Natal (aparece no carrossel do topo)</label>
+      <div><label for="pSelo">Selo no cartão <span class="dica">opcional, curto — ex.: CLÁSSICO, NOVIDADE</span></label><input type="text" id="pSelo" maxlength="20"></div>
       <label class="check"><input type="checkbox" id="pAtivo" checked> Disponível na loja</label>
     </div>
     <div id="pErro" class="msg erro" hidden></div>
@@ -691,6 +693,8 @@
     v("pMin", p ? numBR(p.minimo) : "0,5"); v("pInc", p ? numBR(p.incremento) : "0,5"); v("pMax", p && p.maximo != null ? numBR(p.maximo) : "");
     v("pOrdem", p ? p.ordem : 0);
     document.getElementById("pEstimado").checked = p ? p.valor_estimado : false;
+    document.getElementById("pDestaque").checked = p ? !!p.destaque : false;
+    document.getElementById("pSelo").value = p && p.selo ? p.selo : "";
     document.getElementById("pAtivo").checked = p ? p.ativo : true;
     document.getElementById("pExcluir").hidden = !p;
     document.getElementById("pErro").hidden = true;
@@ -719,7 +723,8 @@
       codigo: g("pCodigo"), nome: g("pNome"), descricao: g("pDesc") || null, descricao_caixa: g("pCaixa") || null,
       categoria_id: g("pCategoria") ? +g("pCategoria") : null, unidade: un, preco_centavos: Math.round(preco*100),
       minimo: min, incremento: inc, maximo: max, ordem: parseInt(g("pOrdem"),10) || 0,
-      valor_estimado: document.getElementById("pEstimado").checked, ativo: document.getElementById("pAtivo").checked
+      valor_estimado: document.getElementById("pEstimado").checked, ativo: document.getElementById("pAtivo").checked,
+      destaque: document.getElementById("pDestaque").checked, selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null)
     };
     var btn = document.getElementById("pSalvar"); btn.disabled = true;
     var q = editando ? sb.from("produtos").update(dados).eq("id", editando.id).select() : sb.from("produtos").insert(dados).select();
@@ -781,7 +786,9 @@
     h += '<div class="card"><h2>WhatsApp que recebe os pedidos</h2><label for="cfgWpp">Número com 55 + DDD <span class="dica">Ex.: 5571987654321</span></label><input type="tel" id="cfgWpp" value="' + esc(c.whatsapp || "") + '">';
     h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgTeste"' + (c.modo_teste ? " checked" : "") + '> Modo teste (mostra o aviso "Versão de teste" na loja)</label></div>';
     h += '<div class="card"><h2>Campanha</h2><div class="grade"><div><label for="cfgTit">Título</label><input type="text" id="cfgTit" value="' + esc(c.campanha_titulo || "") + '"></div><div><label for="cfgSub">Subtítulo</label><input type="text" id="cfgSub" value="' + esc(c.campanha_subtitulo || "") + '"></div><div><label for="cfgPref">Prefixo do nº do pedido</label><input type="text" id="cfgPref" maxlength="8" value="' + esc(c.prefixo_pedido || "") + '"></div></div>';
-    h += '<label for="cfgPrazo" style="margin-top:12px">Aviso de prazo <span class="dica">opcional — ex.: "Encomendas até 20/12"</span></label><input type="text" id="cfgPrazo" value="' + esc(c.prazo_aviso || "") + '"></div>';
+    h += '<label for="cfgTexto" style="margin-top:12px">Texto de apresentação</label><input type="text" id="cfgTexto" maxlength="200" value="' + esc(c.campanha_texto || "") + '">';
+    h += '<div class="grade" style="margin-top:12px"><div><label for="cfgPrazoData">Data limite das encomendas <span class="dica">mostra a contagem regressiva</span></label><input type="date" id="cfgPrazoData" value="' + esc(c.prazo_data || "") + '"></div>';
+    h += '<div><label for="cfgPrazo">Aviso de prazo <span class="dica">usado só se não houver data limite</span></label><input type="text" id="cfgPrazo" value="' + esc(c.prazo_aviso || "") + '"></div></div></div>';
     h += '<div class="card"><h2>Datas disponíveis</h2><p class="dica" style="margin-top:0">Se nenhuma data for cadastrada, o cliente escolhe qualquer data a partir de amanhã.</p><div class="linha-add"><input type="date" id="addData"><button class="btn sec" type="button" data-add="datas">Adicionar</button></div><div class="chips" id="chips-datas"></div></div>';
     h += '<div class="card"><h2>Horários</h2><p class="dica" style="margin-top:0">Opcional. Ex.: "Manhã (8h às 12h)". Sem horários, o cliente não escolhe horário.</p><div class="linha-add"><input type="text" id="addHorario" maxlength="60"><button class="btn sec" type="button" data-add="horarios">Adicionar</button></div><div class="chips" id="chips-horarios"></div></div>';
     h += '<div class="card"><h2>Formas de pagamento</h2><p class="dica" style="margin-top:0">Opcional. Ex.: "Pix", "Cartão na retirada". Sem formas cadastradas, o pagamento é combinado com a equipe.</p><div class="linha-add"><input type="text" id="addPagamento" maxlength="60"><button class="btn sec" type="button" data-add="pagamentos">Adicionar</button></div><div class="chips" id="chips-pagamentos"></div></div>';
@@ -814,7 +821,7 @@
     var linhas = [
       ["whatsapp", wpp], ["modo_teste", document.getElementById("cfgTeste").checked],
       ["campanha_titulo", g("cfgTit")], ["campanha_subtitulo", g("cfgSub")], ["prefixo_pedido", g("cfgPref").toUpperCase() || "ENC"],
-      ["prazo_aviso", g("cfgPrazo")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["pagamentos", listasCfg.pagamentos],
+      ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["pagamentos", listasCfg.pagamentos],
       ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")]
     ].map(function(x){ return {chave:x[0], valor:x[1]}; });
     sb.from("configuracoes").upsert(linhas).select().then(function(r){

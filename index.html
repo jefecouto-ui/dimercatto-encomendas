@@ -89,7 +89,8 @@
   .tit-sec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:26px 0 12px}
   .tit-sec h2,section.categoria .tit-sec h2{display:block;margin:0;font-family:"Playfair Display",Georgia,serif;font-size:26px;font-weight:700;color:var(--texto)}
   .tit-sec span{font-size:14px;color:var(--texto-suave);font-weight:600}
-  .carrossel{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 16px;margin:0 -16px;padding:4px 16px 14px;scrollbar-width:none}
+  .carrossel{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding:0 16px;margin:0 -16px;padding:4px 16px 14px;scrollbar-width:none}
+  .carrossel::after{content:"";flex:0 0 4px}
   .carrossel::-webkit-scrollbar{display:none}
   .carrossel .produto{flex:none;width:236px;scroll-snap-align:start}
   .carrossel .produto .arte{height:180px}

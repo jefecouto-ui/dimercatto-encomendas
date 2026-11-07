@@ -486,8 +486,8 @@
     h += '<div id="resultadoBusca" hidden></div><div id="blocoInicio">';
     var dest = estado.produtos.filter(function(p){ return p.destaque; });
     if (dest.length) {
-      h += '<div class="tit-sec"><h2>Destaques do Natal</h2><span>deslize →</span></div><div class="carrossel">';
-      dest.forEach(function(p){ h += cartao(p, true); });
+      h += '<div class="tit-sec"><h2>Destaques do Natal</h2></div><div class="grade-prod destaques">';
+      dest.slice(0, 6).forEach(function(p){ h += cartao(p, true); });
       h += '</div>';
     }
     if (!estado.produtos.length) h += '<div class="vazio">O cardápio ainda está sendo preparado. Volte em breve!</div>';

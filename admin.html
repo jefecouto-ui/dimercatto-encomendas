@@ -1077,13 +1077,22 @@
     document.getElementById("fotLista").innerHTML = ""; document.getElementById("fotSalvar").disabled = true;
     var n = S.produtos.filter(function(p){ return p.ean; }).length, sem = S.produtos.filter(function(p){ return p.ean && !p.foto_url; }).length;
     document.getElementById("fotStatus").textContent = n ? n + " produto(s) com código de barras, " + sem + " sem foto." : "Nenhum produto tem código de barras ainda. Cadastre o EAN no produto ou importe a planilha do ERP com a coluna EAN.";
-    document.getElementById("fotBuscar").disabled = !n;
+    document.getElementById("fotBuscar").disabled = !n; document.getElementById("fotBuscar").textContent = "Procurar fotos";
     document.getElementById("dlgFotos").showModal();
   }
   document.getElementById("fotFechar").onclick = function(){ document.getElementById("dlgFotos").close(); };
-  function buscarOFF(ean){
+  function esperar(ms){ return new Promise(function(ok){ setTimeout(ok, ms); }); }
+  function buscarOFF(ean, tentativa){
+    tentativa = tentativa || 0;
+    return buscarOFF1(ean).then(function(r){
+      // a base pública limita consultas por minuto: em erro, espera e tenta de novo
+      if (r && r.erro && tentativa < 4) return esperar(4000 * (tentativa + 1)).then(function(){ return buscarOFF(ean, tentativa + 1); });
+      return r;
+    });
+  }
+  function buscarOFF1(ean){
     return fetch("https://world.openfoodfacts.org/api/v2/product/" + ean + ".json?fields=product_name,product_name_pt,brands,quantity,image_front_url,image_url")
-      .then(function(r){ return r.ok ? r.json() : {status: 0}; })
+      .then(function(r){ if (r.status === 429 || r.status >= 500) throw new Error("limite"); return r.ok ? r.json() : {status: 0}; })
       .then(function(j){
         var p = j && j.status === 1 && j.product; if (!p) return null;
         var url = p.image_front_url || p.image_url; if (!url) return {semFoto: true, nome: p.product_name_pt || p.product_name || "", marca: p.brands || ""};
@@ -1109,19 +1118,22 @@
   }
   document.getElementById("fotBuscar").onclick = function(){
     var todos = document.getElementById("fotTodos").checked, b = this;
-    fotRes = S.produtos.filter(function(p){ return p.ean && (todos || !p.foto_url); }).map(function(p){ return {p: p, buscando: true}; });
+    var erros = fotRes.filter(function(r){ return r.res && r.res.erro && !r.salvo; });
+    if (erros.length && !todos) { erros.forEach(function(r){ r.buscando = true; r.res = null; }); }
+    else fotRes = S.produtos.filter(function(p){ return p.ean && (todos || !p.foto_url); }).map(function(p){ return {p: p, buscando: true}; });
     if (!fotRes.length) { document.getElementById("fotStatus").textContent = "Todos os produtos com código de barras já têm foto. Marque a opção acima para procurar de novo."; return; }
     b.disabled = true; desenharFotos();
-    var fila = fotRes.slice(), feitos = 0;
+    var fila = fotRes.filter(function(r){ return r.buscando; }), feitos = 0, totalFila = fila.length;
     function proximo(){
       var r = fila.shift(); if (!r) return Promise.resolve();
       return buscarOFF(r.p.ean).then(function(res){ r.res = res; r.buscando = false; r.usar = !!(res && res.url); feitos++;
-        document.getElementById("fotStatus").textContent = "Consultando " + feitos + " de " + fotRes.length + "…"; desenharFotos(); }).then(proximo);
+        document.getElementById("fotStatus").textContent = "Consultando " + feitos + " de " + totalFila + "… (a base pública é lenta: pode levar alguns minutos)"; desenharFotos(); }).then(function(){ return esperar(700); }).then(proximo);
     }
-    Promise.all([proximo(), proximo(), proximo(), proximo()]).then(function(){
+    Promise.all([proximo(), proximo()]).then(function(){
       b.disabled = false;
-      var ach = fotRes.filter(function(r){ return r.res && r.res.url; }).length;
-      document.getElementById("fotStatus").textContent = "Pronto: foto encontrada para " + ach + " de " + fotRes.length + ". Confira se cada foto é mesmo do produto antes de salvar.";
+      var ach = fotRes.filter(function(r){ return r.res && r.res.url; }).length, err = fotRes.filter(function(r){ return r.res && r.res.erro; }).length;
+      b.textContent = err ? "Tentar de novo os " + err + " com erro" : "Procurar fotos";
+      document.getElementById("fotStatus").textContent = "Pronto: foto encontrada para " + ach + " de " + fotRes.length + (err ? " (" + err + " não responderam: clique em tentar de novo)" : "") + ". Confira se cada foto é mesmo do produto antes de salvar.";
     });
   };
   function imagemParaJpeg(url){

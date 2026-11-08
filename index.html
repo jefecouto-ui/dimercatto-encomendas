@@ -333,6 +333,17 @@
   .grade-prod{gap:7px}
   @media (max-width:959px){ .grade-prod{grid-template-columns:repeat(3,minmax(0,1fr))} }
   @media (max-width:340px){ .grade-prod{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  /* produto com foto: embalagem inteira, sem cortar, fundo branco e mais altura */
+  .produto .arte.com-foto{background:#fff;height:112px;border-bottom:1px solid #F1E6DA}
+  .produto .arte.com-foto img{inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);object-fit:contain}
+  .produto .arte.com-foto img{cursor:zoom-in}
+  @media (min-width:960px){ .produto .arte.com-foto{height:150px} }
+  .zoom-foto{position:fixed;inset:0;z-index:60;background:rgba(20,14,10,.82);display:grid;place-items:center;padding:20px}
+  .zoom-foto[hidden]{display:none}
+  .zoom-foto figure{margin:0;background:#fff;border-radius:18px;padding:14px;max-width:min(92vw,520px);width:100%;text-align:center}
+  .zoom-foto img{width:100%;max-height:62vh;object-fit:contain}
+  .zoom-foto figcaption{font-weight:800;margin-top:8px;font-size:16px}
+  .zoom-foto button{margin-top:10px;min-height:46px;border:0;border-radius:12px;background:var(--vinho);color:#fff;font-weight:800;font-size:16px;width:100%}
   @media (min-width:960px){ .grade-prod{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px} .produto .arte{height:80px} .produto h3{font-size:14.5px} .produto .preco{font-size:15px} .btn-add{min-height:40px;font-size:14px} .qtd button{width:34px;height:40px} }
   /* Tela de categoria */
   .barra-cat{position:sticky;top:60px;z-index:12;background:var(--creme-claro);margin:0 -16px;padding:10px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--borda)}
@@ -390,6 +401,7 @@
   </div>
 </div>
 
+<div class="zoom-foto" id="zoomFoto" hidden role="dialog" aria-modal="true" aria-label="Foto do produto"><figure><img id="zoomImg" alt=""><figcaption id="zoomNome"></figcaption><button type="button" id="zoomFechar">Fechar</button></figure></div>
 <div class="folha-fundo" id="sacolaFundo" hidden></div>
 <section class="folha" id="sacolaFolha" role="dialog" aria-modal="true" aria-labelledby="sacolaTit" hidden>
   <div class="folha-cab"><h2 id="sacolaTit">Sua sacola</h2><button type="button" class="folha-x" id="sacolaFechar" aria-label="Fechar">✕</button></div>
@@ -649,7 +661,7 @@
   function cartao(p, noCarrossel){
     var it = estado.carrinho[p.codigo], cor = corCat(p.categoria_id);
     var h = '<article class="produto' + (it && it.q ? ' no-pedido' : '') + (p.esgotado ? ' esgotado' : '') + '" ' + (noCarrossel ? '' : 'id="p-' + esc(p.codigo) + '" ') + 'data-cod="' + esc(p.codigo) + '" data-busca="' + esc(normal(p.nome + ' ' + (p.descricao || ''))) + '">';
-    h += '<div class="arte a' + cor + '">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="" loading="lazy">' : DM_svg(iconeCat(p.categoria_id), noCarrossel ? 64 : 48)) + (p.selo && !p.esgotado ? '<span class="selo">' + esc(p.selo) + '</span>' : '') + (p.esgotado ? '<span class="tarja">ESGOTADO</span>' : '') + '</div>';
+    h += '<div class="arte a' + cor + (p.foto_url ? ' com-foto' : '') + '">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="" loading="lazy">' : DM_svg(iconeCat(p.categoria_id), noCarrossel ? 64 : 48)) + (p.selo && !p.esgotado ? '<span class="selo">' + esc(p.selo) + '</span>' : '') + (p.esgotado ? '<span class="tarja">ESGOTADO</span>' : '') + '</div>';
     h += '<div class="corpo"><h3>' + esc(p.nome) + '</h3>';
     if (p.descricao) h += '<p class="desc">' + esc(p.descricao) + '</p>';
     h += '<div class="preco">' + reais(p.preco_centavos) + ' <small>' + precoUnTxt(p.unidade) + '</small></div>';
@@ -1000,6 +1012,13 @@
   function fallback(t){ var a = document.createElement("textarea"); a.value = t; a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(a); }
 
   /* ---------- eventos ---------- */
+  // foto ampliada ao tocar na imagem do produto
+  document.addEventListener("click", function(ev){
+    var im = ev.target.closest(".arte.com-foto img"), z = document.getElementById("zoomFoto");
+    if (im) { var art = im.closest(".produto"), nm = art ? art.querySelector("h3") : null; document.getElementById("zoomImg").src = im.src; document.getElementById("zoomImg").alt = nm ? nm.textContent : ""; document.getElementById("zoomNome").textContent = nm ? nm.textContent : ""; z.hidden = false; document.getElementById("zoomFechar").focus(); return; }
+    if (!z.hidden && (ev.target === z || ev.target.id === "zoomFechar")) z.hidden = true;
+  });
+  document.addEventListener("keydown", function(ev){ if (ev.key === "Escape") document.getElementById("zoomFoto").hidden = true; });
   document.addEventListener("click", function(ev){
     var t = ev.target.closest("button, a"); if (!t) return;
     var ctrl = t.closest(".ctrl");

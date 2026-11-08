@@ -1174,23 +1174,44 @@
   var somLigado = false;
   try { somLigado = localStorage.getItem("dm_som") === "1"; } catch(e){}
   function rotuloSom(){ document.getElementById("somAviso").textContent = somLigado ? "🔔 Som: ligado" : "🔕 Som: ativar"; }
+  // o navegador só libera o som depois de um clique: com o som ligado, o primeiro clique na página já prepara o áudio
+  ["pointerdown","keydown"].forEach(function(ev){ document.addEventListener(ev, function(){ if (somLigado && (!audioCtx || audioCtx.state === "suspended")) { prepararAudio(); if (novos.length) tocarAlarme(); } }, true); });
   function prepararAudio(){ try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === "suspended") audioCtx.resume(); } catch(e){} }
   document.getElementById("somAviso").onclick = function(){
     somLigado = !somLigado; try { localStorage.setItem("dm_som", somLigado ? "1" : "0"); } catch(e){}
-    prepararAudio(); rotuloSom(); if (somLigado) tocar();
+    prepararAudio(); rotuloSom(); if (somLigado) { if (novos.length) tocarAlarme(); else tocar(); } else pararAlarme();
   };
   // navegadores só liberam som depois de um clique na página
   document.addEventListener("click", prepararAudio, {once:true});
-  function tocar(){
-    if (!somLigado || !audioCtx) return;
-    [0, 0.25, 0.5].forEach(function(t, k){
-      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = "sine"; o.frequency.value = k === 2 ? 1046 : 880;
-      g.gain.setValueAtTime(0.0001, audioCtx.currentTime + t);
-      g.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime + t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + t + 0.22);
-      o.connect(g); g.connect(audioCtx.destination); o.start(audioCtx.currentTime + t); o.stop(audioCtx.currentTime + t + 0.25);
+  /* Alarme: padrão de bipes alto gravado num buffer que toca em loop até alguém dar OK.
+     Por ser áudio contínuo, não sofre o atraso dos timers em aba de fundo. */
+  var bufAlarme = null, alarme = null;
+  function criarBufAlarme(){
+    var sr = audioCtx.sampleRate, dur = 2.2, b = audioCtx.createBuffer(1, Math.floor(sr * dur), sr), d = b.getChannelData(0);
+    var bipes = [[0,880],[0.25,1175],[0.5,880],[0.75,1175],[1.0,880],[1.25,1175]];
+    bipes.forEach(function(x){
+      var ini = Math.floor(x[0] * sr), n = Math.floor(0.2 * sr), ataque = Math.floor(0.005 * sr);
+      for (var i = 0; i < n; i++) {
+        var t = i / sr, env = Math.min(1, i / ataque, (n - i) / ataque);
+        var onda = Math.sin(2 * Math.PI * x[1] * t) > 0 ? 1 : -1; // onda quadrada: soa mais alto e "alarme"
+        d[ini + i] = 0.55 * onda * env;
+      }
     });
+    return b;
+  }
+  function tocarAlarme(){
+    if (!somLigado || !audioCtx || alarme) return;
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    if (!bufAlarme) bufAlarme = criarBufAlarme();
+    var src = audioCtx.createBufferSource(), g = audioCtx.createGain();
+    src.buffer = bufAlarme; src.loop = true; g.gain.value = 1;
+    src.connect(g); g.connect(audioCtx.destination); src.start(); alarme = src;
+  }
+  function pararAlarme(){ if (alarme) { try { alarme.stop(); } catch(e){} alarme = null; } }
+  function tocar(){ // teste ao ativar: um ciclo do alarme
+    if (!somLigado || !audioCtx) return;
+    if (!bufAlarme) bufAlarme = criarBufAlarme();
+    var src = audioCtx.createBufferSource(); src.buffer = bufAlarme; src.connect(audioCtx.destination); src.start();
   }
   function iniciarAlertas(){
     rotuloSom();
@@ -1209,7 +1230,7 @@
       if (r.error || !r.data || !r.data.length) return;
       ultimoId = r.data[r.data.length - 1].id;
       novos = novos.concat(r.data);
-      mostrarAlerta(); tocar(); comecarPiscar(); repetirSom();
+      mostrarAlerta(); tocarAlarme(); comecarPiscar();
       if (S.aba === "pedidos" && document.getElementById("listaPedidos")) carregarPedidos();
     });
   }
@@ -1223,9 +1244,7 @@
     document.getElementById("alertaVer").onclick = function(){ fecharAlerta(); filtroPed.status = ""; abrirAba("pedidos"); };
     document.getElementById("alertaOk").onclick = fecharAlerta;
   }
-  var somRepetido = null;
-  function repetirSom(){ if (!somRepetido) somRepetido = setInterval(function(){ if (novos.length) tocar(); else { clearInterval(somRepetido); somRepetido = null; } }, 15000); }
-  function fecharAlerta(){ novos = []; var a = document.getElementById("alerta"); if (a) a.hidden = true; pararPiscar(); if (somRepetido) { clearInterval(somRepetido); somRepetido = null; } }
+  function fecharAlerta(){ novos = []; var a = document.getElementById("alerta"); if (a) a.hidden = true; pararPiscar(); pararAlarme(); }
   function comecarPiscar(){
     if (piscar) return; var on = false;
     piscar = setInterval(function(){ on = !on; document.title = on ? "🔔 (" + novos.length + ") Novo pedido!" : tituloOriginal; }, 1000);

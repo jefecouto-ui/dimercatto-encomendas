@@ -1027,6 +1027,7 @@
     if (ctrl && t.dataset.acao) { mudarQtd(ctrl.dataset.codigo, t.dataset.acao); return; }
     if (t.dataset.abrircat) { abrirCategoria(t.dataset.abrircat === "inicio" ? null : +t.dataset.abrircat); return; }
     if (t.dataset.sub != null && t.classList.contains("sub-btn")) { estado.sub = t.dataset.sub || null; telaCardapio(); atualizarBarra(); return; }
+    if (t.dataset.irpara === "cardapio") { ev.preventDefault(); var cs = catsComProdutos(); if (cs.length) { abrirCategoria(cs[0].id); return; } }
     if (t.dataset.irpara === "cardapio" || t.dataset.irpara === "destaques") { ev.preventDefault(); var c = document.getElementById(t.dataset.irpara); if (c) c.scrollIntoView({behavior:"smooth"}); else { var fb = document.getElementById("fBusca"); if (fb) { fb.scrollIntoView({behavior:"smooth", block:"center"}); fb.focus({preventScroll:true}); } } return; }
     if (t.dataset.guia != null) {
       var g = t.dataset.guia;

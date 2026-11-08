@@ -100,6 +100,8 @@
   .fot-card b{font-size:14px;line-height:1.25}
   .fot-card .dica{font-size:12px}
   .fot-card.ok{outline:3px solid #2F5D46}
+  .ordem-btns .btn{min-width:30px;padding:2px 6px;margin-right:2px}
+  .ordem-btns .btn:disabled{opacity:.3}
   .imp-grupo{border:1px solid var(--borda);border-radius:12px;margin-top:10px;overflow:hidden}
   .imp-grupo summary{cursor:pointer;padding:10px 12px;font-weight:800;background:#FFF7EF}
   .imp-grupo table{width:100%;border-collapse:collapse;font-size:14px}
@@ -1009,7 +1011,7 @@
   function abrirImportacao(){
     impDados = null;
     document.getElementById("impArq").value = ""; document.getElementById("impPrevia").innerHTML = "";
-    var bc = document.getElementById("impConfirmar"); bc.disabled = true; bc.textContent = "Importar";
+    var bc = document.getElementById("impConfirmar"); bc.disabled = true; bc.textContent = "Importar"; bc.onclick = confirmarImportacao;
     document.getElementById("dlgImportar").showModal();
   }
   document.getElementById("impFechar").onclick = function(){ document.getElementById("dlgImportar").close(); };
@@ -1071,7 +1073,8 @@
       bc.disabled = !total; bc.textContent = total ? "Importar: " + partes.join(" + ") : "Nada para importar";
     }).catch(function(e){ box.innerHTML = '<div class="msg erro">' + esc(e.message || "Não foi possível ler o arquivo.") + '</div>'; });
   };
-  document.getElementById("impConfirmar").onclick = function(){
+  document.getElementById("impConfirmar").onclick = confirmarImportacao;
+  function confirmarImportacao(){
     if (!impDados) return;
     var bc = this, ja = {}, linhas = impDados.novos.map(function(it){ return {codigo: it.codigo, descricao: it.descricao, nome: it.nome, preco_centavos: it.preco_centavos, unidade: it.unidade, grupo: it.cat ? it.cat.nome : it.grupoNome, subgrupo: it.subgrupo, ean: it.ean}; })
       .concat(impDados.precos.map(function(x){ ja[x.p.codigo] = 1; return {codigo: x.it.codigo, descricao: x.it.descricao, preco_centavos: x.it.preco_centavos, unidade: x.p.unidade, ean: x.it.ean}; }))
@@ -1083,7 +1086,8 @@
       if (r.error) { bc.disabled = false; bc.textContent = "Tentar de novo"; document.getElementById("impPrevia").insertAdjacentHTML("afterbegin", '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'); return; }
       var d = r.data || {};
       document.getElementById("impPrevia").innerHTML = '<div class="msg ok">✓ Importação concluída: ' + (d.novos || 0) + ' produto(s) novo(s), ' + (d.precos || 0) + ' preço(s) atualizado(s)' + (d.eans ? ', ' + d.eans + ' código(s) de barras gravado(s)' : '') + (d.categorias ? ' e ' + d.categorias + ' categoria(s) criada(s)' : '') + '.' + (d.novos ? ' Os novos aparecem na lista de produtos' + (ativ && ativ.checked ? '' : ' marcados como "Fora da loja"') + '.' : '') + '</div>';
-      bc.textContent = "Concluído"; impDados = null;
+      bc.textContent = "✓ Concluído — fechar"; bc.disabled = false; impDados = null;
+      bc.onclick = function(){ document.getElementById("dlgImportar").close(); bc.onclick = confirmarImportacao; };
       carregarBase().then(desenharProdutos);
       fotosAutomaticas(document.getElementById("impPrevia"));
     });
@@ -1231,9 +1235,11 @@
       if (g.cat) h += (g.cat.ativo ? '' : ' <span class="tag off">oculta</span>') + ' <button class="btn sec peq" type="button" data-editcat="' + g.cat.id + '">Editar categoria</button>';
       h += '</div>';
       if (!g.itens.length) { h += '<p class="dica">Nenhum produto nesta categoria.</p>'; return; }
-      h += '<div class="tabela"><table><thead><tr><th>Código</th><th>Nome</th><th class="num">Preço</th><th>Venda</th><th>Situação</th><th></th></tr></thead><tbody>';
-      g.itens.forEach(function(p){
-        h += '<tr><td>' + esc(p.codigo) + (p.ean ? '<div class="dica" title="Código de barras">▮▯ ' + esc(p.ean) + '</div>' : '') + '</td><td><div style="display:flex;gap:8px;align-items:center">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="" width="40" height="40" style="object-fit:cover;border-radius:8px;flex:none" loading="lazy">' : '') + '<div><strong>' + esc(p.nome) + '</strong>' + (p.descricao_caixa ? '<div class="dica">' + esc(p.descricao_caixa) + '</div>' : '') + '</div></div></td>';
+      g.itens.sort(function(a, b2){ return (a.ordem || 0) - (b2.ordem || 0) || a.nome.localeCompare(b2.nome, "pt-BR"); });
+      if (g.cat && !b) h += '<div class="dica" style="margin:4px 0 6px">Ordem na loja: use ⤒ ↑ ↓ ⤓ para mover, ou <button class="btn sec peq" type="button" data-ordenaaz="' + g.cat.id + '">Ordenar A→Z</button> <button class="btn sec peq" type="button" data-ordenapreco="' + g.cat.id + '">Ordenar por preço</button></div>';
+      h += '<div class="tabela"><table><thead><tr>' + (b ? '' : '<th title="Ordem na loja">Ordem</th>') + '<th>Código</th><th>Nome</th><th class="num">Preço</th><th>Venda</th><th>Situação</th><th></th></tr></thead><tbody>';
+      g.itens.forEach(function(p, idx){
+        h += '<tr>' + (b ? '' : '<td class="ordem-btns" style="white-space:nowrap"><button type="button" class="btn sec peq" data-mover="topo" data-pid="' + p.id + '" title="Mover para o topo"' + (idx ? '' : ' disabled') + '>⤒</button><button type="button" class="btn sec peq" data-mover="sobe" data-pid="' + p.id + '" title="Subir"' + (idx ? '' : ' disabled') + '>↑</button><button type="button" class="btn sec peq" data-mover="desce" data-pid="' + p.id + '" title="Descer"' + (idx < g.itens.length - 1 ? '' : ' disabled') + '>↓</button><button type="button" class="btn sec peq" data-mover="fim" data-pid="' + p.id + '" title="Mover para o fim"' + (idx < g.itens.length - 1 ? '' : ' disabled') + '>⤓</button></td>') + '<td>' + esc(p.codigo) + (p.ean ? '<div class="dica" title="Código de barras">▮▯ ' + esc(p.ean) + '</div>' : '') + '</td><td><div style="display:flex;gap:8px;align-items:center">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="" width="40" height="40" style="object-fit:cover;border-radius:8px;flex:none" loading="lazy">' : '') + '<div><strong>' + esc(p.nome) + '</strong>' + (p.descricao_caixa ? '<div class="dica">' + esc(p.descricao_caixa) + '</div>' : '') + '</div></div></td>';
         h += '<td class="num">' + reais(p.preco_centavos) + '</td><td>' + unid(p.unidade) + ' · mín. ' + numBR(p.minimo) + ' · +' + numBR(p.incremento) + (p.valor_estimado ? '<div class="dica">valor estimado</div>' : '') + '</td>';
         h += '<td><button type="button" class="btn sec peq" data-toggle="' + p.id + '" title="Mudar disponibilidade">' + (p.ativo ? '✓ Na loja' : 'Fora da loja') + '</button> <button type="button" class="btn sec peq" data-esg="' + p.id + '" title="Marcar/desmarcar esgotado"' + (p.esgotado ? ' style="background:#2E211B;color:#fff"' : '') + '>' + (p.esgotado ? 'Esgotado' : 'Tem estoque') + '</button>' + (p.antecedencia_dias != null ? '<div class="dica">antecedência: ' + p.antecedencia_dias + ' dia(s)</div>' : '') + '</td>';
         h += '<td><button type="button" class="btn peq" data-edit="' + p.id + '">Editar</button></td></tr>';
@@ -1243,6 +1249,19 @@
     if (!h) h = '<p class="vazio">Nenhum produto encontrado.</p>';
     var box = document.getElementById("listaProd"); box.innerHTML = h;
     box.querySelectorAll("[data-edit]").forEach(function(x){ x.onclick = function(){ abrirProduto(S.produtos.filter(function(p){ return p.id === +x.dataset.edit; })[0]); }; });
+    function salvarOrdem(lista){
+      lista.forEach(function(p, i){ p.ordem = (i + 1) * 10; }); desenharProdutos();
+      sb.rpc("reordenar_produtos", {ids: lista.map(function(p){ return p.id; })}).then(function(r){ if (r.error) { alert("Não foi possível salvar a ordem: " + erroTxt(r.error)); carregarBase().then(desenharProdutos); } });
+    }
+    function itensDaCat(cid){ return S.produtos.filter(function(p){ return p.categoria_id === cid; }).sort(function(a, b2){ return (a.ordem || 0) - (b2.ordem || 0) || a.nome.localeCompare(b2.nome, "pt-BR"); }); }
+    box.querySelectorAll("[data-mover]").forEach(function(x){ x.onclick = function(){
+      var p = S.produtos.filter(function(q){ return q.id === +x.dataset.pid; })[0]; if (!p) return;
+      var lista = itensDaCat(p.categoria_id), i = lista.indexOf(p); lista.splice(i, 1);
+      var novo = {topo: 0, sobe: Math.max(0, i - 1), desce: Math.min(lista.length, i + 1), fim: lista.length}[x.dataset.mover];
+      lista.splice(novo, 0, p); salvarOrdem(lista);
+    }; });
+    box.querySelectorAll("[data-ordenaaz]").forEach(function(x){ x.onclick = function(){ if (!confirm("Ordenar todos os produtos desta categoria de A a Z?")) return; salvarOrdem(itensDaCat(+x.dataset.ordenaaz).sort(function(a, b2){ return a.nome.localeCompare(b2.nome, "pt-BR"); })); }; });
+    box.querySelectorAll("[data-ordenapreco]").forEach(function(x){ x.onclick = function(){ if (!confirm("Ordenar os produtos desta categoria do menor para o maior preço?")) return; salvarOrdem(itensDaCat(+x.dataset.ordenapreco).sort(function(a, b2){ return a.preco_centavos - b2.preco_centavos; })); }; });
     box.querySelectorAll("[data-editcat]").forEach(function(x){ x.onclick = function(){ abrirCategoria(catPorId(+x.dataset.editcat)); }; });
     box.querySelectorAll("[data-esg]").forEach(function(x){ x.onclick = function(){
       var p = S.produtos.filter(function(q){ return q.id === +x.dataset.esg; })[0]; x.disabled = true;

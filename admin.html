@@ -90,6 +90,13 @@
   .faixa-cab{font-size:20px;font-weight:800;color:var(--vinho);margin:10px 0 0}
   .faixa-cab span{font-size:14px;font-weight:600;color:var(--suave);margin-left:8px}
   @media print{.faixa-prod{border-width:1.5px;border-color:#000}.faixa-cab{color:#000}}
+  .imp-grupo{border:1px solid var(--borda);border-radius:12px;margin-top:10px;overflow:hidden}
+  .imp-grupo summary{cursor:pointer;padding:10px 12px;font-weight:800;background:#FFF7EF}
+  .imp-grupo table{width:100%;border-collapse:collapse;font-size:14px}
+  .imp-grupo td,.imp-grupo th{padding:6px 10px;border-top:1px solid #F3E6DA;text-align:left}
+  .imp-grupo tr.alerta td{background:#FFF1E4}
+  .imp-grupo .sobe{color:#B3261E;font-weight:800}
+  .imp-grupo .desce{color:#2F5D46;font-weight:800}
   .bolha-av{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#B3261E;color:#fff;font-size:12px;font-weight:800;margin-left:4px}
   .bolha-av[hidden]{display:none}
   .est{color:#E2A93B;letter-spacing:1px;white-space:nowrap}
@@ -171,6 +178,15 @@
 <main class="wrap" id="main"><p class="vazio">Carregando…</p></main>
 
 <!-- Formulário de produto -->
+<dialog id="dlgImportar" style="width:min(900px,calc(100% - 24px))">
+  <div>
+    <h2>Importar planilha do ERP</h2>
+    <p class="dica" style="margin-top:-6px">Excel (.xlsx) ou CSV com as colunas <b>Código, Descrição, Preço de venda, Unidade</b> e, se tiver, <b>Grupo</b> e <b>Subgrupo</b>. O código é a chave: se já existe, atualiza só o preço; se não existe, cria o produto. Nada é gravado antes de você conferir.</p>
+    <div class="barra-acoes"><div class="cresce"><label for="impArq">Arquivo</label><input type="file" id="impArq" accept=".xlsx,.csv,.txt"></div><button type="button" class="btn sec" id="impModelo">⬇ Baixar modelo</button></div>
+    <div id="impPrevia" style="margin-top:12px"></div>
+    <div class="acoes-dlg" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn sec" id="impFechar">Fechar</button><button type="button" class="btn" id="impConfirmar" disabled>Importar</button></div>
+  </div>
+</dialog>
 <dialog id="dlgProduto">
   <form method="dialog" id="formProduto" novalidate>
     <h2 id="dlgProdutoTitulo">Produto</h2>
@@ -823,13 +839,184 @@
   var buscaProd = "";
   function abaProdutos(){
     var h = '<h1>Produtos</h1><div class="card"><div class="barra-acoes"><div class="cresce"><label for="bProd">Buscar por nome ou código</label><input type="text" id="bProd" value="' + esc(buscaProd) + '"></div>';
-    h += '<button class="btn" type="button" id="novoProduto">+ Cadastrar produto</button><button class="btn sec" type="button" id="novaCategoria">+ Nova categoria</button></div><div id="listaProd"></div></div>';
+    h += '<button class="btn" type="button" id="novoProduto">+ Cadastrar produto</button><button class="btn sec" type="button" id="novaCategoria">+ Nova categoria</button>' + (S.papel === "admin" ? '<button class="btn sec" type="button" id="importarProd">⬆ Importar planilha do ERP</button>' : '') + '</div><div id="listaProd"></div></div>';
     main.innerHTML = h;
     document.getElementById("bProd").oninput = function(){ buscaProd = this.value; desenharProdutos(); };
     document.getElementById("novoProduto").onclick = function(){ abrirProduto(null); };
     document.getElementById("novaCategoria").onclick = function(){ abrirCategoria(null); };
+    var bi = document.getElementById("importarProd"); if (bi) bi.onclick = abrirImportacao;
     desenharProdutos();
   }
+  /* ---------- Importação de planilha do ERP ---------- */
+  // Leitor mínimo de .xlsx (zip + xml) sem biblioteca externa
+  function lerXlsx(buf){
+    var dv = new DataView(buf), u8 = new Uint8Array(buf), fim = -1;
+    for (var i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 70000); i--) if (dv.getUint32(i, true) === 0x06054b50) { fim = i; break; }
+    if (fim < 0) return Promise.reject(new Error("Arquivo .xlsx inválido"));
+    var qtd = dv.getUint16(fim + 10, true), p = dv.getUint32(fim + 16, true), arqs = {};
+    for (var k = 0; k < qtd; k++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      var met = dv.getUint16(p + 10, true), tam = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+      var nome = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl));
+      arqs[nome] = {met: met, tam: tam, off: off}; p += 46 + nl + el + cl;
+    }
+    function ler(nome){
+      var a = arqs[nome]; if (!a) return Promise.resolve(null);
+      var ini = a.off + 30 + dv.getUint16(a.off + 26, true) + dv.getUint16(a.off + 28, true), dados = u8.subarray(ini, ini + a.tam);
+      if (a.met === 0) return Promise.resolve(new TextDecoder().decode(dados));
+      if (typeof DecompressionStream === "undefined") return Promise.reject(new Error("Navegador antigo: salve a planilha como CSV"));
+      return new Response(new Blob([dados]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+    }
+    var xml = function(t){ return new DOMParser().parseFromString(t, "application/xml"); };
+    return Promise.all([ler("xl/workbook.xml"), ler("xl/_rels/workbook.xml.rels"), ler("xl/sharedStrings.xml")]).then(function(r){
+      var alvo = "xl/worksheets/sheet1.xml";
+      if (r[0] && r[1]) {
+        var sh = xml(r[0]).getElementsByTagName("sheet")[0], rid = sh && (sh.getAttribute("r:id") || sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id"));
+        [].slice.call(xml(r[1]).getElementsByTagName("Relationship")).forEach(function(rel){ if (rel.getAttribute("Id") === rid) { var t = rel.getAttribute("Target"); alvo = t.charAt(0) === "/" ? t.slice(1) : "xl/" + t.replace(/^\.\//, ""); } });
+      }
+      var ss = r[2] ? [].slice.call(xml(r[2]).getElementsByTagName("si")).map(function(si){ return [].slice.call(si.getElementsByTagName("t")).map(function(t){ return t.textContent; }).join(""); }) : [];
+      return ler(alvo).then(function(t){
+        if (!t) throw new Error("Não encontrei a planilha dentro do arquivo");
+        var linhas = [];
+        [].slice.call(xml(t).getElementsByTagName("row")).forEach(function(row){
+          var lin = [];
+          [].slice.call(row.getElementsByTagName("c")).forEach(function(c){
+            var ref = c.getAttribute("r") || "", col = 0, m = ref.match(/^[A-Z]+/);
+            if (m) { for (var j = 0; j < m[0].length; j++) col = col * 26 + (m[0].charCodeAt(j) - 64); col--; } else col = lin.length;
+            var tipo = c.getAttribute("t"), v = c.getElementsByTagName("v")[0], val = v ? v.textContent : "";
+            if (tipo === "s") val = ss[+val] || ""; else if (tipo === "inlineStr") val = [].slice.call(c.getElementsByTagName("t")).map(function(x){ return x.textContent; }).join("");
+            lin[col] = val;
+          });
+          linhas.push(lin);
+        });
+        return linhas;
+      });
+    });
+  }
+  function lerCsv(buf){
+    var txt; try { txt = new TextDecoder("utf-8", {fatal:true}).decode(buf); } catch(e){ txt = new TextDecoder("windows-1252").decode(buf); }
+    txt = txt.replace(/^\uFEFF/, "");
+    var prim = txt.split(/\r?\n/)[0] || "", sep = [";", "\t", ","].sort(function(a, b){ return prim.split(b).length - prim.split(a).length; })[0];
+    var linhas = [], lin = [], campo = "", aspas = false;
+    for (var i = 0; i < txt.length; i++) {
+      var ch = txt[i];
+      if (aspas) { if (ch === '"') { if (txt[i+1] === '"') { campo += '"'; i++; } else aspas = false; } else campo += ch; }
+      else if (ch === '"') aspas = true;
+      else if (ch === sep) { lin.push(campo); campo = ""; }
+      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && txt[i+1] === "\n") i++; lin.push(campo); linhas.push(lin); lin = []; campo = ""; }
+      else campo += ch;
+    }
+    if (campo !== "" || lin.length) { lin.push(campo); linhas.push(lin); }
+    return Promise.resolve(linhas);
+  }
+  function semAcento(t){ return String(t == null ? "" : t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+  var COLS_IMP = {
+    codigo: ["codigo","cod","cod produto","codigo produto","codigo do produto","cod prod","referencia","ref","cod interno","codigo interno","plu"],
+    descricao: ["descricao","descricao produto","descricao do produto","produto","nome","nome produto","desc"],
+    preco: ["preco","preco venda","preco de venda","pr venda","valor","valor venda","venda","preco unitario","preco varejo","vl venda"],
+    unidade: ["unidade","un","und","unid","unidade medida","unidade de medida","medida","um"],
+    grupo: ["grupo","secao","departamento","categoria","depto"],
+    subgrupo: ["subgrupo","sub grupo","subcategoria","familia","sub secao"]
+  };
+  var UN_IMP = {kg:"kg", kilo:"kg", quilo:"kg", kgs:"kg", un:"un", und:"un", unid:"un", unidade:"un", pc:"un", pca:"un", peca:"un", pcs:"un", cento:"cento", ct:"cento", cto:"cento", cem:"cento", emb:"embalagem", embalagem:"embalagem", cx:"embalagem", caixa:"embalagem", pct:"embalagem", pacote:"embalagem", bdj:"embalagem", bandeja:"embalagem", pt:"embalagem", pote:"embalagem", porcao:"porcao", porc:"porcao", por:"porcao"};
+  function precoImp(v){
+    if (typeof v === "number") return Math.round(v * 100);
+    var t = String(v == null ? "" : v).replace(/[R$\s]/g, "");
+    if (!t) return null;
+    if (/^\d+(\.\d+)?$/.test(t) && !/,/.test(t)) return Math.round(parseFloat(t) * 100); // 129.9 (número do Excel)
+    t = t.replace(/\./g, "").replace(",", ".");
+    var n = parseFloat(t); return isFinite(n) ? Math.round(n * 100) : null;
+  }
+  function nomeBonito(d){
+    var peq = {de:1, da:1, do:1, das:1, dos:1, e:1, com:1, sem:1, ao:1, a:1, o:1, em:1, na:1, no:1};
+    return String(d || "").toLowerCase().replace(/\s+/g, " ").trim().split(" ").map(function(w, i){ return (i && peq[w]) ? w : w.charAt(0).toUpperCase() + w.slice(1); }).join(" ").replace(/\bC\//g, "c/").replace(/\bS\//g, "s/");
+  }
+  function interpretarPlanilha(linhas){
+    var cab = -1, mapa = null;
+    for (var i = 0; i < Math.min(linhas.length, 15) && cab < 0; i++) {
+      var m = {}; (linhas[i] || []).forEach(function(c, j){ var n = semAcento(c); Object.keys(COLS_IMP).forEach(function(k){ if (m[k] == null && COLS_IMP[k].indexOf(n) >= 0) m[k] = j; }); });
+      if (m.codigo != null && m.preco != null) { cab = i; mapa = m; }
+    }
+    if (cab < 0) throw new Error("Não encontrei a linha de títulos com as colunas Código e Preço. Confira se a primeira linha tem os nomes das colunas.");
+    var faltam = ["descricao","unidade"].filter(function(k){ return mapa[k] == null; });
+    var ok = [], prob = [], vistos = {};
+    linhas.slice(cab + 1).forEach(function(l, idx){
+      if (!l || !l.some(function(c){ return String(c == null ? "" : c).trim() !== ""; })) return;
+      var nlin = cab + idx + 2, g = function(k){ return mapa[k] == null ? "" : String(l[mapa[k]] == null ? "" : l[mapa[k]]).trim(); };
+      var cod = g("codigo").replace(/\.0+$/, ""), desc = g("descricao"), pc = precoImp(l[mapa.preco]), unOrig = g("unidade"), un = UN_IMP[semAcento(unOrig).replace(/ /g, "")] || null;
+      var item = {linha: nlin, codigo: cod, descricao: desc, preco_centavos: pc, unidade: un, unidade_orig: unOrig, grupo: g("grupo"), subgrupo: g("subgrupo")};
+      var erro = !cod ? "sem código" : (vistos[cod] ? "código repetido na planilha (linha " + vistos[cod] + ")" : (!pc || pc <= 0 ? "preço vazio ou inválido" : ""));
+      if (!erro) vistos[cod] = nlin;
+      if (erro) { item.erro = erro; prob.push(item); } else ok.push(item);
+    });
+    return {ok: ok, prob: prob, faltam: faltam, mapa: mapa};
+  }
+  var impDados = null;
+  function abrirImportacao(){
+    impDados = null;
+    document.getElementById("impArq").value = ""; document.getElementById("impPrevia").innerHTML = "";
+    var bc = document.getElementById("impConfirmar"); bc.disabled = true; bc.textContent = "Importar";
+    document.getElementById("dlgImportar").showModal();
+  }
+  document.getElementById("impFechar").onclick = function(){ document.getElementById("dlgImportar").close(); };
+  document.getElementById("impModelo").onclick = function(){
+    var csv = "\uFEFFCódigo;Descrição;Preço de venda;Unidade;Grupo;Subgrupo\r\n" + S.produtos.map(function(p){ var c = catPorId(p.categoria_id); return [p.codigo, (p.descricao_caixa || p.nome), (p.preco_centavos / 100).toFixed(2).replace(".", ","), p.unidade.toUpperCase(), c ? c.nome : "", p.subcategoria || ""].map(function(x){ x = String(x); return /[;"\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(";"); }).join("\r\n");
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"})); a.download = "modelo-produtos-dimercatto.csv"; document.body.appendChild(a); a.click(); a.remove();
+  };
+  document.getElementById("impArq").onchange = function(){
+    var f = this.files[0], box = document.getElementById("impPrevia"), bc = document.getElementById("impConfirmar");
+    impDados = null; bc.disabled = true; if (!f) { box.innerHTML = ""; return; }
+    box.innerHTML = '<p class="vazio">Lendo a planilha…</p>';
+    f.arrayBuffer().then(function(buf){ return /\.xlsx$/i.test(f.name) ? lerXlsx(buf) : lerCsv(buf); }).then(function(linhas){
+      var r = interpretarPlanilha(linhas), porCod = {};
+      S.produtos.forEach(function(p){ porCod[p.codigo] = p; });
+      var novos = [], precos = [], iguais = 0, prob = r.prob.slice();
+      r.ok.forEach(function(it){
+        var atual = porCod[it.codigo];
+        if (atual) { if (atual.preco_centavos !== it.preco_centavos) precos.push({it: it, p: atual}); else iguais++; }
+        else if (!it.unidade) { it.erro = it.unidade_orig ? 'unidade "' + it.unidade_orig + '" não reconhecida (use KG, UN, CENTO, EMBALAGEM ou PORÇÃO)' : "produto novo sem unidade"; prob.push(it); }
+        else { it.nome = nomeBonito(it.descricao) || it.codigo; it.cat = S.categorias.filter(function(c){ return semAcento(c.nome) === semAcento(it.grupo); })[0] || null; novos.push(it); }
+      });
+      impDados = {novos: novos, precos: precos};
+      var h = '<div class="msg ok" style="margin:0">Planilha lida: ' + (r.ok.length + r.prob.length) + ' linha(s). <b>' + novos.length + '</b> produto(s) novo(s), <b>' + precos.length + '</b> preço(s) alterado(s), ' + iguais + ' sem alteração' + (prob.length ? ', <b style="color:#B3261E">' + prob.length + ' com problema</b> (não serão importadas)' : '') + '.</div>';
+      if (r.faltam.length) h += '<p class="dica">Colunas não encontradas: ' + r.faltam.join(", ") + '.' + (r.faltam.indexOf("unidade") >= 0 ? ' Sem a unidade, só dá para atualizar preços de produtos que já existem.' : '') + '</p>';
+      if (precos.length) {
+        h += '<details class="imp-grupo" open><summary>💲 Preços alterados (' + precos.length + ')</summary><table><tr><th>Código</th><th>Produto</th><th>Atual</th><th>Novo</th><th>Variação</th></tr>';
+        precos.sort(function(a, b){ return Math.abs(b.it.preco_centavos / b.p.preco_centavos - 1) - Math.abs(a.it.preco_centavos / a.p.preco_centavos - 1); }).forEach(function(x){
+          var v = (x.it.preco_centavos / x.p.preco_centavos - 1) * 100, grande = Math.abs(v) > 20;
+          h += '<tr' + (grande ? ' class="alerta" title="Variação acima de 20%: confira"' : '') + '><td>' + esc(x.p.codigo) + '</td><td>' + esc(x.p.nome) + '</td><td>' + reais(x.p.preco_centavos) + '</td><td><b>' + reais(x.it.preco_centavos) + '</b></td><td class="' + (v > 0 ? 'sobe' : 'desce') + '">' + (grande ? '⚠ ' : '') + (v > 0 ? '+' : '') + v.toFixed(1).replace(".", ",") + '%</td></tr>';
+        });
+        h += '</table></details>';
+      }
+      if (novos.length) {
+        h += '<details class="imp-grupo" open><summary>🆕 Produtos novos (' + novos.length + ')</summary><table><tr><th>Código</th><th>Nome na loja</th><th>Preço</th><th>Unidade</th><th>Categoria</th></tr>';
+        novos.forEach(function(it){ h += '<tr><td>' + esc(it.codigo) + '</td><td>' + esc(it.nome) + '</td><td>' + reais(it.preco_centavos) + '</td><td>' + esc(unid(it.unidade)) + '</td><td>' + (it.cat ? esc(it.cat.nome) : '<span class="dica">' + (it.grupo ? 'sem correspondente: "' + esc(it.grupo) + '"' : 'sem categoria') + '</span>') + (it.subgrupo ? ' · ' + esc(it.subgrupo) : '') + '</td></tr>'; });
+        h += '</table></details><label class="check" style="margin-top:10px"><input type="checkbox" id="impAtivar"> Já colocar os produtos novos na loja (só os que têm categoria). Sem marcar, entram fora da loja para revisão.</label>';
+      }
+      if (prob.length) {
+        h += '<details class="imp-grupo"><summary>⚠️ Linhas com problema (' + prob.length + ')</summary><table><tr><th>Linha</th><th>Código</th><th>Descrição</th><th>Problema</th></tr>';
+        prob.forEach(function(it){ h += '<tr><td>' + it.linha + '</td><td>' + esc(it.codigo) + '</td><td>' + esc(it.descricao) + '</td><td>' + esc(it.erro) + '</td></tr>'; });
+        h += '</table></details>';
+      }
+      box.innerHTML = h;
+      var total = novos.length + precos.length;
+      bc.disabled = !total; bc.textContent = total ? "Importar: " + (novos.length ? novos.length + " novo(s)" : "") + (novos.length && precos.length ? " e " : "") + (precos.length ? precos.length + " preço(s)" : "") : "Nada para importar";
+    }).catch(function(e){ box.innerHTML = '<div class="msg erro">' + esc(e.message || "Não foi possível ler o arquivo.") + '</div>'; });
+  };
+  document.getElementById("impConfirmar").onclick = function(){
+    if (!impDados) return;
+    var bc = this, linhas = impDados.novos.map(function(it){ return {codigo: it.codigo, descricao: it.descricao, nome: it.nome, preco_centavos: it.preco_centavos, unidade: it.unidade, grupo: it.cat ? it.cat.nome : "", subgrupo: it.subgrupo}; })
+      .concat(impDados.precos.map(function(x){ return {codigo: x.it.codigo, descricao: x.it.descricao, preco_centavos: x.it.preco_centavos, unidade: x.p.unidade}; }));
+    var ativ = document.getElementById("impAtivar");
+    bc.disabled = true; bc.textContent = "Importando…";
+    sb.rpc("importar_produtos", {linhas: linhas, ativar_novos: !!(ativ && ativ.checked)}).then(function(r){
+      if (r.error) { bc.disabled = false; bc.textContent = "Tentar de novo"; document.getElementById("impPrevia").insertAdjacentHTML("afterbegin", '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'); return; }
+      var d = r.data || {};
+      document.getElementById("impPrevia").innerHTML = '<div class="msg ok">✓ Importação concluída: ' + (d.novos || 0) + ' produto(s) novo(s) e ' + (d.precos || 0) + ' preço(s) atualizado(s).' + (d.novos ? ' Os novos aparecem na lista de produtos' + (ativ && ativ.checked ? '' : ' marcados como "Fora da loja"') + '.' : '') + '</div>';
+      bc.textContent = "Concluído"; impDados = null;
+      carregarBase().then(desenharProdutos);
+    });
+  };
   function desenharProdutos(){
     var b = buscaProd.trim().toLowerCase(), h = "";
     var lista = S.produtos.filter(function(p){ return !b || p.nome.toLowerCase().indexOf(b) >= 0 || p.codigo.toLowerCase().indexOf(b) >= 0; });

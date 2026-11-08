@@ -164,6 +164,31 @@
   .barra .resumo{flex:1;font-size:13.5px;color:#E9D7A8;line-height:1.2}
   .barra .resumo strong{display:block;font-size:19px;color:#fff}
   .barra .btn-principal{background:#E07F40}
+  .abre-sacola{flex:1;display:flex;align-items:center;gap:12px;background:none;border:0;color:inherit;text-align:left;padding:0;min-width:0;cursor:pointer}
+  .abre-sacola .resumo::after{content:"Toque para ver/editar";display:block;font-size:11px;color:#CDBBA8;margin-top:2px}
+  .folha-fundo{position:fixed;inset:0;background:rgba(30,20,15,.5);z-index:40}
+  .folha{position:fixed;left:0;right:0;bottom:0;z-index:41;background:#FFF9F3;border-radius:20px 20px 0 0;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.25);max-width:640px;margin:0 auto}
+  .folha[hidden],.folha-fundo[hidden]{display:none}
+  .folha-cab{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px}
+  .folha-cab h2{margin:0;font-size:20px;color:var(--vinho)}
+  .folha-x{width:40px;height:40px;border-radius:50%;border:0;background:#F0E6DC;font-size:16px;font-weight:800;color:var(--texto)}
+  .folha-corpo{overflow-y:auto;padding:0 16px;flex:1}
+  .item-sacola{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F0E6DC}
+  .item-sacola .info{flex:1;min-width:0}
+  .item-sacola .n{font-weight:800;font-size:14.5px;line-height:1.2}
+  .item-sacola .s{font-size:13px;color:var(--texto-suave);margin-top:2px}
+  .item-sacola .s b{color:var(--vinho)}
+  .item-sacola .ctrl{width:124px;flex:none;padding:0}
+  .item-sacola .qtd{display:flex!important;gap:3px}
+  .item-sacola .qtd .valor{order:0!important}
+  .item-sacola .qtd button{width:32px!important;height:36px}
+  .item-sacola .tirar{width:36px;height:36px;border:0;border-radius:9px;background:#F6E3DE;color:var(--vinho);flex:none;display:grid;place-items:center}
+  .folha-total{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 4px;font-weight:800;font-size:18px}
+  .folha-total small{display:block;font-size:12px;font-weight:600;color:var(--texto-suave)}
+  .folha-pe{display:grid;grid-template-columns:1fr 1.2fr;gap:8px;padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
+  .folha-pe button{min-height:50px;font-size:15px}
+  .folha-pe .btn-principal{background:#E07F40}
+  body.folha-aberta{overflow:hidden}
   .barra .sacola{position:relative;flex:none;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);display:grid;place-items:center;color:#E9D7A8;margin-left:4px}
   .barra .sacola b{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#E07F40;color:#fff;font-size:12.5px;font-weight:800;display:grid;place-items:center;border:2px solid #2E211B;line-height:1}
   .barra .sacola b[hidden]{display:none}
@@ -335,12 +360,18 @@
 
 <div class="barra" id="barra" hidden>
   <div class="wrap">
-    <span class="sacola" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><b id="barraQtd" hidden>0</b></span>
-    <div class="resumo" id="barraResumo"></div>
+    <button type="button" class="abre-sacola" id="abrirSacola" aria-label="Ver e editar a sacola"><span class="sacola" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><b id="barraQtd" hidden>0</b></span>
+    <span class="resumo" id="barraResumo"></span></button>
     <button class="btn-principal" id="barraBtn" type="button" style="min-height:52px;font-size:18px">Continuar →</button>
   </div>
 </div>
 
+<div class="folha-fundo" id="sacolaFundo" hidden></div>
+<section class="folha" id="sacolaFolha" role="dialog" aria-modal="true" aria-labelledby="sacolaTit" hidden>
+  <div class="folha-cab"><h2 id="sacolaTit">Sua sacola</h2><button type="button" class="folha-x" id="sacolaFechar" aria-label="Fechar">✕</button></div>
+  <div class="folha-corpo" id="sacolaCorpo"></div>
+  <div class="folha-pe"><button type="button" class="btn-sec" id="sacolaMais">+ Mais itens</button><button type="button" class="btn-principal" id="sacolaContinuar">Continuar →</button></div>
+</section>
 <script>
 (function(){
   "use strict";
@@ -620,6 +651,43 @@
     atualizarBarra();
   }
 
+  /* ---------- sacola (editar itens) ---------- */
+  var LIXO = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
+  function sacolaAberta(){ return !document.getElementById("sacolaFolha").hidden; }
+  function desenharSacola(){
+    var corpo = document.getElementById("sacolaCorpo"), t = totais();
+    if (corpo.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+    if (!t.n) { corpo.innerHTML = '<p class="vazio" style="padding:18px 0">Sua sacola está vazia.</p>'; }
+    else {
+      var h = '';
+      itensCarrinho().forEach(function(i){
+        h += '<div class="item-sacola"><div class="info"><div class="n">' + esc(i.p.nome) + '</div><div class="s">' + reais(i.p.preco_centavos) + ' ' + precoUnTxt(i.p.unidade) + ' · <b>' + reais(subtotal(i.p, i.q)) + '</b></div></div>';
+        h += '<div class="ctrl" data-codigo="' + esc(i.p.codigo) + '">' + controle(i.p, estado.carrinho[i.p.codigo]) + '</div>';
+        h += '<button type="button" class="tirar" data-remover="' + esc(i.p.codigo) + '" aria-label="Retirar ' + esc(i.p.nome) + ' da sacola">' + LIXO + '</button></div>';
+      });
+      h += '<div class="folha-total"><div>Total' + (t.estimado ? '<small>Estimado — confirmado após a pesagem</small>' : '') + '</div><div>' + reais(t.total) + '</div></div>';
+      corpo.innerHTML = h;
+    }
+    document.getElementById("sacolaContinuar").disabled = !t.n;
+  }
+  function abrirSacola(){
+    desenharSacola();
+    document.getElementById("sacolaFolha").hidden = false; document.getElementById("sacolaFundo").hidden = false;
+    document.body.classList.add("folha-aberta"); document.getElementById("sacolaFechar").focus();
+  }
+  function fecharSacola(){
+    document.getElementById("sacolaFolha").hidden = true; document.getElementById("sacolaFundo").hidden = true;
+    document.body.classList.remove("folha-aberta");
+  }
+  function removerItem(codigo){
+    var p = produtoPorCodigo(codigo); delete estado.carrinho[codigo]; guardar();
+    document.querySelectorAll('.ctrl[data-codigo="' + CSS.escape(codigo) + '"]').forEach(function(box){
+      var art = box.closest(".produto"); if (art) art.classList.remove("no-pedido");
+      if (p) box.innerHTML = controle(p, null);
+    });
+    atualizarBarra();
+  }
+
   /* ---------- barra inferior ---------- */
   function atualizarBarra(){
     var barra = document.getElementById("barra"), t = totais();
@@ -636,6 +704,7 @@
       lat.innerHTML = hl;
     }
     barra.hidden = !mostrar; document.getElementById("espacoBarra").hidden = !mostrar;
+    if (sacolaAberta()) { if (mostrar) desenharSacola(); else fecharSacola(); }
     if (!mostrar) return;
     var btn = document.getElementById("barraBtn"), bq = document.getElementById("barraQtd");
     bq.textContent = t.n; bq.hidden = !t.n;
@@ -914,11 +983,18 @@
     }
     if (t.dataset.ir) { if (estado.etapa === 2) lerFormulario(); irPara(+t.dataset.ir); return; }
     if (t.id === "barraBtn" || t.id === "lateralBtn") { irPara(2); return; }
+    if (t.id === "abrirSacola") { abrirSacola(); return; }
+    if (t.dataset.remover) { removerItem(t.dataset.remover); return; }
+    if (t.id === "sacolaFechar") { fecharSacola(); return; }
+    if (t.id === "sacolaMais") { fecharSacola(); if (estado.cat == null && estado.guia == null) { var cc = document.getElementById("cardapio"); if (cc) cc.scrollIntoView({behavior:"smooth"}); } return; }
+    if (t.id === "sacolaContinuar") { fecharSacola(); irPara(2); return; }
     if (t.id === "btnConferir") { if (validarDados()) irPara(3); return; }
     if (t.id === "btnEnviar") { enviar(); return; }
     if (t.id === "btnCopiar") { copiar(); return; }
     if (t.id === "btnNovo") { estado.resultado = null; try { sessionStorage.removeItem("dm_ultimo_pedido"); } catch(e){} enviando = false; irPara(1); return; }
   });
+  document.getElementById("sacolaFundo").addEventListener("click", fecharSacola);
+  document.addEventListener("keydown", function(ev){ if (ev.key === "Escape" && sacolaAberta()) fecharSacola(); });
   document.addEventListener("input", function(ev){
     if (ev.target.id === "fBusca") { filtrarBusca(ev.target.value); return; }
     if (ev.target.matches("input, textarea")) { ev.target.classList.remove("invalido"); ev.target.removeAttribute("aria-invalid"); }

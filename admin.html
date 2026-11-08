@@ -90,6 +90,13 @@
   .faixa-cab{font-size:20px;font-weight:800;color:var(--vinho);margin:10px 0 0}
   .faixa-cab span{font-size:14px;font-weight:600;color:var(--suave);margin-left:8px}
   @media print{.faixa-prod{border-width:1.5px;border-color:#000}.faixa-cab{color:#000}}
+  .fot-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:10px}
+  .fot-card{border:1px solid var(--borda);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:#fff}
+  .fot-card.sem{background:#FAF6F2}
+  .fot-card .img{height:150px;border-radius:8px;background:#F3ECE4 center/contain no-repeat;display:grid;place-items:center;color:#A99485;font-size:13px;text-align:center}
+  .fot-card b{font-size:14px;line-height:1.25}
+  .fot-card .dica{font-size:12px}
+  .fot-card.ok{outline:3px solid #2F5D46}
   .imp-grupo{border:1px solid var(--borda);border-radius:12px;margin-top:10px;overflow:hidden}
   .imp-grupo summary{cursor:pointer;padding:10px 12px;font-weight:800;background:#FFF7EF}
   .imp-grupo table{width:100%;border-collapse:collapse;font-size:14px}
@@ -181,10 +188,20 @@
 <dialog id="dlgImportar" style="width:min(900px,calc(100% - 24px))">
   <div>
     <h2>Importar planilha do ERP</h2>
-    <p class="dica" style="margin-top:-6px">Excel (.xlsx) ou CSV com as colunas <b>Código, Descrição, Preço de venda, Unidade</b> e, se tiver, <b>Grupo</b> e <b>Subgrupo</b>. O código é a chave: se já existe, atualiza só o preço; se não existe, cria o produto. Nada é gravado antes de você conferir.</p>
+    <p class="dica" style="margin-top:-6px">Excel (.xlsx) ou CSV com as colunas <b>Código, Descrição, Preço de venda, Unidade</b> e, se tiver, <b>Grupo</b>, <b>Subgrupo</b> e <b>EAN</b> (código de barras). O código é a chave: se já existe, atualiza só o preço; se não existe, cria o produto. Nada é gravado antes de você conferir.</p>
     <div class="barra-acoes"><div class="cresce"><label for="impArq">Arquivo</label><input type="file" id="impArq" accept=".xlsx,.csv,.txt"></div><button type="button" class="btn sec" id="impModelo">⬇ Baixar modelo</button></div>
     <div id="impPrevia" style="margin-top:12px"></div>
     <div class="acoes-dlg" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn sec" id="impFechar">Fechar</button><button type="button" class="btn" id="impConfirmar" disabled>Importar</button></div>
+  </div>
+</dialog>
+<dialog id="dlgFotos" style="width:min(980px,calc(100% - 24px))">
+  <div>
+    <h2>Fotos pelo código de barras</h2>
+    <p class="dica" style="margin-top:-6px">Procura a foto dos produtos industrializados que têm código de barras (EAN) na base pública Open Food Facts. Confira cada foto: só as marcadas são salvas, e ficam guardadas no nosso servidor.</p>
+    <div class="barra-acoes"><label class="check"><input type="checkbox" id="fotTodos"> Procurar também nos que já têm foto (para trocar)</label><button type="button" class="btn" id="fotBuscar">Procurar fotos</button></div>
+    <div id="fotStatus" class="dica" style="margin-top:8px"></div>
+    <div id="fotLista" class="fot-grade"></div>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn sec" id="fotFechar">Fechar</button><button type="button" class="btn" id="fotSalvar" disabled>Salvar fotos marcadas</button></div>
   </div>
 </dialog>
 <dialog id="dlgProduto">
@@ -192,6 +209,7 @@
     <h2 id="dlgProdutoTitulo">Produto</h2>
     <div class="grade">
       <div><label for="pCodigo">Código de vendas *</label><input type="text" id="pCodigo" required maxlength="30"></div>
+      <div><label for="pEan">Código de barras (EAN) <span class="dica">só industrializados</span></label><input type="text" id="pEan" inputmode="numeric" maxlength="14"></div>
       <div><label for="pPreco">Preço (R$) *</label><input type="text" id="pPreco" inputmode="decimal" placeholder="129,90" required></div>
     </div>
     <div style="margin-top:12px"><label for="pNome">Nome para o cliente *</label><input type="text" id="pNome" maxlength="120" required></div>
@@ -839,12 +857,13 @@
   var buscaProd = "";
   function abaProdutos(){
     var h = '<h1>Produtos</h1><div class="card"><div class="barra-acoes"><div class="cresce"><label for="bProd">Buscar por nome ou código</label><input type="text" id="bProd" value="' + esc(buscaProd) + '"></div>';
-    h += '<button class="btn" type="button" id="novoProduto">+ Cadastrar produto</button><button class="btn sec" type="button" id="novaCategoria">+ Nova categoria</button>' + (S.papel === "admin" ? '<button class="btn sec" type="button" id="importarProd">⬆ Importar planilha do ERP</button>' : '') + '</div><div id="listaProd"></div></div>';
+    h += '<button class="btn" type="button" id="novoProduto">+ Cadastrar produto</button><button class="btn sec" type="button" id="novaCategoria">+ Nova categoria</button>' + (S.papel === "admin" ? '<button class="btn sec" type="button" id="importarProd">⬆ Importar planilha do ERP</button>' : '') + '<button class="btn sec" type="button" id="buscarFotos">📷 Fotos pelo código de barras</button></div><div id="listaProd"></div></div>';
     main.innerHTML = h;
     document.getElementById("bProd").oninput = function(){ buscaProd = this.value; desenharProdutos(); };
     document.getElementById("novoProduto").onclick = function(){ abrirProduto(null); };
     document.getElementById("novaCategoria").onclick = function(){ abrirCategoria(null); };
     var bi = document.getElementById("importarProd"); if (bi) bi.onclick = abrirImportacao;
+    document.getElementById("buscarFotos").onclick = abrirFotos;
     desenharProdutos();
   }
   /* ---------- Importação de planilha do ERP ---------- */
@@ -916,8 +935,15 @@
     preco: ["preco","preco venda","preco de venda","pr venda","valor","valor venda","venda","preco unitario","preco varejo","vl venda"],
     unidade: ["unidade","un","und","unid","unidade medida","unidade de medida","medida","um"],
     grupo: ["grupo","secao","departamento","categoria","depto"],
-    subgrupo: ["subgrupo","sub grupo","subcategoria","familia","sub secao"]
+    subgrupo: ["subgrupo","sub grupo","subcategoria","familia","sub secao"],
+    ean: ["ean","gtin","ean13","ean 13","codigo de barras","cod de barras","cod barras","codigo barras","codbarras","barras","cod barra","codigo barra"]
   };
+  function eanValido(e){
+    e = String(e || ""); if (!/^(\d{8}|\d{12,14})$/.test(e)) return false;
+    var s = 0, d = e.split("").map(Number), dv = d.pop();
+    d.reverse().forEach(function(n, i){ s += n * (i % 2 === 0 ? 3 : 1); });
+    return (10 - s % 10) % 10 === dv;
+  }
   var UN_IMP = {kg:"kg", kilo:"kg", quilo:"kg", kgs:"kg", un:"un", und:"un", unid:"un", unidade:"un", pc:"un", pca:"un", peca:"un", pcs:"un", cento:"cento", ct:"cento", cto:"cento", cem:"cento", emb:"embalagem", embalagem:"embalagem", cx:"embalagem", caixa:"embalagem", pct:"embalagem", pacote:"embalagem", bdj:"embalagem", bandeja:"embalagem", pt:"embalagem", pote:"embalagem", porcao:"porcao", porc:"porcao", por:"porcao"};
   function precoImp(v){
     if (typeof v === "number") return Math.round(v * 100);
@@ -944,7 +970,8 @@
       if (!l || !l.some(function(c){ return String(c == null ? "" : c).trim() !== ""; })) return;
       var nlin = cab + idx + 2, g = function(k){ return mapa[k] == null ? "" : String(l[mapa[k]] == null ? "" : l[mapa[k]]).trim(); };
       var cod = g("codigo").replace(/\.0+$/, ""), desc = g("descricao"), pc = precoImp(l[mapa.preco]), unOrig = g("unidade"), un = UN_IMP[semAcento(unOrig).replace(/ /g, "")] || null;
-      var item = {linha: nlin, codigo: cod, descricao: desc, preco_centavos: pc, unidade: un, unidade_orig: unOrig, grupo: g("grupo"), subgrupo: g("subgrupo")};
+      var eanTxt = g("ean").replace(/\.0+$/, "").replace(/\D/g, ""), eanOk = eanTxt && eanValido(eanTxt) ? eanTxt : "";
+      var item = {linha: nlin, codigo: cod, descricao: desc, preco_centavos: pc, unidade: un, unidade_orig: unOrig, grupo: g("grupo"), subgrupo: g("subgrupo"), ean: eanOk, eanRuim: eanTxt && !eanOk ? eanTxt : ""};
       var erro = !cod ? "sem código" : (vistos[cod] ? "código repetido na planilha (linha " + vistos[cod] + ")" : (!pc || pc <= 0 ? "preço vazio ou inválido" : ""));
       if (!erro) vistos[cod] = nlin;
       if (erro) { item.erro = erro; prob.push(item); } else ok.push(item);
@@ -960,7 +987,7 @@
   }
   document.getElementById("impFechar").onclick = function(){ document.getElementById("dlgImportar").close(); };
   document.getElementById("impModelo").onclick = function(){
-    var csv = "\uFEFFCódigo;Descrição;Preço de venda;Unidade;Grupo;Subgrupo\r\n" + S.produtos.map(function(p){ var c = catPorId(p.categoria_id); return [p.codigo, (p.descricao_caixa || p.nome), (p.preco_centavos / 100).toFixed(2).replace(".", ","), p.unidade.toUpperCase(), c ? c.nome : "", p.subcategoria || ""].map(function(x){ x = String(x); return /[;"\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(";"); }).join("\r\n");
+    var csv = "\uFEFFCódigo;Descrição;Preço de venda;Unidade;Grupo;Subgrupo;EAN\r\n" + S.produtos.map(function(p){ var c = catPorId(p.categoria_id); return [p.codigo, (p.descricao_caixa || p.nome), (p.preco_centavos / 100).toFixed(2).replace(".", ","), p.unidade.toUpperCase(), c ? c.nome : "", p.subcategoria || "", p.ean || ""].map(function(x){ x = String(x); return /[;"\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(";"); }).join("\r\n");
     var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"})); a.download = "modelo-produtos-dimercatto.csv"; document.body.appendChild(a); a.click(); a.remove();
   };
   document.getElementById("impArq").onchange = function(){
@@ -970,15 +997,18 @@
     f.arrayBuffer().then(function(buf){ return /\.xlsx$/i.test(f.name) ? lerXlsx(buf) : lerCsv(buf); }).then(function(linhas){
       var r = interpretarPlanilha(linhas), porCod = {};
       S.produtos.forEach(function(p){ porCod[p.codigo] = p; });
-      var novos = [], precos = [], iguais = 0, prob = r.prob.slice();
+      var novos = [], precos = [], iguais = 0, prob = r.prob.slice(), eans = [], eanRuins = r.ok.filter(function(it){ return it.eanRuim; });
       r.ok.forEach(function(it){
         var atual = porCod[it.codigo];
+        if (atual && it.ean && it.ean !== atual.ean) eans.push({it: it, p: atual});
         if (atual) { if (atual.preco_centavos !== it.preco_centavos) precos.push({it: it, p: atual}); else iguais++; }
         else if (!it.unidade) { it.erro = it.unidade_orig ? 'unidade "' + it.unidade_orig + '" não reconhecida (use KG, UN, CENTO, EMBALAGEM ou PORÇÃO)' : "produto novo sem unidade"; prob.push(it); }
         else { it.nome = nomeBonito(it.descricao) || it.codigo; it.cat = S.categorias.filter(function(c){ return semAcento(c.nome) === semAcento(it.grupo); })[0] || null; novos.push(it); }
       });
-      impDados = {novos: novos, precos: precos};
+      impDados = {novos: novos, precos: precos, eans: eans};
       var h = '<div class="msg ok" style="margin:0">Planilha lida: ' + (r.ok.length + r.prob.length) + ' linha(s). <b>' + novos.length + '</b> produto(s) novo(s), <b>' + precos.length + '</b> preço(s) alterado(s), ' + iguais + ' sem alteração' + (prob.length ? ', <b style="color:#B3261E">' + prob.length + ' com problema</b> (não serão importadas)' : '') + '.</div>';
+      if (eans.length) h += '<p class="dica" style="margin:8px 0 0">▮▯ ' + eans.length + ' produto(s) já cadastrado(s) vão receber o código de barras da planilha.</p>';
+      if (eanRuins.length) h += '<p class="dica" style="margin:4px 0 0;color:#B3261E">' + eanRuins.length + ' código(s) de barras inválido(s) foram ignorados (dígito verificador não confere): ' + eanRuins.slice(0, 5).map(function(it){ return esc(it.codigo) + ' → ' + esc(it.eanRuim); }).join(", ") + (eanRuins.length > 5 ? "…" : "") + '</p>';
       if (r.faltam.length) h += '<p class="dica">Colunas não encontradas: ' + r.faltam.join(", ") + '.' + (r.faltam.indexOf("unidade") >= 0 ? ' Sem a unidade, só dá para atualizar preços de produtos que já existem.' : '') + '</p>';
       if (precos.length) {
         h += '<details class="imp-grupo" open><summary>💲 Preços alterados (' + precos.length + ')</summary><table><tr><th>Código</th><th>Produto</th><th>Atual</th><th>Novo</th><th>Variação</th></tr>';
@@ -999,22 +1029,116 @@
         h += '</table></details>';
       }
       box.innerHTML = h;
-      var total = novos.length + precos.length;
-      bc.disabled = !total; bc.textContent = total ? "Importar: " + (novos.length ? novos.length + " novo(s)" : "") + (novos.length && precos.length ? " e " : "") + (precos.length ? precos.length + " preço(s)" : "") : "Nada para importar";
+      var total = novos.length + precos.length + eans.length, partes = [];
+      if (novos.length) partes.push(novos.length + " novo(s)"); if (precos.length) partes.push(precos.length + " preço(s)"); if (eans.length) partes.push(eans.length + " cód. de barras");
+      bc.disabled = !total; bc.textContent = total ? "Importar: " + partes.join(" + ") : "Nada para importar";
     }).catch(function(e){ box.innerHTML = '<div class="msg erro">' + esc(e.message || "Não foi possível ler o arquivo.") + '</div>'; });
   };
   document.getElementById("impConfirmar").onclick = function(){
     if (!impDados) return;
-    var bc = this, linhas = impDados.novos.map(function(it){ return {codigo: it.codigo, descricao: it.descricao, nome: it.nome, preco_centavos: it.preco_centavos, unidade: it.unidade, grupo: it.cat ? it.cat.nome : "", subgrupo: it.subgrupo}; })
-      .concat(impDados.precos.map(function(x){ return {codigo: x.it.codigo, descricao: x.it.descricao, preco_centavos: x.it.preco_centavos, unidade: x.p.unidade}; }));
+    var bc = this, ja = {}, linhas = impDados.novos.map(function(it){ return {codigo: it.codigo, descricao: it.descricao, nome: it.nome, preco_centavos: it.preco_centavos, unidade: it.unidade, grupo: it.cat ? it.cat.nome : "", subgrupo: it.subgrupo, ean: it.ean}; })
+      .concat(impDados.precos.map(function(x){ ja[x.p.codigo] = 1; return {codigo: x.it.codigo, descricao: x.it.descricao, preco_centavos: x.it.preco_centavos, unidade: x.p.unidade, ean: x.it.ean}; }))
+      .concat(impDados.eans.filter(function(x){ return !ja[x.p.codigo]; }).map(function(x){ return {codigo: x.p.codigo, preco_centavos: x.p.preco_centavos, unidade: x.p.unidade, ean: x.it.ean}; }));
     var ativ = document.getElementById("impAtivar");
     bc.disabled = true; bc.textContent = "Importando…";
     sb.rpc("importar_produtos", {linhas: linhas, ativar_novos: !!(ativ && ativ.checked)}).then(function(r){
       if (r.error) { bc.disabled = false; bc.textContent = "Tentar de novo"; document.getElementById("impPrevia").insertAdjacentHTML("afterbegin", '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'); return; }
       var d = r.data || {};
-      document.getElementById("impPrevia").innerHTML = '<div class="msg ok">✓ Importação concluída: ' + (d.novos || 0) + ' produto(s) novo(s) e ' + (d.precos || 0) + ' preço(s) atualizado(s).' + (d.novos ? ' Os novos aparecem na lista de produtos' + (ativ && ativ.checked ? '' : ' marcados como "Fora da loja"') + '.' : '') + '</div>';
+      document.getElementById("impPrevia").innerHTML = '<div class="msg ok">✓ Importação concluída: ' + (d.novos || 0) + ' produto(s) novo(s), ' + (d.precos || 0) + ' preço(s) atualizado(s)' + (d.eans ? ' e ' + d.eans + ' código(s) de barras gravado(s)' : '') + '.' + (d.novos ? ' Os novos aparecem na lista de produtos' + (ativ && ativ.checked ? '' : ' marcados como "Fora da loja"') + '.' : '') + '</div>';
       bc.textContent = "Concluído"; impDados = null;
       carregarBase().then(desenharProdutos);
+    });
+  };
+  /* ---------- Fotos pelo código de barras (Open Food Facts) ---------- */
+  var fotRes = [];
+  function abrirFotos(){
+    fotRes = [];
+    document.getElementById("fotLista").innerHTML = ""; document.getElementById("fotSalvar").disabled = true;
+    var n = S.produtos.filter(function(p){ return p.ean; }).length, sem = S.produtos.filter(function(p){ return p.ean && !p.foto_url; }).length;
+    document.getElementById("fotStatus").textContent = n ? n + " produto(s) com código de barras, " + sem + " sem foto." : "Nenhum produto tem código de barras ainda. Cadastre o EAN no produto ou importe a planilha do ERP com a coluna EAN.";
+    document.getElementById("fotBuscar").disabled = !n;
+    document.getElementById("dlgFotos").showModal();
+  }
+  document.getElementById("fotFechar").onclick = function(){ document.getElementById("dlgFotos").close(); };
+  function buscarOFF(ean){
+    return fetch("https://world.openfoodfacts.org/api/v2/product/" + ean + ".json?fields=product_name,product_name_pt,brands,quantity,image_front_url,image_url")
+      .then(function(r){ return r.ok ? r.json() : {status: 0}; })
+      .then(function(j){
+        var p = j && j.status === 1 && j.product; if (!p) return null;
+        var url = p.image_front_url || p.image_url; if (!url) return {semFoto: true, nome: p.product_name_pt || p.product_name || "", marca: p.brands || ""};
+        return {url: url.replace(/\.(100|200|400)\.jpg$/, ".400.jpg"), nome: p.product_name_pt || p.product_name || "", marca: p.brands || "", qtd: p.quantity || ""};
+      }).catch(function(){ return {erro: true}; });
+  }
+  function desenharFotos(){
+    var h = "";
+    fotRes.forEach(function(r, i){
+      var p = r.p, achou = r.res && r.res.url;
+      h += '<div class="fot-card' + (achou ? (r.usar ? ' ok' : '') : ' sem') + '"><div class="img"' + (achou ? ' style="background-image:url(' + esc(JSON.stringify(r.res.url)) + ')"' : '') + '>' + (r.buscando ? 'Procurando…' : (achou ? '' : (r.res && r.res.erro ? 'Erro ao consultar' : (r.res && r.res.semFoto ? 'Produto encontrado, mas sem foto' : 'Não encontrado na base')))) + '</div>';
+      h += '<b>' + esc(p.nome) + '</b><span class="dica">Cód. ' + esc(p.codigo) + ' · EAN ' + esc(p.ean) + '</span>';
+      if (r.res && (r.res.nome || r.res.marca)) h += '<span class="dica">Na base: ' + esc([r.res.nome, r.res.marca, r.res.qtd].filter(Boolean).join(" · ")) + '</span>';
+      if (achou) h += '<label class="check" style="margin:0"><input type="checkbox" data-fotusar="' + i + '"' + (r.usar ? ' checked' : '') + '> Usar esta foto</label>';
+      else if (!r.buscando) h += '<a class="dica" href="https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(p.ean + " " + (p.descricao_caixa || p.nome)) + '" target="_blank" rel="noopener">Procurar no Google Imagens ↗</a>';
+      if (r.salvo) h += '<span class="dica" style="color:#2F5D46;font-weight:800">✓ Foto salva</span>';
+      if (r.falhou) h += '<span class="dica" style="color:#B3261E">' + esc(r.falhou) + '</span>';
+      h += '</div>';
+    });
+    var box = document.getElementById("fotLista"); box.innerHTML = h;
+    box.querySelectorAll("[data-fotusar]").forEach(function(c){ c.onchange = function(){ fotRes[+c.dataset.fotusar].usar = c.checked; desenharFotos(); }; });
+    document.getElementById("fotSalvar").disabled = !fotRes.some(function(r){ return r.usar && !r.salvo; });
+  }
+  document.getElementById("fotBuscar").onclick = function(){
+    var todos = document.getElementById("fotTodos").checked, b = this;
+    fotRes = S.produtos.filter(function(p){ return p.ean && (todos || !p.foto_url); }).map(function(p){ return {p: p, buscando: true}; });
+    if (!fotRes.length) { document.getElementById("fotStatus").textContent = "Todos os produtos com código de barras já têm foto. Marque a opção acima para procurar de novo."; return; }
+    b.disabled = true; desenharFotos();
+    var fila = fotRes.slice(), feitos = 0;
+    function proximo(){
+      var r = fila.shift(); if (!r) return Promise.resolve();
+      return buscarOFF(r.p.ean).then(function(res){ r.res = res; r.buscando = false; r.usar = !!(res && res.url); feitos++;
+        document.getElementById("fotStatus").textContent = "Consultando " + feitos + " de " + fotRes.length + "…"; desenharFotos(); }).then(proximo);
+    }
+    Promise.all([proximo(), proximo(), proximo(), proximo()]).then(function(){
+      b.disabled = false;
+      var ach = fotRes.filter(function(r){ return r.res && r.res.url; }).length;
+      document.getElementById("fotStatus").textContent = "Pronto: foto encontrada para " + ach + " de " + fotRes.length + ". Confira se cada foto é mesmo do produto antes de salvar.";
+    });
+  };
+  function imagemParaJpeg(url){
+    // baixa a foto e reduz para no máximo 800 px, em JPEG
+    return fetch(url).then(function(r){ if (!r.ok) throw new Error("download"); return r.blob(); }).then(function(blob){
+      return createImageBitmap(blob).then(function(bmp){
+        var fator = Math.min(1, 800 / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas");
+        c.width = Math.round(bmp.width * fator); c.height = Math.round(bmp.height * fator);
+        var ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height);
+        return new Promise(function(ok){ c.toBlob(ok, "image/jpeg", 0.85); });
+      });
+    });
+  }
+  document.getElementById("fotSalvar").onclick = function(){
+    var b = this, alvos = fotRes.filter(function(r){ return r.usar && !r.salvo; });
+    b.disabled = true; b.textContent = "Salvando…";
+    var fila = alvos.slice(), ok = 0;
+    function proximo(){
+      var r = fila.shift(); if (!r) return Promise.resolve();
+      var caminho = "ean/" + r.p.codigo.replace(/[^A-Za-z0-9_-]/g, "_") + "-" + r.p.ean + ".jpg";
+      return imagemParaJpeg(r.res.url).then(function(jpg){
+        return sb.storage.from("fotos-produtos").upload(caminho, jpg, {upsert: true, contentType: "image/jpeg", cacheControl: "604800"}).then(function(up){
+          if (up.error) throw up.error;
+          return sb.storage.from("fotos-produtos").getPublicUrl(caminho).data.publicUrl + "?v=" + Date.now();
+        });
+      }, function(){ return r.res.url; }) // se o site de origem não liberar o download, usa o endereço da foto direto
+      .then(function(pub){
+        return sb.from("produtos").update({foto_url: pub, foto_origem: "Open Food Facts (EAN " + r.p.ean + ")"}).eq("id", r.p.id).select();
+      }).then(function(u){
+        if (u.error) throw u.error;
+        r.p.foto_url = u.data[0].foto_url; r.salvo = true; r.falhou = ""; ok++;
+      }).catch(function(e){ r.falhou = "Não foi possível salvar: " + (e && e.message === "download" ? "o site de origem não liberou a imagem" : erroTxt(e)); })
+      .then(function(){ desenharFotos(); }).then(proximo);
+    }
+    Promise.all([proximo(), proximo(), proximo()]).then(function(){
+      b.textContent = "Salvar fotos marcadas";
+      document.getElementById("fotStatus").textContent = ok + " foto(s) salva(s)" + (alvos.length - ok ? ", " + (alvos.length - ok) + " com problema (veja abaixo)" : "") + ". Elas já aparecem na loja.";
+      desenharFotos(); desenharProdutos();
     });
   };
   function desenharProdutos(){
@@ -1030,7 +1154,7 @@
       if (!g.itens.length) { h += '<p class="dica">Nenhum produto nesta categoria.</p>'; return; }
       h += '<div class="tabela"><table><thead><tr><th>Código</th><th>Nome</th><th class="num">Preço</th><th>Venda</th><th>Situação</th><th></th></tr></thead><tbody>';
       g.itens.forEach(function(p){
-        h += '<tr><td>' + esc(p.codigo) + '</td><td><strong>' + esc(p.nome) + '</strong>' + (p.descricao_caixa ? '<div class="dica">' + esc(p.descricao_caixa) + '</div>' : '') + '</td>';
+        h += '<tr><td>' + esc(p.codigo) + (p.ean ? '<div class="dica" title="Código de barras">▮▯ ' + esc(p.ean) + '</div>' : '') + '</td><td><div style="display:flex;gap:8px;align-items:center">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="" width="40" height="40" style="object-fit:cover;border-radius:8px;flex:none" loading="lazy">' : '') + '<div><strong>' + esc(p.nome) + '</strong>' + (p.descricao_caixa ? '<div class="dica">' + esc(p.descricao_caixa) + '</div>' : '') + '</div></div></td>';
         h += '<td class="num">' + reais(p.preco_centavos) + '</td><td>' + unid(p.unidade) + ' · mín. ' + numBR(p.minimo) + ' · +' + numBR(p.incremento) + (p.valor_estimado ? '<div class="dica">valor estimado</div>' : '') + '</td>';
         h += '<td><button type="button" class="btn sec peq" data-toggle="' + p.id + '" title="Mudar disponibilidade">' + (p.ativo ? '✓ Na loja' : 'Fora da loja') + '</button> <button type="button" class="btn sec peq" data-esg="' + p.id + '" title="Marcar/desmarcar esgotado"' + (p.esgotado ? ' style="background:#2E211B;color:#fff"' : '') + '>' + (p.esgotado ? 'Esgotado' : 'Tem estoque') + '</button>' + (p.antecedencia_dias != null ? '<div class="dica">antecedência: ' + p.antecedencia_dias + ' dia(s)</div>' : '') + '</td>';
         h += '<td><button type="button" class="btn peq" data-edit="' + p.id + '">Editar</button></td></tr>';
@@ -1059,6 +1183,7 @@
     editando = p;
     document.getElementById("dlgProdutoTitulo").textContent = p ? "Editar produto" : "Cadastrar produto";
     var v = function(id, val){ document.getElementById(id).value = val == null ? "" : val; };
+    v("pEan", p && p.ean ? p.ean : "");
     v("pCodigo", p ? p.codigo : ""); v("pNome", p ? p.nome : ""); v("pDesc", p ? p.descricao : ""); v("pCaixa", p ? p.descricao_caixa : "");
     v("pPreco", p ? (p.preco_centavos/100).toFixed(2).replace(".",",") : "");
     preencherCategorias(document.getElementById("pCategoria"), p ? p.categoria_id : (S.categorias[0] && S.categorias[0].id));
@@ -1098,13 +1223,15 @@
     var ant = g("pAntec") === "" ? null : parseInt(g("pAntec"), 10);
     if (ant != null && !(ant >= 0 && ant <= 60)) return falha("Antecedência: use de 0 a 60 dias, ou deixe vazio.");
     if (max != null && !(max >= min)) return falha("O máximo precisa ser maior ou igual ao mínimo.");
+    var ean = g("pEan").replace(/\D/g, "");
+    if (ean && !eanValido(ean)) return falha("Código de barras inválido: confira os números (8, 12, 13 ou 14 dígitos).");
     var dados = {
       codigo: g("pCodigo"), nome: g("pNome"), descricao: g("pDesc") || null, descricao_caixa: g("pCaixa") || null,
       categoria_id: g("pCategoria") ? +g("pCategoria") : null, unidade: un, preco_centavos: Math.round(preco*100),
       minimo: min, incremento: inc, maximo: max, ordem: parseInt(g("pOrdem"),10) || 0,
       valor_estimado: document.getElementById("pEstimado").checked, ativo: document.getElementById("pAtivo").checked,
       destaque: document.getElementById("pDestaque").checked, subcategoria: (document.getElementById("pSub").value.trim() || null), selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null),
-      esgotado: document.getElementById("pEsgotado").checked, antecedencia_dias: ant
+      esgotado: document.getElementById("pEsgotado").checked, antecedencia_dias: ant, ean: ean || null
     };
     var btn = document.getElementById("pSalvar"); btn.disabled = true;
     var q = editando ? sb.from("produtos").update(dados).eq("id", editando.id).select() : sb.from("produtos").insert(dados).select();

@@ -63,6 +63,20 @@
   .itens .tot{display:flex;justify-content:space-between;font-weight:800;font-size:17px;padding-top:10px}
   .dica{font-size:13px;color:var(--texto-suave)}
   .centro{text-align:center;padding:40px 0;color:var(--texto-suave)}
+  .avaliar{border:2px solid var(--dourado);background:#FFFBF3}
+  .estrelas{display:flex;gap:6px;justify-content:center;margin:6px 0 4px}
+  .estrelas button{width:52px;height:52px;border:0;background:none;font-size:40px;line-height:1;color:#DCCBB8;cursor:pointer;padding:0}
+  .estrelas button.on{color:#E2A93B}
+  .estrelas.peq{justify-content:flex-start;gap:2px;margin:0}
+  .estrelas.peq button{width:34px;height:34px;font-size:26px}
+  .rotulo-nota{text-align:center;font-weight:700;color:var(--texto-suave);min-height:22px;font-size:15px}
+  .aspecto{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #F3E6DA;font-size:15px}
+  .aspecto:last-of-type{border-bottom:0}
+  textarea{width:100%;min-height:90px;border:1.5px solid var(--borda);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;margin-top:6px;resize:vertical}
+  .btn-av{background:var(--vinho);color:#fff;margin-top:12px}
+  .btn-av:disabled{opacity:.5}
+  .obrigado{text-align:center}
+  .obrigado .grande{font-size:34px;color:#E2A93B;letter-spacing:2px}
 </style>
 </head>
 <body>
@@ -123,11 +137,53 @@
     h += '<tr class="total"><td>Total</td><td class="de">' + reais(o.total_centavos) + (o.total_estimado ? '<br><small>estimado</small>' : '') + '</td><td class="para">' + reais(p.total_centavos) + '<br><small>' + (p.total_estimado ? 'estimado' : 'valor final') + '</small></td></tr>';
     return h + '</tbody></table>';
   }
+  var ROT = ["", "Muito ruim", "Ruim", "Regular", "Bom", "Excelente"];
+  var ASPECTOS = [["nota_produto","Produtos e sabor"],["nota_atendimento","Atendimento"],["nota_pontualidade","Pontualidade"],["nota_site","Facilidade de pedir pelo site"]];
+  var aval = {nota:0}, avEnviada = null;
+  function estrelas(campo, valor, peq){
+    var h = '<div class="estrelas' + (peq ? ' peq' : '') + '" role="radiogroup">';
+    for (var i = 1; i <= 5; i++) h += '<button type="button" role="radio" aria-checked="' + (valor === i) + '" aria-label="' + i + ' de 5 — ' + ROT[i] + '" data-campo="' + campo + '" data-n="' + i + '" class="' + (i <= valor ? 'on' : '') + '">★</button>';
+    return h + '</div>';
+  }
+  function blocoAvaliacao(p){
+    var a = avEnviada || p.avaliacao;
+    if (a) {
+      var h = '<div class="painel avaliar obrigado"><h2>Obrigado pela sua avaliação!</h2><div class="grande">' + "★★★★★".slice(0, a.nota) + '<span style="color:#DCCBB8">' + "★★★★★".slice(0, 5 - a.nota) + '</span></div>';
+      if (a.nota <= 3) h += '<p>Sentimos muito que não tenha sido como esperava. Nosso gerente quer ouvir você.</p><a class="btn btn-wpp" href="' + esc(linkWpp("Olá! Quero falar com o gerente sobre o meu pedido " + p.numero + ".")) + '" target="_blank" rel="noopener">Falar com o gerente</a>';
+      else h += '<p style="margin-bottom:0">Sua opinião ajuda a Di Mercatto a melhorar sempre.</p>';
+      return h + '</div>';
+    }
+    var h = '<div class="painel avaliar" id="blocoAval"><h2>Como foi sua experiência?</h2><p class="meta" style="margin:-6px 0 4px;text-align:center">Toque nas estrelas</p>';
+    h += estrelas("nota", aval.nota) + '<div class="rotulo-nota">' + (aval.nota ? ROT[aval.nota] : '') + '</div>';
+    h += '<div style="margin-top:10px' + (aval.nota ? '' : ';display:none') + '" id="avDetalhe"><div class="dica" style="margin-bottom:4px">Se quiser, avalie também (opcional):</div>';
+    ASPECTOS.forEach(function(x){ h += '<div class="aspecto"><span>' + x[1] + '</span>' + estrelas(x[0], aval[x[0]] || 0, true) + '</div>'; });
+    h += '<label for="avComent" style="display:block;margin-top:12px;font-weight:700">Sugestão ou comentário <span class="dica">(opcional)</span></label><textarea id="avComent" maxlength="1000" placeholder="Conte o que gostou ou o que podemos melhorar">' + esc(aval.comentario || "") + '</textarea></div>';
+    h += '<button type="button" class="btn btn-av" id="btnAval"' + (aval.nota ? '' : ' disabled') + '>Enviar avaliação</button><div class="erro" id="erroAval" hidden></div></div>';
+    return h;
+  }
+  function ligarAvaliacao(p){
+    var bloco = document.getElementById("blocoAval"); if (!bloco) return;
+    bloco.querySelectorAll("[data-campo]").forEach(function(b){ b.onclick = function(){
+      var c = b.dataset.campo, n = +b.dataset.n, ta = document.getElementById("avComent");
+      if (ta) aval.comentario = ta.value;
+      aval[c] = (c !== "nota" && aval[c] === n) ? 0 : n;
+      bloco.outerHTML = blocoAvaliacao(p); ligarAvaliacao(p);
+      var foco = document.querySelector('#blocoAval [data-campo="' + c + '"][data-n="' + n + '"]'); if (foco) foco.focus();
+    }; });
+    document.getElementById("avComent").oninput = function(e){ aval.comentario = e.target.value; };
+    document.getElementById("btnAval").onclick = function(){
+      var b = this; if (!aval.nota) return; b.disabled = true; b.textContent = "Enviando…";
+      var d = {nota: aval.nota, comentario: aval.comentario || ""}; ASPECTOS.forEach(function(x){ if (aval[x[0]]) d[x[0]] = aval[x[0]]; });
+      api("rpc/avaliar_pedido", {p_token: token, dados: d}).then(function(){ avEnviada = {nota: aval.nota}; ultimo = null; carregar(); })
+        .catch(function(e){ b.disabled = false; b.textContent = "Enviar avaliação"; var er = document.getElementById("erroAval"); er.textContent = e.message || "Não foi possível enviar. Tente de novo."; er.hidden = false; if (/já foi avaliado/.test(e.message || "")) { ultimo = null; carregar(); } });
+    };
+  }
   function desenhar(p){
     var h = '<div class="painel"><h1>Olá' + (p.cliente ? ', ' + esc(p.cliente) : '') + '!</h1><div class="meta">Seu pedido</div><div class="num">' + esc(p.numero) + '</div>';
     h += '<div class="meta">' + (p.modalidade === "entrega" ? "Entrega" : "Retirada na loja") + ' · ' + esc(dataBR(p.data_desejada)) + (p.horario ? ' · ' + esc(p.horario) : '') + '</div></div>';
     if (p.status === "cancelado") h += '<div class="painel cancelado">Este pedido foi cancelado. Se tiver dúvida, toque em "Falar com a loja".</div>';
     else h += '<div class="painel"><h2>Etapas do pedido</h2>' + etapas(p) + '</div>';
+    if (p.status === "concluido") h += blocoAvaliacao(p);
     var alterado = p.versao > 1 && p.original;
     if (alterado) {
       h += '<div class="painel alterado"><h2>🔄 Seu pedido foi atualizado</h2><p class="meta" style="margin:-6px 0 10px">' + (p.alterado_em ? 'Em ' + quando(p.alterado_em) : '') + (p.versao > 2 ? ' · alterado ' + (p.versao - 1) + ' vezes' : '') + '</p>';
@@ -146,6 +202,7 @@
     h += '<a class="btn btn-wpp" href="' + esc(linkWpp("Olá! Sobre o meu pedido " + p.numero + ":")) + '" target="_blank" rel="noopener">Falar com a loja no WhatsApp</a>';
     h += '<p class="dica" style="text-align:center;margin-top:14px">Esta página se atualiza sozinha. Última verificação: ' + new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) + '</p>';
     document.getElementById("app").innerHTML = h;
+    ligarAvaliacao(p);
     var b = document.getElementById("btnOk");
     if (b) b.onclick = function(){
       b.disabled = true; b.textContent = "Registrando…";
@@ -159,7 +216,9 @@
   function carregar(){
     return api("rpc/acompanhar_pedido", {p_token: token}).then(function(p){
       if (!p) { document.getElementById("app").innerHTML = '<div class="painel">Não encontramos este pedido. Confira se o link está completo, ou toque em "Falar com a loja".</div>'; return; }
-      var chave = JSON.stringify(p); if (chave === ultimo) return; ultimo = chave;
+      var chave = JSON.stringify(p); if (chave === ultimo) return;
+      if (ultimo && document.getElementById("blocoAval") && aval.nota && !p.avaliacao) return;
+      ultimo = chave;
       desenhar(p);
     }).catch(function(){ if (!ultimo) document.getElementById("app").innerHTML = '<div class="painel">Não conseguimos carregar agora. Verifique sua internet e tente de novo.</div>'; });
   }

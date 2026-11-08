@@ -78,12 +78,32 @@
   .check{display:flex;gap:8px;align-items:center;font-weight:600}
   .check input{width:20px;height:20px;accent-color:var(--vinho)}
   .icone-cat{display:inline-flex;vertical-align:middle;color:var(--vinho);margin-right:6px}
+  tr.tot-cat td{background:#FFF1E4;font-weight:800;border-top:2px solid var(--vinho)}
+  .total-geral{margin-top:18px;border:2px solid var(--vinho);border-radius:14px;padding:12px 16px;background:#FFF7EF}
+  .total-geral h3{margin:0 0 8px;color:var(--vinho);font-size:18px}
+  .total-geral .linhas{display:flex;flex-wrap:wrap;gap:8px 28px;font-size:16px}
+  .total-geral .linhas b{font-size:22px}
+  @media print{tr.tot-cat td{background:#eee!important;border-top:2px solid #000}.total-geral{border-color:#000;background:#fff}}
   .cab-setor{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-size:18px;color:var(--vinho);font-weight:700}
   .vazio{color:var(--suave);padding:20px 0;text-align:center}
   .faixa-prod{border:2px solid var(--vinho);border-radius:14px;padding:4px 14px 12px;margin:16px 0;break-inside:avoid-page}
   .faixa-cab{font-size:20px;font-weight:800;color:var(--vinho);margin:10px 0 0}
   .faixa-cab span{font-size:14px;font-weight:600;color:var(--suave);margin-left:8px}
   @media print{.faixa-prod{border-width:1.5px;border-color:#000}.faixa-cab{color:#000}}
+  .bolha-av{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#B3261E;color:#fff;font-size:12px;font-weight:800;margin-left:4px}
+  .bolha-av[hidden]{display:none}
+  .est{color:#E2A93B;letter-spacing:1px;white-space:nowrap}
+  .est i{color:#DCCBB8;font-style:normal}
+  .resumo-av{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .resumo-av .k{background:#FFF7EF;border:1px solid var(--borda);border-radius:12px;padding:10px 12px}
+  .resumo-av .k b{display:block;font-size:24px}
+  .barra-dist{display:flex;align-items:center;gap:8px;font-size:14px;margin:3px 0}
+  .barra-dist .t{flex:1;height:10px;background:#F3E6DA;border-radius:999px;overflow:hidden}
+  .barra-dist .t span{display:block;height:100%;background:#E2A93B}
+  .aval{border-left:5px solid #E2A93B}
+  .aval.baixa{border-left-color:#B3261E;background:#FFF6F5}
+  .aval.lida{opacity:.75}
+  .aval .coment{background:#fff;border:1px solid var(--borda);border-radius:10px;padding:8px 10px;margin-top:8px;white-space:pre-wrap}
   #alerta{position:fixed;right:16px;bottom:16px;z-index:50;background:#1E7B45;color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:340px;font-weight:600}
   #alerta button{margin-top:10px;margin-right:6px}
   #somAviso{font-size:13px}
@@ -143,6 +163,7 @@
   <div class="wrap" role="tablist">
     <button type="button" role="tab" data-aba="pedidos" aria-selected="true">Pedidos</button>
     <button type="button" role="tab" data-aba="producao" aria-selected="false">Ordem de produção</button>
+    <button type="button" role="tab" data-aba="avaliacoes" aria-selected="false">Avaliações <span class="bolha-av" id="bolhaAv" hidden></span></button>
     <button type="button" role="tab" data-aba="produtos" aria-selected="false">Produtos</button>
     <button type="button" role="tab" data-aba="config" aria-selected="false">Configurações</button>
   </div>
@@ -369,7 +390,77 @@
   function abrirAba(a){
     S.aba = a;
     document.querySelectorAll("[data-aba]").forEach(function(b){ b.setAttribute("aria-selected", String(b.dataset.aba === a)); });
-    ({pedidos:abaPedidos, producao:abaProducao, produtos:abaProdutos, config:abaConfig})[a]();
+    ({pedidos:abaPedidos, producao:abaProducao, avaliacoes:abaAvaliacoes, produtos:abaProdutos, config:abaConfig})[a]();
+  }
+
+  /* ================= AVALIAÇÕES ================= */
+  var filtroAv = { de: "", ate: "", nota: "", soNaoLidas: false };
+  var ASPECTOS_AV = [["nota_produto","Produtos e sabor"],["nota_atendimento","Atendimento"],["nota_pontualidade","Pontualidade"],["nota_site","Site"]];
+  function est(n){ return '<span class="est" aria-label="' + n + ' de 5">' + "★★★★★".slice(0, n) + '<i>' + "★★★★★".slice(0, 5 - n) + '</i></span>'; }
+  function abaAvaliacoes(){
+    var g = function(id){ return document.getElementById(id).value.trim(); };
+    var h = '<h1>Avaliações dos clientes</h1><div class="card nao-imprimir"><div class="barra-acoes">';
+    h += '<div><label for="avDe">Avaliadas de</label><input type="date" id="avDe" value="' + esc(filtroAv.de) + '"></div>';
+    h += '<div><label for="avAte">até</label><input type="date" id="avAte" value="' + esc(filtroAv.ate) + '"></div>';
+    h += '<div><label for="avNota">Nota</label><select id="avNota"><option value="">Todas</option><option value="baixa"' + (filtroAv.nota === "baixa" ? " selected" : "") + '>Baixas (1 a 3)</option>' + [5,4,3,2,1].map(function(n){ return '<option value="' + n + '"' + (filtroAv.nota === String(n) ? " selected" : "") + '>' + n + ' estrela' + (n > 1 ? 's' : '') + '</option>'; }).join("") + '</select></div>';
+    h += '<label class="check" style="align-self:end"><input type="checkbox" id="avNaoLidas"' + (filtroAv.soNaoLidas ? " checked" : "") + '> Só não lidas</label>';
+    h += '</div></div><div id="avResumo"></div><div id="avLista"><p class="vazio">Carregando…</p></div>';
+    document.getElementById("main").innerHTML = h;
+    ["avDe","avAte","avNota","avNaoLidas"].forEach(function(id){ document.getElementById(id).onchange = function(){
+      filtroAv.de = g("avDe"); filtroAv.ate = g("avAte"); filtroAv.nota = g("avNota"); filtroAv.soNaoLidas = document.getElementById("avNaoLidas").checked; carregarAvaliacoes();
+    }; });
+    carregarAvaliacoes();
+  }
+  function carregarAvaliacoes(){
+    var q = sb.from("avaliacoes").select("*, pedidos(numero,cliente_nome,data_desejada,modalidade,vendedor,total_centavos)").order("criado_em", {ascending:false}).limit(1000);
+    if (filtroAv.de) q = q.gte("criado_em", filtroAv.de + "T00:00:00-03:00");
+    if (filtroAv.ate) q = q.lte("criado_em", filtroAv.ate + "T23:59:59-03:00");
+    q.then(function(r){
+      var box = document.getElementById("avLista"); if (!box) return;
+      if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
+      var todas = r.data || [];
+      desenharResumoAv(todas);
+      var lista = todas.filter(function(a){
+        if (filtroAv.soNaoLidas && a.lida) return false;
+        if (filtroAv.nota === "baixa") return a.nota <= 3;
+        if (filtroAv.nota) return a.nota === +filtroAv.nota;
+        return true;
+      });
+      if (!lista.length) { box.innerHTML = '<p class="vazio">Nenhuma avaliação' + (todas.length ? ' com esse filtro' : ' ainda. Elas aparecem quando o cliente avalia pelo link de acompanhamento, depois que o pedido é marcado como Concluído') + '.</p>'; return; }
+      var h = '';
+      lista.forEach(function(a){
+        var p = a.pedidos || {};
+        h += '<div class="card aval' + (a.nota <= 3 ? ' baixa' : '') + (a.lida ? ' lida' : '') + '"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div>' + est(a.nota) + ' <b>' + ["","Muito ruim","Ruim","Regular","Bom","Excelente"][a.nota] + '</b></div><div class="meta">' + esc(dataHora(a.criado_em)) + '</div></div>';
+        h += '<div class="meta" style="margin-top:4px"><b>' + esc(p.numero || "") + '</b> · ' + esc(p.cliente_nome || "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' em ' + esc(dataBR(p.data_desejada)) + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
+        var asp = ASPECTOS_AV.filter(function(x){ return a[x[0]]; });
+        if (asp.length) h += '<div class="meta" style="margin-top:6px">' + asp.map(function(x){ return x[1] + ': ' + est(a[x[0]]); }).join(" &nbsp;·&nbsp; ") + '</div>';
+        if (a.comentario) h += '<div class="coment">“' + esc(a.comentario) + '”</div>';
+        h += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">' + (a.lida ? '<span class="meta">✓ Lida' + (a.lida_por ? ' por ' + esc(a.lida_por) : '') + '</span> <button type="button" class="btn sec peq" data-avlida="' + a.id + '" data-v="0">Marcar como não lida</button>' : '<button type="button" class="btn sec peq" data-avlida="' + a.id + '" data-v="1">Marcar como lida</button>') + '</div></div>';
+      });
+      box.innerHTML = h;
+      box.querySelectorAll("[data-avlida]").forEach(function(b){ b.onclick = function(){
+        b.disabled = true; var v = b.dataset.v === "1";
+        sb.from("avaliacoes").update({lida: v, lida_por: v ? S.usuario.email : null}).eq("id", +b.dataset.avlida).then(function(r){ if (r.error) { alert(erroTxt(r.error)); b.disabled = false; return; } carregarAvaliacoes(); atualizarBolhaAv(); });
+      }; });
+    });
+  }
+  function desenharResumoAv(todas){
+    var box = document.getElementById("avResumo"); if (!box) return;
+    if (!todas.length) { box.innerHTML = ""; return; }
+    function media(c){ var v = todas.filter(function(a){ return a[c]; }); return v.length ? (v.reduce(function(s, a){ return s + a[c]; }, 0) / v.length) : null; }
+    function fmt(m){ return m == null ? "—" : m.toLocaleString("pt-BR", {minimumFractionDigits:1, maximumFractionDigits:1}); }
+    var m = media("nota"), baixas = todas.filter(function(a){ return a.nota <= 3; }).length;
+    var h = '<div class="card"><div class="resumo-av"><div class="k">Nota média<b>' + fmt(m) + ' ' + est(Math.round(m)) + '</b></div><div class="k">Avaliações<b>' + todas.length + '</b></div><div class="k">Notas baixas (1–3)<b style="color:#B3261E">' + baixas + '</b></div>';
+    ASPECTOS_AV.forEach(function(x){ h += '<div class="k">' + x[1] + '<b>' + fmt(media(x[0])) + '</b></div>'; });
+    h += '</div><div style="margin-top:12px">';
+    for (var n = 5; n >= 1; n--) { var c = todas.filter(function(a){ return a.nota === n; }).length; h += '<div class="barra-dist"><span style="width:60px">' + n + ' ★</span><span class="t"><span style="width:' + (c / todas.length * 100) + '%"></span></span><span style="width:34px;text-align:right">' + c + '</span></div>'; }
+    box.innerHTML = h + '</div></div>';
+  }
+  function atualizarBolhaAv(){
+    sb.from("avaliacoes").select("id", {count:"exact", head:true}).eq("lida", false).lte("nota", 3).then(function(r){
+      var b = document.getElementById("bolhaAv"); if (!b || r.error) return;
+      b.textContent = r.count || 0; b.hidden = !r.count; b.title = r.count ? r.count + " avaliação(ões) baixa(s) não lida(s)" : "";
+    });
   }
 
   /* ================= PEDIDOS ================= */
@@ -447,7 +538,7 @@
         preparacao: "seu pedido *" + p.numero + "* está *em preparação* na nossa cozinha.",
         pronto: p.modalidade === "entrega" ? "seu pedido *" + p.numero + "* está *pronto* e logo sai para entrega." : "seu pedido *" + p.numero + "* está *pronto para retirada*! Pode vir buscar na loja.",
         saiu: "seu pedido *" + p.numero + "* *saiu para entrega*.",
-        concluido: "seu pedido *" + p.numero + "* foi concluído. Obrigado pela preferência!",
+        concluido: "seu pedido *" + p.numero + "* foi concluído. Obrigado pela preferência! Conta pra gente como foi? Sua avaliação leva menos de 1 minuto, pelo link abaixo.",
         cancelado: "seu pedido *" + p.numero + "* foi *cancelado*. Qualquer dúvida, é só responder esta mensagem."
       }[p.status] || ("atualização do seu pedido *" + p.numero + "*.");
       L.push("Olá" + (nome ? ", " + nome : "") + "! Aqui é a Di Mercatto: " + txt);
@@ -651,6 +742,19 @@
   }
   var prPorHora = true;
   function ordemFaixas(){ return (Array.isArray(S.config.faixas) ? S.config.faixas : []).map(function(f){ return f.rotulo; }); }
+  var ORDEM_UN = ["kg","un","cento","embalagem","porcao"];
+  function somaPorUn(itens, campo){ var t = {}; itens.forEach(function(l){ if (l[campo]) t[l.unidade] = (t[l.unidade] || 0) + l[campo]; }); return t; }
+  function txtSoma(t){ var ks = Object.keys(t).sort(function(a, b){ return ORDEM_UN.indexOf(a) - ORDEM_UN.indexOf(b); }); return ks.length ? ks.map(function(u){ return numBR(Math.round(t[u] * 1000) / 1000) + ' ' + unid(u); }).join(" + ") : '—'; }
+  function blocoTotalGeral(pedidos, titulo){
+    var conf = 0, prev = 0, tc = {}, tp = {}, nConf = 0;
+    pedidos.forEach(function(p){
+      var c = STATUS_PRODUCAO.indexOf(p.status) >= 0; if (c) nConf++;
+      (p.pedido_itens || []).forEach(function(i){ var q = Number(i.quantidade), alvo = c ? tc : tp; alvo[i.unidade] = (alvo[i.unidade] || 0) + q; });
+    });
+    var h = '<div class="total-geral"><h3>' + esc(titulo) + '</h3><div class="linhas"><span>A produzir (' + nConf + ' pedido' + (nConf === 1 ? '' : 's') + ' confirmado' + (nConf === 1 ? '' : 's') + '): <b>' + txtSoma(tc) + '</b></span>';
+    if (Object.keys(tp).length) h += '<span>Previsão (aguardando): <b style="font-size:17px">' + txtSoma(tp) + '</b></span>';
+    return h + '</div></div>';
+  }
   function tabelasProducao(pedidos, mostrarDiasPermitido){
     var mapa = {}, diasVistos = {};
     pedidos.forEach(function(p){
@@ -681,7 +785,8 @@
         if (l.obs.length) h += '<div class="dica">Obs.: ' + l.obs.map(esc).join(" · ") + '</div>';
         h += '</td><td class="num" style="font-size:17px;font-weight:700">' + (l.total ? numBR(l.total) + ' ' + unid(l.unidade) : '—') + '</td><td class="num">' + (l.pedidos.length || '—') + '</td><td class="num">' + (l.prev ? numBR(l.prev) + ' ' + unid(l.unidade) : '—') + '</td></tr>';
       });
-      h += '</tbody></table></div>';
+      var cols = '<td colspan="2">Total ' + esc(g.cat.nome) + '</td><td class="num" style="font-size:17px">' + txtSoma(somaPorUn(g.itens, "total")) + '</td><td class="num">' + (function(){ var u = {}; g.itens.forEach(function(l){ l.pedidos.forEach(function(n){ u[n] = 1; }); }); return Object.keys(u).length || '—'; })() + '</td><td class="num">' + txtSoma(somaPorUn(g.itens, "prev")) + '</td>';
+      h += '</tbody><tfoot><tr class="tot-cat">' + cols + '</tr></tfoot></table></div>';
     });
     return h;
   }
@@ -705,9 +810,10 @@
         chaves.forEach(function(k){
           var grupo = ps.filter(function(p){ return (p.horario || "Sem horário") === k; });
           var nc = grupo.filter(function(p){ return p.status !== "aguardando"; }).length;
-          h += '<div class="faixa-prod"><div class="faixa-cab">⏰ ' + esc(k) + ' <span>' + nc + ' confirmado(s)' + (grupo.length - nc ? ' · ' + (grupo.length - nc) + ' aguardando' : '') + '</span></div>' + tabelasProducao(grupo, !umDia) + '</div>';
+          h += '<div class="faixa-prod"><div class="faixa-cab">⏰ ' + esc(k) + ' <span>' + nc + ' confirmado(s)' + (grupo.length - nc ? ' · ' + (grupo.length - nc) + ' aguardando' : '') + '</span></div>' + tabelasProducao(grupo, !umDia) + blocoTotalGeral(grupo, "Total da faixa " + k) + '</div>';
         });
       } else h += tabelasProducao(ps, !umDia);
+      h += blocoTotalGeral(ps, "Total geral " + (umDia ? "do dia" : "do período"));
       box.innerHTML = h; ligarPorHora();
     });
   }
@@ -1093,15 +1199,17 @@
       ultimoId = (r.data && r.data[0]) ? r.data[0].id : 0;
       timerAlerta = setInterval(verificarNovos, 30000);
     });
-    document.addEventListener("visibilitychange", function(){ if (!document.hidden) { pararPiscar(); verificarNovos(); } });
+    atualizarBolhaAv();
+    document.addEventListener("visibilitychange", function(){ if (!document.hidden) verificarNovos(); });
   }
   function verificarNovos(){
+    atualizarBolhaAv();
     if (ultimoId == null) return;
     sb.from("pedidos").select("id,numero,cliente_nome,data_desejada,total_centavos").gt("id", ultimoId).order("id").then(function(r){
       if (r.error || !r.data || !r.data.length) return;
       ultimoId = r.data[r.data.length - 1].id;
       novos = novos.concat(r.data);
-      mostrarAlerta(); tocar(); comecarPiscar();
+      mostrarAlerta(); tocar(); comecarPiscar(); repetirSom();
       if (S.aba === "pedidos" && document.getElementById("listaPedidos")) carregarPedidos();
     });
   }
@@ -1111,11 +1219,13 @@
     a.hidden = false;
     a.innerHTML = '🔔 ' + (novos.length === 1 ? 'Novo pedido!' : novos.length + ' novos pedidos!') + '<div style="font-weight:500;font-size:14px;margin-top:6px">' +
       novos.slice(-4).map(function(p){ return esc(p.numero) + ' · ' + esc(p.cliente_nome) + ' · ' + esc(dataBR(p.data_desejada)) + ' · ' + reais(p.total_centavos); }).join("<br>") + '</div>' +
-      '<button type="button" class="btn sec peq" id="alertaVer">Ver pedidos</button><button type="button" class="btn sec peq" id="alertaOk">OK</button>';
+      '<button type="button" class="btn sec peq" id="alertaVer">Ver pedidos</button><button type="button" class="btn sec peq" id="alertaOk">✓ OK, recebido</button>';
     document.getElementById("alertaVer").onclick = function(){ fecharAlerta(); filtroPed.status = ""; abrirAba("pedidos"); };
     document.getElementById("alertaOk").onclick = fecharAlerta;
   }
-  function fecharAlerta(){ novos = []; var a = document.getElementById("alerta"); if (a) a.hidden = true; pararPiscar(); }
+  var somRepetido = null;
+  function repetirSom(){ if (!somRepetido) somRepetido = setInterval(function(){ if (novos.length) tocar(); else { clearInterval(somRepetido); somRepetido = null; } }, 15000); }
+  function fecharAlerta(){ novos = []; var a = document.getElementById("alerta"); if (a) a.hidden = true; pararPiscar(); if (somRepetido) { clearInterval(somRepetido); somRepetido = null; } }
   function comecarPiscar(){
     if (piscar) return; var on = false;
     piscar = setInterval(function(){ on = !on; document.title = on ? "🔔 (" + novos.length + ") Novo pedido!" : tituloOriginal; }, 1000);

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="vendor/supabase-js-2.45.4.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <script src="config.js"></script>
 <style>
   :root{--vinho:#94392D;--vinho-escuro:#6E271E;--creme:#FFEDDC;--creme-claro:#FFF7EF;--laranja:#E07F40;--dourado:#B8913A;--texto:#2E211B;--suave:#5C4A40;--borda:#E8D3C0;--erro:#B3261E;--ok:#2F5D46}
@@ -278,6 +278,10 @@
     if (/Invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
     if (/Email not confirmed/i.test(m)) return "Confirme seu e-mail pelo link que enviamos antes de entrar.";
     if (/Failed to fetch|NetworkError/i.test(m)) return "Sem conexão com o servidor. Verifique a internet.";
+    if (/Database error saving new user|apenas para e-mails da equipe/i.test(m)) return "Este e-mail não está cadastrado na equipe. Peça a um administrador para incluir você antes de criar a senha.";
+    if (/duplicate key.*vendedores|vendedores_codigo_key/i.test(m)) return "Já existe um vendedor com esse código.";
+    if (/vendedores_codigo_check/i.test(m)) return "Código do vendedor: use de 2 a 30 letras minúsculas, números, - ou _ (sem espaço e sem acento).";
+    if (/duplicate key.*equipe_pkey/i.test(m)) return "Esse e-mail já está na equipe.";
     return m;
   }
 
@@ -337,6 +341,7 @@
           sb.auth.signOut();
           return telaLogin({tipo:"erro", texto:"O e-mail " + u.email + " não está cadastrado na equipe. Peça a um administrador para incluir você."});
         }
+        S.papel = eu.papel || "atendente";
         document.getElementById("usuarioEmail").textContent = eu.nome || u.email;
         document.getElementById("usuario").hidden = false;
         document.getElementById("abas").hidden = false;
@@ -838,7 +843,8 @@
     h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgEnt"' + (c.entrega_ativa ? " checked" : "") + '> Oferecer entrega</label>';
     h += '<label for="cfgEntAviso" style="margin-top:12px">Aviso sobre a entrega</label><input type="text" id="cfgEntAviso" value="' + esc(c.entrega_aviso || "") + '"></div>';
     h += '<div id="cfgMsg"></div><button class="btn" type="submit">Salvar configurações</button></form>';
-    h += '<div class="card" style="margin-top:20px"><h2>Equipe com acesso ao painel</h2><div id="equipeLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="eqEmail">E-mail</label><input type="email" id="eqEmail"></div><div class="cresce"><label for="eqNome">Nome</label><input type="text" id="eqNome"></div><button class="btn sec" type="button" id="eqAdd">Adicionar</button></div><p class="dica">Depois de adicionada, a pessoa entra em "Primeiro acesso? Crie sua senha" com o mesmo e-mail.</p></div>';
+    h += '<div class="card" style="margin-top:20px"><h2>Equipe com acesso ao painel</h2><div id="equipeLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="eqEmail">E-mail</label><input type="email" id="eqEmail"></div><div class="cresce"><label for="eqNome">Nome</label><input type="text" id="eqNome"></div><div><label for="eqPapel">Acesso</label><select id="eqPapel"><option value="atendente">Atendente</option><option value="admin">Administrador</option></select></div><button class="btn sec" type="button" id="eqAdd">Adicionar</button></div><p class="dica">Só administradores incluem ou removem pessoas. Depois de incluída, a pessoa entra em "Primeiro acesso? Crie sua senha" com o mesmo e-mail. E-mails fora da equipe não conseguem criar senha.</p></div>';
+    h += '<div class="card" style="margin-top:20px"><h2>Vendedores</h2><p class="dica" style="margin-top:0">O link do vendedor é o da loja com <strong>?v=código</strong>. Só códigos cadastrados e ativos são gravados no pedido.</p><div id="vendLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" id="vendForm" style="margin-top:10px"><div class="cresce"><label for="vdCod">Código (ex.: ana)</label><input type="text" id="vdCod" maxlength="30" autocapitalize="off"></div><div class="cresce"><label for="vdNome">Nome</label><input type="text" id="vdNome" maxlength="80"></div><button class="btn sec" type="button" id="vdAdd">Adicionar</button></div></div>';
     main.innerHTML = h;
     ["datas","horarios","pagamentos"].forEach(desenharChips);
     desenharFaixas();
@@ -850,7 +856,9 @@
     }; });
     document.getElementById("formCfg").onsubmit = salvarConfig;
     document.getElementById("eqAdd").onclick = addEquipe;
-    carregarEquipe();
+    document.getElementById("vdAdd").onclick = addVendedor;
+    if (S.papel !== "admin") { ["eqAdd","vdAdd"].forEach(function(id){ var b = document.getElementById(id); b.disabled = true; b.title = "Somente administradores"; }); }
+    carregarEquipe(); carregarVendedores();
   }
   function ddmmParaISO(t){
     var m = String(t).trim().match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/); if (!m) return null;
@@ -913,22 +921,57 @@
     sb.from("equipe").select("*").order("criado_em").then(function(r){
       var box = document.getElementById("equipeLista"); if (!box) return;
       if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
+      var admin = S.papel === "admin";
       box.innerHTML = '<div class="tabela"><table><tbody>' + r.data.map(function(e){
         var eu = e.email.toLowerCase() === (S.usuario.email||"").toLowerCase();
-        return '<tr><td><strong>' + esc(e.nome || "") + '</strong></td><td>' + esc(e.email) + '</td><td class="num">' + (eu ? '<span class="dica">você</span>' : '<button class="btn perigo peq" type="button" data-remeq="' + esc(e.email) + '">Remover</button>') + '</td></tr>';
+        return '<tr><td><strong>' + esc(e.nome || "") + '</strong></td><td>' + esc(e.email) + '</td><td>' + (e.papel === "admin" ? "Administrador" : "Atendente") + '</td><td class="num">' + (eu ? '<span class="dica">você</span>' : (admin ? '<button class="btn perigo peq" type="button" data-remeq="' + esc(e.email) + '">Remover</button>' : '')) + '</td></tr>';
       }).join("") + '</tbody></table></div>';
       box.querySelectorAll("[data-remeq]").forEach(function(b){ b.onclick = function(){
         if (!confirm("Remover o acesso de " + b.dataset.remeq + "?")) return;
-        sb.from("equipe").delete().eq("email", b.dataset.remeq).then(carregarEquipe);
+        sb.from("equipe").delete().eq("email", b.dataset.remeq).select().then(function(x){
+          if (x.error) alert(erroTxt(x.error)); else if (!x.data || !x.data.length) alert("Não foi possível remover (somente administradores).");
+          carregarEquipe();
+        });
       }; });
     });
   }
   function addEquipe(){
-    var email = document.getElementById("eqEmail").value.trim().toLowerCase(), nome = document.getElementById("eqNome").value.trim();
+    var email = document.getElementById("eqEmail").value.trim().toLowerCase(), nome = document.getElementById("eqNome").value.trim(), papel = document.getElementById("eqPapel").value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { alert("Informe um e-mail válido."); return; }
-    sb.from("equipe").insert({email:email, nome:nome || null}).then(function(r){
+    sb.from("equipe").insert({email:email, nome:nome || null, papel:papel}).then(function(r){
       if (r.error) { alert(erroTxt(r.error)); return; }
       document.getElementById("eqEmail").value = ""; document.getElementById("eqNome").value = ""; carregarEquipe();
+    });
+  }
+  function carregarVendedores(){
+    sb.from("vendedores").select("*").order("nome").then(function(r){
+      var box = document.getElementById("vendLista"); if (!box) return;
+      if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
+      if (!r.data.length) { box.innerHTML = '<p class="vazio">Nenhum vendedor cadastrado.</p>'; return; }
+      var admin = S.papel === "admin", base = location.href.replace(/admin\.html.*$/, "");
+      box.innerHTML = '<div class="tabela"><table><tbody>' + r.data.map(function(v){
+        var link = base + "?v=" + encodeURIComponent(v.codigo);
+        return '<tr' + (v.ativo ? '' : ' style="opacity:.55"') + '><td><strong>' + esc(v.nome) + '</strong></td><td><code>' + esc(v.codigo) + '</code></td><td><span class="dica">' + esc(link) + '</span></td><td class="num">' +
+          '<button class="btn sec peq" type="button" data-vcopia="' + esc(link) + '">Copiar link</button> ' +
+          (admin ? '<button class="btn sec peq" type="button" data-vativo="' + v.id + '" data-novo="' + (!v.ativo) + '">' + (v.ativo ? 'Desativar' : 'Ativar') + '</button>' : '') + '</td></tr>';
+      }).join("") + '</tbody></table></div>';
+      box.querySelectorAll("[data-vcopia]").forEach(function(b){ b.onclick = function(){
+        var t = b.dataset.vcopia; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ b.textContent = "Copiado ✓"; }, function(){ prompt("Copie o link:", t); });
+      }; });
+      box.querySelectorAll("[data-vativo]").forEach(function(b){ b.onclick = function(){
+        sb.from("vendedores").update({ativo: b.dataset.novo === "true"}).eq("id", b.dataset.vativo).select().then(function(x){
+          if (x.error) alert(erroTxt(x.error)); carregarVendedores();
+        });
+      }; });
+    });
+  }
+  function addVendedor(){
+    var cod = document.getElementById("vdCod").value.trim().toLowerCase(), nome = document.getElementById("vdNome").value.trim();
+    if (!/^[a-z0-9_-]{2,30}$/.test(cod)) { alert("Código: use de 2 a 30 letras minúsculas, números, - ou _ (sem espaço e sem acento)."); return; }
+    if (!nome) { alert("Informe o nome do vendedor."); return; }
+    sb.from("vendedores").insert({codigo:cod, nome:nome}).then(function(r){
+      if (r.error) { alert(erroTxt(r.error)); return; }
+      document.getElementById("vdCod").value = ""; document.getElementById("vdNome").value = ""; carregarVendedores();
     });
   }
 

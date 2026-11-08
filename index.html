@@ -849,7 +849,8 @@
       enviando = false;
       btn.disabled = false; btn.innerHTML = iconeWpp() + " Continuar no WhatsApp para enviar o pedido";
       var msg = (e && e.message) ? e.message : "";
-      var amigavel = /indispon|mínima|máxima|inválid|Informe|Escolha|vazio/i.test(msg) ? msg : "Não conseguimos registrar seu pedido agora. Verifique sua internet e tente de novo, ou toque em Ajuda para falar com a gente.";
+      var doServidor = e && e.dados && e.dados.code === "P0001";
+      var amigavel = (doServidor || /indispon|mínima|máxima|inválid|Informe|Escolha|vazio/i.test(msg)) ? msg : "Não conseguimos registrar seu pedido agora. Verifique sua internet e tente de novo, ou toque em Ajuda para falar com a gente.";
       document.getElementById("erroEnvio").innerHTML = '<div class="msg-erro" role="alert">' + esc(amigavel) + '</div>';
     });
   }

@@ -934,8 +934,8 @@
     descricao: ["descricao","descricao produto","descricao do produto","produto","nome","nome produto","desc"],
     preco: ["preco","preco venda","preco de venda","pr venda","valor","valor venda","venda","preco unitario","preco varejo","vl venda"],
     unidade: ["unidade","un","und","unid","unidade medida","unidade de medida","medida","um"],
-    grupo: ["grupo","secao","departamento","categoria","depto","depto."],
-    subgrupo: ["subgrupo","sub grupo","subcategoria","familia","sub secao"],
+    grupo: ["grupo","descricao grupo","descricao departamento","desc departamento","departamento descricao","nome departamento","departamento","categoria","descricao categoria","secao","depto"],
+    subgrupo: ["subgrupo","sub grupo","subcategoria","descricao subgrupo","descricao secao","desc secao","secao descricao","nome secao","familia","descricao familia","sub secao"],
     ean: ["ean","gtin","ean13","ean 13","codigo de barras","cod de barras","cod barras","codigo barras","codbarras","barras","cod barra","codigo barra"]
   };
   function eanValido(e){
@@ -963,7 +963,10 @@
   function interpretarPlanilha(linhas){
     var cab = -1, mapa = null;
     for (var i = 0; i < Math.min(linhas.length, 15) && cab < 0; i++) {
-      var m = {}; (linhas[i] || []).forEach(function(c, j){ var n = semAcento(c); Object.keys(COLS_IMP).forEach(function(k){ if (m[k] == null && COLS_IMP[k].indexOf(n) >= 0) m[k] = j; }); });
+      var m = {}, nomes = (linhas[i] || []).map(function(c){ return semAcento(c); }), usadas = {};
+      ["codigo","preco","ean","descricao","unidade","grupo","subgrupo"].forEach(function(k){
+        COLS_IMP[k].some(function(al){ var j = nomes.indexOf(al); if (j >= 0 && !usadas[j]) { m[k] = j; usadas[j] = 1; return true; } return false; });
+      });
       if (m.codigo != null && m.preco != null) { cab = i; mapa = m; }
     }
     if (cab < 0) throw new Error("Não encontrei a linha de títulos com as colunas Código e Preço. Confira se a primeira linha tem os nomes das colunas.");
@@ -1008,9 +1011,17 @@
         if (atual && it.ean && it.ean !== atual.ean) eans.push({it: it, p: atual});
         if (atual) { if (atual.preco_centavos !== it.preco_centavos) precos.push({it: it, p: atual}); else iguais++; }
         else if (!it.unidade) { it.erro = it.unidade_orig ? 'unidade "' + it.unidade_orig + '" não reconhecida (use KG, UN, CENTO, EMBALAGEM ou PORÇÃO)' : "produto novo sem unidade"; prob.push(it); }
-        else { it.nome = nomeBonito(it.descricao) || it.codigo; it.cat = S.categorias.filter(function(c){ return semAcento(c.nome) === semAcento(it.grupo); })[0] || null; novos.push(it); }
+        else {
+          it.nome = nomeBonito(it.descricao) || it.codigo;
+          if (/^\d+$/.test(it.grupo)) it.grupo = ""; if (/^\d+$/.test(it.subgrupo)) it.subgrupo = "";
+          it.grupoNome = it.grupo ? nomeBonito(it.grupo) : ""; it.subgrupo = it.subgrupo ? nomeBonito(it.subgrupo) : "";
+          it.cat = S.categorias.filter(function(c){ return semAcento(c.nome) === semAcento(it.grupo); })[0] || null;
+          novos.push(it);
+        }
       });
-      impDados = {novos: novos, precos: precos, eans: eans};
+      var catsNovas = {}; novos.forEach(function(it){ if (!it.cat && it.grupoNome) catsNovas[semAcento(it.grupoNome)] = it.grupoNome; });
+      catsNovas = Object.keys(catsNovas).map(function(k){ return catsNovas[k]; });
+      impDados = {novos: novos, precos: precos, eans: eans, catsNovas: catsNovas};
       var h = '<div class="msg ok" style="margin:0">Planilha lida: ' + (r.ok.length + r.prob.length) + ' linha(s). <b>' + novos.length + '</b> produto(s) novo(s), <b>' + precos.length + '</b> preço(s) alterado(s), ' + iguais + ' sem alteração' + (prob.length ? ', <b style="color:#B3261E">' + prob.length + ' com problema</b> (não serão importadas)' : '') + '.</div>';
       if (eans.length) h += '<p class="dica" style="margin:8px 0 0">▮▯ ' + eans.length + ' produto(s) já cadastrado(s) vão receber o código de barras da planilha.</p>';
       if (eanRuins.length) h += '<p class="dica" style="margin:4px 0 0;color:#B3261E">' + eanRuins.length + ' código(s) de barras inválido(s) foram ignorados (dígito verificador não confere): ' + eanRuins.slice(0, 5).map(function(it){ return esc(it.codigo) + ' → ' + esc(it.eanRuim); }).join(", ") + (eanRuins.length > 5 ? "…" : "") + '</p>';
@@ -1025,8 +1036,10 @@
       }
       if (novos.length) {
         h += '<details class="imp-grupo" open><summary>🆕 Produtos novos (' + novos.length + ')</summary><table><tr><th>Código</th><th>Nome na loja</th><th>Preço</th><th>Unidade</th><th>Categoria</th></tr>';
-        novos.forEach(function(it){ h += '<tr><td>' + esc(it.codigo) + '</td><td>' + esc(it.nome) + '</td><td>' + reais(it.preco_centavos) + '</td><td>' + esc(unid(it.unidade)) + (it.unDeduzida ? ' <span class="dica" title="A planilha não tem coluna de unidade: deduzida pela descrição (KG na descrição = kg; senão, unidade). Confira e ajuste no produto se precisar.">(deduzida)</span>' : '') + '</td><td>' + (it.cat ? esc(it.cat.nome) : '<span class="dica">' + (it.grupo ? 'sem correspondente: "' + esc(it.grupo) + '"' : 'sem categoria') + '</span>') + (it.subgrupo ? ' · ' + esc(it.subgrupo) : '') + '</td></tr>'; });
-        h += '</table></details><label class="check" style="margin-top:10px"><input type="checkbox" id="impAtivar"> Já colocar os produtos novos na loja (só os que têm categoria). Sem marcar, entram fora da loja para revisão.</label>';
+        novos.forEach(function(it){ h += '<tr><td>' + esc(it.codigo) + '</td><td>' + esc(it.nome) + '</td><td>' + reais(it.preco_centavos) + '</td><td>' + esc(unid(it.unidade)) + (it.unDeduzida ? ' <span class="dica" title="A planilha não tem coluna de unidade: deduzida pela descrição (KG na descrição = kg; senão, unidade). Confira e ajuste no produto se precisar.">(deduzida)</span>' : '') + '</td><td>' + (it.cat ? esc(it.cat.nome) : (it.grupoNome ? esc(it.grupoNome) + ' <span class="tag" style="font-size:11px">nova</span>' : '<span class="dica">sem categoria</span>')) + (it.subgrupo ? ' · ' + esc(it.subgrupo) : '') + '</td></tr>'; });
+        h += '</table></details>';
+        if (catsNovas.length) h += '<label class="check" style="margin-top:10px"><input type="checkbox" id="impCriarCats" checked> Criar ' + catsNovas.length + ' categoria(s) que ainda não existe(m) na loja: <b>' + catsNovas.map(esc).join(", ") + '</b>. Sem marcar, esses produtos entram sem categoria.</label>';
+        h += '<label class="check" style="margin-top:10px"><input type="checkbox" id="impAtivar"> Já colocar os produtos novos na loja (só os que ficarem com categoria). Sem marcar, entram fora da loja para revisão.</label>';
       }
       if (prob.length) {
         h += '<details class="imp-grupo"><summary>⚠️ Linhas com problema (' + prob.length + ')</summary><table><tr><th>Linha</th><th>Código</th><th>Descrição</th><th>Problema</th></tr>';
@@ -1041,15 +1054,16 @@
   };
   document.getElementById("impConfirmar").onclick = function(){
     if (!impDados) return;
-    var bc = this, ja = {}, linhas = impDados.novos.map(function(it){ return {codigo: it.codigo, descricao: it.descricao, nome: it.nome, preco_centavos: it.preco_centavos, unidade: it.unidade, grupo: it.cat ? it.cat.nome : "", subgrupo: it.subgrupo, ean: it.ean}; })
+    var bc = this, ja = {}, linhas = impDados.novos.map(function(it){ return {codigo: it.codigo, descricao: it.descricao, nome: it.nome, preco_centavos: it.preco_centavos, unidade: it.unidade, grupo: it.cat ? it.cat.nome : it.grupoNome, subgrupo: it.subgrupo, ean: it.ean}; })
       .concat(impDados.precos.map(function(x){ ja[x.p.codigo] = 1; return {codigo: x.it.codigo, descricao: x.it.descricao, preco_centavos: x.it.preco_centavos, unidade: x.p.unidade, ean: x.it.ean}; }))
       .concat(impDados.eans.filter(function(x){ return !ja[x.p.codigo]; }).map(function(x){ return {codigo: x.p.codigo, preco_centavos: x.p.preco_centavos, unidade: x.p.unidade, ean: x.it.ean}; }));
     var ativ = document.getElementById("impAtivar");
     bc.disabled = true; bc.textContent = "Importando…";
-    sb.rpc("importar_produtos", {linhas: linhas, ativar_novos: !!(ativ && ativ.checked)}).then(function(r){
+    var cc = document.getElementById("impCriarCats");
+    sb.rpc("importar_produtos", {linhas: linhas, ativar_novos: !!(ativ && ativ.checked), criar_categorias: !!(cc && cc.checked)}).then(function(r){
       if (r.error) { bc.disabled = false; bc.textContent = "Tentar de novo"; document.getElementById("impPrevia").insertAdjacentHTML("afterbegin", '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'); return; }
       var d = r.data || {};
-      document.getElementById("impPrevia").innerHTML = '<div class="msg ok">✓ Importação concluída: ' + (d.novos || 0) + ' produto(s) novo(s), ' + (d.precos || 0) + ' preço(s) atualizado(s)' + (d.eans ? ' e ' + d.eans + ' código(s) de barras gravado(s)' : '') + '.' + (d.novos ? ' Os novos aparecem na lista de produtos' + (ativ && ativ.checked ? '' : ' marcados como "Fora da loja"') + '.' : '') + '</div>';
+      document.getElementById("impPrevia").innerHTML = '<div class="msg ok">✓ Importação concluída: ' + (d.novos || 0) + ' produto(s) novo(s), ' + (d.precos || 0) + ' preço(s) atualizado(s)' + (d.eans ? ', ' + d.eans + ' código(s) de barras gravado(s)' : '') + (d.categorias ? ' e ' + d.categorias + ' categoria(s) criada(s)' : '') + '.' + (d.novos ? ' Os novos aparecem na lista de produtos' + (ativ && ativ.checked ? '' : ' marcados como "Fora da loja"') + '.' : '') + '</div>';
       bc.textContent = "Concluído"; impDados = null;
       carregarBase().then(desenharProdutos);
     });

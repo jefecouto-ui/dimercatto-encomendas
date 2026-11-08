@@ -35,6 +35,30 @@
   header.topo{background:var(--vinho);color:#fff;position:sticky;top:0;z-index:20;box-shadow:0 2px 10px rgba(0,0,0,.12)}
   .topo .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px}
   .marca{font-family:"Great Vibes",cursive;font-size:32px;line-height:1;white-space:nowrap}
+  .marca-img{display:none;height:46px;width:auto}
+  /* ===== Tema "Dia a dia" ===== */
+  body.tema-dia header.topo{background:#FFF7EF;color:var(--vinho);border-bottom:1px solid #EBD9C7;box-shadow:0 2px 10px rgba(110,39,30,.08)}
+  body.tema-dia .marca-txt{display:none}
+  body.tema-dia .marca-img{display:block}
+  body.tema-dia .topo .ajuda{background:var(--vinho);color:#fff}
+  .capa-dia{position:relative;overflow:hidden;margin:0 -16px;padding:30px 22px 26px;text-align:center;color:var(--texto);
+    background:radial-gradient(120% 80% at 50% 0%,#FFFFFF 0%,#FFF3E6 55%,#FBE3CC 100%)}
+  .capa-dia::before{content:"";position:absolute;inset:0;opacity:.5;pointer-events:none;
+    background-image:radial-gradient(circle at 1px 1px,rgba(148,57,45,.16) 1px,transparent 1.4px);background-size:16px 16px;
+    -webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 70%);mask-image:linear-gradient(180deg,#000 0%,transparent 70%)}
+  .capa-dia>*{position:relative}
+  .capa-dia .logo-capa{display:block;width:min(240px,64vw);height:auto;margin:0 auto;filter:drop-shadow(0 8px 16px rgba(110,39,30,.22))}
+  .capa-dia .script{font-family:"Great Vibes",cursive;font-size:34px;color:var(--laranja,#E07F40);line-height:1;margin-top:14px}
+  .capa-dia h1{margin:6px auto 0;font-family:"Playfair Display",Georgia,serif;font-weight:700;font-size:31px;line-height:1.1;color:var(--vinho);max-width:16em}
+  .capa-dia p.txt{margin:10px auto 0;font-size:16.5px;line-height:1.45;color:#5C4A40;max-width:30em}
+  .capa-dia .chip{display:inline-flex;align-items:center;gap:7px;background:var(--vinho);color:#fff;border-radius:999px;padding:7px 12px;font-size:13.5px;font-weight:800;margin-bottom:14px}
+  .capa-dia .botoes{display:flex;gap:10px;margin:20px auto 0;max-width:460px}
+  .capa-dia .botoes a,.capa-dia .botoes button{flex:1;min-height:56px;border-radius:14px;font-weight:800;font-size:17px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+  .capa-dia .b1{background:var(--vinho);color:#fff;border:0;box-shadow:0 8px 18px rgba(148,57,45,.28)}
+  .capa-dia .b2{background:#fff;color:var(--vinho);border:1.5px solid #E2C7B0}
+  .capa-dia .selos{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:16px}
+  .capa-dia .selos span{background:rgba(255,255,255,.75);border:1px solid #EBD3BE;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:700;color:#6E271E}
+  @media (min-width:960px){ .capa-dia{margin:18px 0 0;border-radius:24px;padding:48px 40px 40px} .capa-dia .logo-capa{width:280px} .capa-dia h1{font-size:44px} }
   .ajuda{display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--vinho);border:0;border-radius:999px;padding:10px 16px;font-weight:700;font-size:16px;text-decoration:none;white-space:nowrap}
   .ajuda svg{flex:none}
 
@@ -333,7 +357,7 @@
 <body>
 <header class="topo">
   <div class="wrap">
-    <div class="marca" aria-label="Di Mercatto">Di Mercatto</div>
+    <div class="marca" aria-label="Di Mercatto"><span class="marca-txt">Di Mercatto</span><img class="marca-img" src="img/logo-dimercatto.webp" alt="Di Mercatto" width="116" height="55"></div>
     <a class="ajuda" id="btnAjuda" href="#" target="_blank" rel="noopener">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>
       Ajuda
@@ -469,6 +493,7 @@
       estado.categorias = r[0];
       estado.produtos = r[1].map(function(x){ x.minimo = Number(x.minimo); x.incremento = Number(x.incremento); x.maximo = x.maximo == null ? null : Number(x.maximo); return x; });
       r[2].forEach(function(c){ estado.config[c.chave] = c.valor; });
+      document.body.classList.toggle("tema-dia", temaDia());
       // limpa do carrinho o que não existe mais
       Object.keys(estado.carrinho).forEach(function(c){ var pp = produtoPorCodigo(c); if (!pp || pp.esgotado) delete estado.carrinho[c]; });
       var ajuda = linkWhats("Olá! Gostaria de ajuda para fazer uma encomenda.");
@@ -516,6 +541,7 @@
   window.addEventListener("popstate", function(){
     if (!location.hash && estado.etapa === 1 && estado.cat != null) { estado.cat = null; irPara(1); var c = document.getElementById("cardapio"); if (c) c.scrollIntoView(); }
   });
+  function temaDia(){ return estado.config.tema === "dia_a_dia"; }
   function catsComProdutos(){ return estado.categorias.filter(function(c){ return estado.produtos.some(function(p){ return p.categoria_id === c.id; }); }); }
   function corCat(id){ var cs = estado.categorias; for (var i=0;i<cs.length;i++) if (cs[i].id === id) return i % 4; return 0; }
   function iconeCat(id){ var c = estado.categorias.filter(function(x){ return x.id === id; })[0]; return c ? c.icone : "talheres"; }
@@ -536,6 +562,16 @@
     estado.cat = null;
     var cfg = estado.config, h = "", cats = catsComProdutos();
     var semCat = estado.produtos.filter(function(p){ return !estado.categorias.some(function(c){ return c.id === p.categoria_id; }); });
+    if (temaDia()) {
+      h += '<section class="capa-dia" aria-label="Apresentação">';
+      h += '<img class="logo-capa" src="img/logo-dimercatto.webp" alt="Di Mercatto" width="290" height="137">';
+      h += '<div class="script">' + esc(cfg.dia_titulo || "Encomendas") + '</div>';
+      h += '<h1>' + esc(cfg.dia_subtitulo || "Do café da manhã à jantinha, feito na nossa cozinha.") + '</h1>';
+      var txtDia = cfg.dia_texto != null && cfg.dia_texto !== "" ? cfg.dia_texto : "Escolha pelo celular, envie pelo WhatsApp e " + (cfg.entrega_ativa ? "retire na loja ou receba em casa." : "retire na loja.");
+      h += '<p class="txt">' + esc(txtDia) + '</p>';
+      h += '<div class="botoes"><a class="b1" href="#cardapio" data-irpara="cardapio">Ver o cardápio</a><a class="b2" href="#" data-irpara="destaques">' + (estado.produtos.some(function(p){ return p.destaque; }) ? 'Destaques' : 'Buscar') + '</a></div>';
+      h += '</section>';
+    } else {
     h += '<section class="vitrine" aria-label="Apresentação"><span class="moldura"></span><span class="moldura"></span>' + RAMO;
     h += '<span class="estrela" style="left:34px;top:40px;font-size:22px" aria-hidden="true">✦</span><span class="estrela" style="left:92px;top:84px;font-size:12px;opacity:.8" aria-hidden="true">✦</span><span class="estrela" style="left:150px;top:34px;font-size:15px;opacity:.7" aria-hidden="true">✦</span>';
     h += '<div class="conteudo">' + chipPrazo();
@@ -544,13 +580,14 @@
     if (cfg.campanha_texto) h += '<p class="txt">' + esc(cfg.campanha_texto) + '</p>';
     h += '<div class="botoes"><a class="b1" href="#cardapio" data-irpara="cardapio">Ver o cardápio</a>' + (cats.length > 1 ? '<button type="button" class="b2" data-guia="0">Montar minha ceia</button>' : '') + '</div>';
     h += '</div></section>';
+    }
     h += '<div class="confianca"><div>Feito na nossa<br>cozinha</div><div>' + (cfg.entrega_ativa ? 'Retirada ou<br>entrega' : 'Retirada<br>na loja') + '</div><div>Pedido em<br>3 passos</div></div>';
     h += '<div class="layout"><div class="col-produtos">';
-    h += '<div class="busca busca-fixa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="fBusca" placeholder="Buscar produto (ex.: pernil)" aria-label="Buscar produto" autocomplete="off"></div>';
+    h += '<div class="busca busca-fixa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="fBusca" placeholder="' + (temaDia() ? 'Buscar produto' : 'Buscar produto (ex.: pernil)') + '" aria-label="Buscar produto" autocomplete="off"></div>';
     h += '<div id="resultadoBusca" hidden></div><div id="blocoInicio">';
     var dest = estado.produtos.filter(function(p){ return p.destaque; });
     if (dest.length) {
-      h += '<div class="tit-sec"><h2>Destaques do Natal</h2></div><div class="grade-prod destaques">';
+      h += '<div class="tit-sec" id="destaques"><h2>' + (temaDia() ? 'Destaques' : 'Destaques do Natal') + '</h2></div><div class="grade-prod destaques">';
       dest.slice(0, 6).forEach(function(p){ h += cartao(p, true); });
       h += '</div>';
     }
@@ -558,7 +595,7 @@
     h += '<div class="tit-sec" id="cardapio"><h2>Escolha por categoria</h2></div><div class="cat-tiles">';
     cats.forEach(function(c){ var n = estado.produtos.filter(function(p){ return p.categoria_id === c.id; }).length; h += '<button type="button" class="cat-tile t' + corCat(c.id) + '" data-abrircat="' + c.id + '">' + DM_svg(c.icone, 30) + '<div><b>' + esc(c.nome) + '</b><br><span>' + n + (n === 1 ? ' opção' : ' opções') + ' →</span></div></button>'; });
     h += '</div>';
-    if (cats.length > 1) h += '<div class="ceia-banner"><small>NÃO SABE POR ONDE COMEÇAR?</small><h3>Monte sua ceia em ' + cats.length + ' passos</h3><p>' + esc(cats.map(function(c){ return c.nome; }).join(", ")) + '.</p><button type="button" data-guia="0">Começar →</button></div>';
+    if (cats.length > 1 && !temaDia()) h += '<div class="ceia-banner"><small>NÃO SABE POR ONDE COMEÇAR?</small><h3>Monte sua ceia em ' + cats.length + ' passos</h3><p>' + esc(cats.map(function(c){ return c.nome; }).join(", ")) + '.</p><button type="button" data-guia="0">Começar →</button></div>';
     if (semCat.length) { h += '<div class="tit-sec"><h2>Outros</h2></div><div class="grade-prod">'; semCat.forEach(function(p){ h += cartao(p); }); h += '</div>'; }
     h += '</div>';
     h += '<div class="fim-marca"><div style="color:var(--dourado)">✦</div><q>Tudo em um só lugar, desde 2005.</q><div class="dica">Di Mercatto · Graça, Salvador</div></div>';
@@ -965,7 +1002,7 @@
     if (ctrl && t.dataset.acao) { mudarQtd(ctrl.dataset.codigo, t.dataset.acao); return; }
     if (t.dataset.abrircat) { abrirCategoria(t.dataset.abrircat === "inicio" ? null : +t.dataset.abrircat); return; }
     if (t.dataset.sub != null && t.classList.contains("sub-btn")) { estado.sub = t.dataset.sub || null; telaCardapio(); atualizarBarra(); return; }
-    if (t.dataset.irpara === "cardapio") { ev.preventDefault(); var c = document.getElementById("cardapio"); if (c) c.scrollIntoView({behavior:"smooth"}); return; }
+    if (t.dataset.irpara === "cardapio" || t.dataset.irpara === "destaques") { ev.preventDefault(); var c = document.getElementById(t.dataset.irpara); if (c) c.scrollIntoView({behavior:"smooth"}); else { var fb = document.getElementById("fBusca"); if (fb) { fb.scrollIntoView({behavior:"smooth", block:"center"}); fb.focus({preventScroll:true}); } } return; }
     if (t.dataset.guia != null) {
       var g = t.dataset.guia;
       if (g === "sair") { estado.guia = null; irPara(1); var cc = document.getElementById("cardapio"); if (cc) cc.scrollIntoView(); return; }

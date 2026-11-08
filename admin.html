@@ -1294,6 +1294,10 @@
     h += '<form id="formCfg" novalidate>';
     h += '<div class="card"><h2>WhatsApp que recebe os pedidos</h2><label for="cfgWpp">Número com 55 + DDD <span class="dica">Ex.: 5571987654321</span></label><input type="tel" id="cfgWpp" value="' + esc(c.whatsapp || "") + '">';
     h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgTeste"' + (c.modo_teste ? " checked" : "") + '> Modo teste (mostra o aviso "Versão de teste" na loja)</label></div>';
+    var dia = c.tema === "dia_a_dia";
+    h += '<div class="card"><h2>Tema da loja</h2><p class="dica" style="margin-top:-6px">Muda a capa de entrada e os textos de Natal. Os produtos e categorias não mudam: ative/desative as categorias de cada época na aba Produtos.</p>';
+    h += '<div class="grade"><div><label for="cfgTema">Tema</label><select id="cfgTema"><option value="natal"' + (dia ? '' : ' selected') + '>🎄 Natal (capa vinho com enfeites, "Monte sua ceia")</option><option value="dia_a_dia"' + (dia ? ' selected' : '') + '>☕ Dia a dia (capa clara com a logo)</option></select></div></div>';
+    h += '<div class="grade" style="margin-top:10px"><div><label for="cfgDiaTit">Dia a dia — título <span class="dica">letra cursiva</span></label><input type="text" id="cfgDiaTit" maxlength="40" placeholder="Encomendas" value="' + esc(c.dia_titulo || "") + '"></div><div><label for="cfgDiaSub">Dia a dia — frase principal</label><input type="text" id="cfgDiaSub" maxlength="90" placeholder="Do café da manhã à jantinha, feito na nossa cozinha." value="' + esc(c.dia_subtitulo || "") + '"></div><div><label for="cfgDiaTxt">Dia a dia — texto</label><input type="text" id="cfgDiaTxt" maxlength="160" placeholder="Escolha pelo celular, envie pelo WhatsApp e retire na loja ou receba em casa." value="' + esc(c.dia_texto || "") + '"></div></div><p class="dica">Campos vazios usam o texto de exemplo (em cinza).</p></div>';
     h += '<div class="card"><h2>Campanha</h2><div class="grade"><div><label for="cfgTit">Título</label><input type="text" id="cfgTit" value="' + esc(c.campanha_titulo || "") + '"></div><div><label for="cfgSub">Subtítulo</label><input type="text" id="cfgSub" value="' + esc(c.campanha_subtitulo || "") + '"></div><div><label for="cfgPref">Prefixo do nº do pedido</label><input type="text" id="cfgPref" maxlength="8" value="' + esc(c.prefixo_pedido || "") + '"></div></div>';
     h += '<label for="cfgTexto" style="margin-top:12px">Texto de apresentação</label><input type="text" id="cfgTexto" maxlength="200" value="' + esc(c.campanha_texto || "") + '">';
     h += '<div class="grade" style="margin-top:12px"><div><label for="cfgPrazoData">Data limite das encomendas <span class="dica">mostra a contagem regressiva</span></label><input type="date" id="cfgPrazoData" value="' + esc(c.prazo_data || "") + '"></div>';
@@ -1372,6 +1376,7 @@
     if (!(antG >= 1 && antG <= 60)) { msg.innerHTML = '<div class="msg erro">Antecedência mínima: use de 1 a 60 dias.</div>'; return; }
     var linhas = [
       ["antecedencia_dias", antG], ["whatsapp", wpp], ["modo_teste", document.getElementById("cfgTeste").checked],
+      ["tema", g("cfgTema")], ["dia_titulo", g("cfgDiaTit")], ["dia_subtitulo", g("cfgDiaSub")], ["dia_texto", g("cfgDiaTxt")],
       ["campanha_titulo", g("cfgTit")], ["campanha_subtitulo", g("cfgSub")], ["prefixo_pedido", g("cfgPref").toUpperCase() || "ENC"],
       ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["faixas", faixasOk], ["pagamentos", listasCfg.pagamentos],
       ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")]

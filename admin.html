@@ -828,7 +828,7 @@
     var c = S.config;
     listasCfg = { datas: (c.datas || []).slice().sort(), horarios: (c.horarios || []).slice(), pagamentos: (c.pagamentos || []).slice(), faixas: JSON.parse(JSON.stringify(c.faixas || [])) };
     var h = '<h1>Configurações</h1>';
-    h += '<div class="card"><h2>Backup dos dados</h2><p class="dica" style="margin-top:0">Baixa uma cópia completa (pedidos, itens, histórico, produtos, categorias, configurações, equipe e vendedores) num arquivo que fica no seu computador. Durante a campanha, baixe pelo menos uma vez por dia e guarde numa pasta segura (o arquivo tem nome e telefone dos clientes).</p><div class="barra-acoes"><button class="btn" type="button" id="btnBackup">⬇ Baixar backup completo</button><span class="dica" id="backupInfo"></span></div></div>';
+    h += '<div class="card"><h2>Backup dos dados</h2><p class="dica" style="margin-top:0">Baixa uma cópia completa (pedidos, itens, histórico, produtos, categorias, configurações, equipe e vendedores) num arquivo que fica no seu computador. Durante a campanha, baixe pelo menos uma vez por dia e guarde numa pasta segura (o arquivo tem nome e telefone dos clientes).</p><div class="barra-acoes"><button class="btn" type="button" id="btnBackup">⬇ Baixar backup completo</button><span class="dica" id="backupInfo"></span></div><p class="dica" id="backupAuto" style="margin-bottom:0">Consultando backups automáticos…</p></div>';
     h += '<form id="formCfg" novalidate>';
     h += '<div class="card"><h2>WhatsApp que recebe os pedidos</h2><label for="cfgWpp">Número com 55 + DDD <span class="dica">Ex.: 5571987654321</span></label><input type="tel" id="cfgWpp" value="' + esc(c.whatsapp || "") + '">';
     h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgTeste"' + (c.modo_teste ? " checked" : "") + '> Modo teste (mostra o aviso "Versão de teste" na loja)</label></div>';
@@ -963,6 +963,12 @@
     var el = document.getElementById("backupInfo"); if (!el) return;
     var u = null; try { u = localStorage.getItem("dm_ultimo_backup"); } catch(e){}
     el.textContent = u ? "Último backup baixado neste computador: " + new Date(u).toLocaleString("pt-BR") : "Nenhum backup baixado neste computador ainda.";
+    sb.rpc("status_backup").then(function(r){
+      var a = document.getElementById("backupAuto"); if (!a) return;
+      if (r.error || !r.data) { a.textContent = "Não foi possível consultar os backups automáticos."; return; }
+      var d = r.data, f = function(x){ return x ? new Date(x).toLocaleString("pt-BR") : "ainda nenhum"; };
+      a.innerHTML = '<strong>Automático:</strong> backup completo todo dia à meia-noite (último: ' + esc(f(d.ultimo_completo)) + ', ' + esc(String(d.completos_guardados)) + ' guardados) e registro de cada alteração na hora (' + esc(String(d.alteracoes_24h)) + ' nas últimas 24 h).';
+    });
   }
   function baixarBackup(){
     var b = document.getElementById("btnBackup"), info = document.getElementById("backupInfo");

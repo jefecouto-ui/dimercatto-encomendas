@@ -1193,6 +1193,15 @@
   };
   function desenharProdutos(){
     var b = buscaProd.trim().toLowerCase(), h = "";
+    // lista de produtos ativos sem foto (ficam fora da loja enquanto a opção estiver ligada)
+    var ocultaSemFoto = S.config.ocultar_sem_foto === true;
+    var semFoto = S.produtos.filter(function(p){ var c = catPorId(p.categoria_id); return p.ativo && !p.foto_url && (!c || c.ativo); });
+    if (semFoto.length && !b) {
+      h += '<details class="card" style="border:2px solid ' + (ocultaSemFoto ? '#E07F40' : 'var(--borda)') + '"' + (ocultaSemFoto ? ' open' : '') + '><summary style="cursor:pointer;font-weight:800">📷 Produtos sem foto: ' + semFoto.length + (ocultaSemFoto ? ' — <span style="color:#B4551A">não aparecem na loja até ter foto</span>' : ' — aparecem na loja com ícone') + '</summary>';
+      h += '<p class="dica" style="margin:8px 0">Clique em <b>Pôr foto</b>, use 📷 Enviar foto ou 🔗 Usar link. Assim que salvar a foto, o produto volta a aparecer na loja.</p><div class="tabela"><table><tbody>';
+      semFoto.forEach(function(p){ var c = catPorId(p.categoria_id); h += '<tr><td>' + esc(p.codigo) + '</td><td><strong>' + esc(p.nome) + '</strong><div class="dica">' + esc(c ? c.nome : "Sem categoria") + (p.subcategoria ? ' · ' + esc(p.subcategoria) : '') + (p.ean ? ' · EAN ' + esc(p.ean) : '') + '</div></td><td><button class="btn sec peq" type="button" data-edit="' + p.id + '">Pôr foto</button></td></tr>'; });
+      h += '</tbody></table></div></details>';
+    }
     var lista = S.produtos.filter(function(p){ return !b || p.nome.toLowerCase().indexOf(b) >= 0 || p.codigo.toLowerCase().indexOf(b) >= 0; });
     var grupos = S.categorias.map(function(c){ return {cat:c, itens: lista.filter(function(p){ return p.categoria_id === c.id; })}; });
     grupos.push({cat:null, itens: lista.filter(function(p){ return !catPorId(p.categoria_id); })});
@@ -1398,7 +1407,7 @@
     var dia = c.tema === "dia_a_dia";
     h += '<div class="card"><h2>Tema da loja</h2><p class="dica" style="margin-top:-6px">Muda a capa de entrada e os textos de Natal. Os produtos e categorias não mudam: ative/desative as categorias de cada época na aba Produtos.</p>';
     h += '<div class="grade"><div><label for="cfgTema">Tema</label><select id="cfgTema"><option value="natal"' + (dia ? '' : ' selected') + '>🎄 Natal (capa vinho com enfeites, "Monte sua ceia")</option><option value="dia_a_dia"' + (dia ? ' selected' : '') + '>☕ Dia a dia (capa clara com a logo)</option></select></div></div>';
-    h += '<div class="grade" style="margin-top:10px"><div><label for="cfgDiaTit">Dia a dia — título <span class="dica">letra cursiva</span></label><input type="text" id="cfgDiaTit" maxlength="40" placeholder="Peça online" value="' + esc(c.dia_titulo || "") + '"></div><div><label for="cfgDiaSub">Dia a dia — frase principal</label><input type="text" id="cfgDiaSub" maxlength="90" placeholder="O melhor da Di Mercatto, do café da manhã à jantinha." value="' + esc(c.dia_subtitulo || "") + '"></div><div><label for="cfgDiaTxt">Dia a dia — texto</label><input type="text" id="cfgDiaTxt" maxlength="200" placeholder="Padaria, delicatessen e pratos da nossa cozinha. Escolha pelo celular, envie pelo WhatsApp e retire na loja da Graça ou receba em casa." value="' + esc(c.dia_texto || "") + '"></div></div><p class="dica">Campos vazios usam o texto de exemplo (em cinza).</p></div>';
+    h += '<div class="grade" style="margin-top:10px"><div><label for="cfgDiaTit">Dia a dia — título <span class="dica">letra cursiva</span></label><input type="text" id="cfgDiaTit" maxlength="40" placeholder="Peça online" value="' + esc(c.dia_titulo || "") + '"></div><div><label for="cfgDiaSub">Dia a dia — frase principal</label><input type="text" id="cfgDiaSub" maxlength="90" placeholder="O melhor da Di Mercatto, do café da manhã à jantinha." value="' + esc(c.dia_subtitulo || "") + '"></div><div><label for="cfgDiaTxt">Dia a dia — texto</label><input type="text" id="cfgDiaTxt" maxlength="200" placeholder="Padaria, delicatessen e pratos da nossa cozinha. Escolha pelo celular, envie pelo WhatsApp e retire na loja da Graça ou receba em casa." value="' + esc(c.dia_texto || "") + '"></div></div><p class="dica">Campos vazios usam o texto de exemplo (em cinza).</p><label class="check" style="margin-top:8px"><input type="checkbox" id="cfgSemFoto"' + (c.ocultar_sem_foto === true ? ' checked' : '') + '> Esconder da loja os produtos sem foto (eles ficam numa lista na aba Produtos até receberem foto)</label></div>';
     h += '<div class="card"><h2>Campanha</h2><div class="grade"><div><label for="cfgTit">Título</label><input type="text" id="cfgTit" value="' + esc(c.campanha_titulo || "") + '"></div><div><label for="cfgSub">Subtítulo</label><input type="text" id="cfgSub" value="' + esc(c.campanha_subtitulo || "") + '"></div><div><label for="cfgPref">Prefixo do nº do pedido</label><input type="text" id="cfgPref" maxlength="8" value="' + esc(c.prefixo_pedido || "") + '"></div></div>';
     h += '<label for="cfgTexto" style="margin-top:12px">Texto de apresentação</label><input type="text" id="cfgTexto" maxlength="200" value="' + esc(c.campanha_texto || "") + '">';
     h += '<div class="grade" style="margin-top:12px"><div><label for="cfgPrazoData">Data limite das encomendas <span class="dica">mostra a contagem regressiva</span></label><input type="date" id="cfgPrazoData" value="' + esc(c.prazo_data || "") + '"></div>';
@@ -1477,7 +1486,7 @@
     if (!(antG >= 1 && antG <= 60)) { msg.innerHTML = '<div class="msg erro">Antecedência mínima: use de 1 a 60 dias.</div>'; return; }
     var linhas = [
       ["antecedencia_dias", antG], ["whatsapp", wpp], ["modo_teste", document.getElementById("cfgTeste").checked],
-      ["tema", g("cfgTema")], ["dia_titulo", g("cfgDiaTit")], ["dia_subtitulo", g("cfgDiaSub")], ["dia_texto", g("cfgDiaTxt")],
+      ["tema", g("cfgTema")], ["ocultar_sem_foto", document.getElementById("cfgSemFoto").checked], ["dia_titulo", g("cfgDiaTit")], ["dia_subtitulo", g("cfgDiaSub")], ["dia_texto", g("cfgDiaTxt")],
       ["campanha_titulo", g("cfgTit")], ["campanha_subtitulo", g("cfgSub")], ["prefixo_pedido", g("cfgPref").toUpperCase() || "ENC"],
       ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["faixas", faixasOk], ["pagamentos", listasCfg.pagamentos],
       ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")]

@@ -508,6 +508,8 @@
       var catsVisiveis = {}; estado.categorias.forEach(function(c){ catsVisiveis[c.id] = 1; });
       estado.produtos = estado.produtos.filter(function(p){ return p.categoria_id == null || catsVisiveis[p.categoria_id]; });
       r[2].forEach(function(c){ estado.config[c.chave] = c.valor; });
+      // opção do painel: produto sem foto não aparece na loja
+      if (estado.config.ocultar_sem_foto === true) estado.produtos = estado.produtos.filter(function(p){ return !!p.foto_url; });
       document.body.classList.toggle("tema-dia", temaDia());
       // limpa do carrinho o que não existe mais
       Object.keys(estado.carrinho).forEach(function(c){ var pp = produtoPorCodigo(c); if (!pp || pp.esgotado) delete estado.carrinho[c]; });

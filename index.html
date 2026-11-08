@@ -151,6 +151,8 @@
   .produto .desc{margin:3px 0 0;color:var(--texto-suave);font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .produto .preco{font-size:17px;font-weight:800;color:var(--vinho);margin-top:5px}
   .produto .preco small{font-size:13px;font-weight:600;color:var(--texto-suave)}
+  .produto .un-peso{font-size:12px;font-weight:700;color:var(--vinho);line-height:1.2;margin-top:1px}
+  .kg-eq{display:block;font-size:11.5px;font-weight:600;color:var(--texto-suave)}
   .produto .nota{font-size:12.5px;color:var(--texto-suave);line-height:1.25;margin-top:2px}
   .produto .ctrl{padding:10px 12px 12px}
   .btn-add{width:100%;min-height:48px;border:0;border-radius:12px;background:var(--vinho);color:#fff;font-weight:800;font-size:16px;padding:0 10px}
@@ -436,6 +438,10 @@
   }
   function precoUnTxt(u){ return {kg:"o kg", cento:"o cento", embalagem:"a embalagem", porcao:"a porção"}[u] || "a unidade"; }
   function qtdTxt(u, q){ return numBR(q) + " " + unidadeTxt(u, q); }
+  function porUn(p){ return !!(p && p.unidade === "kg" && Number(p.peso_unidade_g) > 0); }
+  function kgDe(p, q){ return Math.round(q * Number(p.peso_unidade_g)) / 1000; }
+  function qtdProd(p, q){ return porUn(p) ? numBR(q) + " " + (q === 1 ? "unidade" : "unidades") + " (≈ " + numBR(kgDe(p, q)) + " kg)" : qtdTxt(p.unidade, q); }
+  function qtdItem(i){ var q = Number(i.quantidade); return i.unidades ? numBR(i.unidades) + " un (≈ " + numBR(q) + " kg)" : qtdTxt(i.unidade, q); }
   function normal(t){ return String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
   function filtrarBusca(q){
     var qn = normal(q).trim(), ini = document.getElementById("blocoInicio"), res = document.getElementById("resultadoBusca");
@@ -447,7 +453,7 @@
       (achados.length ? '<div class="grade-prod">' + achados.slice(0, 60).map(function(p){ return cartao(p); }).join("") + '</div>' : '<p class="sem-resultado">Nenhum produto encontrado. Tente outra palavra.</p>');
   }
   function arred(n){ return Math.round(n*1000)/1000; }
-  function subtotal(p, q){ return Math.round(q * p.preco_centavos); }
+  function subtotal(p, q){ return Math.round((porUn(p) ? kgDe(p, q) : q) * p.preco_centavos); }
   function soDigitos(s){ return String(s||"").replace(/\D/g,""); }
   function guardar(){
     try { localStorage.setItem(CHAVE_CARRINHO, JSON.stringify({carrinho:estado.carrinho, dados:estado.dados, vendedor:estado.vendedor})); } catch(e){}
@@ -499,7 +505,7 @@
     recuperar();
     Promise.all([
       api("categorias?select=id,nome,icone,ordem&ativo=eq.true&order=ordem.asc,nome.asc"),
-      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria,esgotado,antecedencia_dias&ativo=eq.true&order=ordem.asc,nome.asc"),
+      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria,esgotado,antecedencia_dias,peso_unidade_g&ativo=eq.true&order=ordem.asc,nome.asc"),
       api("configuracoes?select=chave,valor")
     ]).then(function(r){
       estado.categorias = r[0];
@@ -512,7 +518,7 @@
       if (estado.config.ocultar_sem_foto === true) estado.produtos = estado.produtos.filter(function(p){ return !!p.foto_url; });
       document.body.classList.toggle("tema-dia", temaDia());
       // limpa do carrinho o que não existe mais
-      Object.keys(estado.carrinho).forEach(function(c){ var pp = produtoPorCodigo(c); if (!pp || pp.esgotado) delete estado.carrinho[c]; });
+      Object.keys(estado.carrinho).forEach(function(c){ var pp = produtoPorCodigo(c); if (!pp || pp.esgotado) delete estado.carrinho[c]; else if (porUn(pp) && estado.carrinho[c].q % 1 !== 0) estado.carrinho[c].q = Math.max(pp.minimo, Math.round(estado.carrinho[c].q)); });
       var ajuda = linkWhats(temaDia() ? "Olá! Gostaria de ajuda para fazer um pedido." : "Olá! Gostaria de ajuda para fazer uma encomenda.");
       document.getElementById("btnAjuda").href = ajuda;
       document.getElementById("linkAjudaRodape").href = ajuda;
@@ -667,9 +673,10 @@
     h += '<div class="corpo"><h3>' + esc(p.nome) + '</h3>';
     if (p.descricao) h += '<p class="desc">' + esc(p.descricao) + '</p>';
     h += '<div class="preco">' + reais(p.preco_centavos) + ' <small>' + precoUnTxt(p.unidade) + '</small></div>';
+    if (porUn(p)) h += '<div class="un-peso">≈ ' + reais(subtotal(p, 1)) + ' a unidade · ' + esc(numBR(Number(p.peso_unidade_g))) + ' g</div>';
     var notas = [];
-    if (p.minimo > 0 && !(p.unidade !== "kg" && p.minimo === 1)) notas.push("mín. " + qtdTxt(p.unidade, p.minimo));
-    if (p.valor_estimado) notas.push("valor aproximado");
+    if (p.minimo > 0 && !((p.unidade !== "kg" || porUn(p)) && p.minimo === 1)) notas.push("mín. " + qtdProd(p, p.minimo));
+    if (p.valor_estimado || porUn(p)) notas.push("valor final na pesagem");
     if (notas.length) h += '<div class="nota">' + esc(notas.join(" · ")) + '</div>';
     h += '</div><div class="ctrl" data-codigo="' + esc(p.codigo) + '">' + controle(p, it) + '</div></article>';
     return h;
@@ -679,9 +686,9 @@
     if (!it || !it.q) return '<button type="button" class="btn-add" data-acao="add" aria-label="Adicionar ' + esc(p.nome) + '">+ Adicionar</button>';
     return '<div class="qtd">' +
       '<button type="button" data-acao="menos" aria-label="Diminuir ' + esc(p.nome) + '">−</button>' +
-      (p.unidade === "kg"
+      (p.unidade === "kg" && !porUn(p)
         ? '<label class="valor"><input class="qtd-in" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" data-qtdin="' + esc(p.codigo) + '" value="' + esc(numBR(it.q)) + '" aria-label="Quantidade em kg de ' + esc(p.nome) + '"><span class="un">kg</span><small>' + reais(subtotal(p, it.q)) + '</small></label>'
-        : '<div class="valor" aria-live="polite">' + esc(qtdTxt(p.unidade, it.q)) + '<small>' + reais(subtotal(p, it.q)) + '</small></div>') +
+        : '<div class="valor" aria-live="polite">' + (porUn(p) ? esc(numBR(it.q)) + ' un <span class="kg-eq">≈ ' + esc(numBR(kgDe(p, it.q))) + ' kg</span>' : esc(qtdTxt(p.unidade, it.q))) + '<small>' + reais(subtotal(p, it.q)) + '</small></div>') +
       '<button type="button" data-acao="mais" aria-label="Aumentar ' + esc(p.nome) + '">+</button>' +
       '</div>';
   }
@@ -752,7 +759,7 @@
       var hl = '<h2>Seu pedido</h2>';
       if (!t.n) hl += '<p class="vazio">Toque em <strong>Adicionar</strong> nos produtos que deseja.</p>';
       else {
-        itensCarrinho().forEach(function(i){ hl += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div><div class="q">' + esc(qtdTxt(i.p.unidade, i.q)) + '</div></div><div class="v">' + reais(subtotal(i.p, i.q)) + '</div></div>'; });
+        itensCarrinho().forEach(function(i){ hl += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div><div class="q">' + esc(qtdProd(i.p, i.q)) + '</div></div><div class="v">' + reais(subtotal(i.p, i.q)) + '</div></div>'; });
         hl += '<div class="total"><div>Total' + (t.estimado ? '<small>Estimado</small>' : '') + '</div><div>' + reais(t.total) + '</div></div>';
       }
       hl += '<button class="btn-principal" type="button" id="lateralBtn"' + (t.n ? '' : ' disabled') + '>Continuar →</button>';
@@ -776,7 +783,7 @@
   function resumoItensHTML(editavel){
     var h = "", t = totais();
     itensCarrinho().forEach(function(i){
-      h += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div><div class="q">' + esc(qtdTxt(i.p.unidade, i.q)) + ' × ' + reais(i.p.preco_centavos) + '</div>';
+      h += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div><div class="q">' + esc(qtdProd(i.p, i.q)) + ' × ' + reais(i.p.preco_centavos) + (porUn(i.p) ? '/kg' : '') + '</div>';
       if (editavel) h += '<label class="campo" style="margin-top:8px;font-size:15px" for="obs-' + esc(i.p.codigo) + '">Observação deste item <span class="dica">Opcional</span></label><input type="text" id="obs-' + esc(i.p.codigo) + '" data-obs="' + esc(i.p.codigo) + '" maxlength="300" value="' + esc(i.obs) + '" placeholder="Ex.: cortar em fatias">';
       else if (i.obs) h += '<div class="q">Obs.: ' + esc(i.obs) + '</div>';
       h += '</div><div class="v">' + reais(subtotal(i.p, i.q)) + '</div></div>';
@@ -932,7 +939,7 @@
     L.push("*ITENS*");
     r.itens.forEach(function(i){
       var q = Number(i.quantidade);
-      L.push("- [" + i.codigo + "] " + i.nome + " — " + qtdTxt(i.unidade, q) + " — " + reais(i.preco_centavos) + " — " + reais(i.subtotal_centavos));
+      L.push("- [" + i.codigo + "] " + i.nome + " — " + qtdItem(i) + " — " + reais(i.preco_centavos) + (i.unidades ? "/kg" : "") + " — " + reais(i.subtotal_centavos));
       if (i.observacao) L.push("   Obs.: " + i.observacao);
     });
     L.push("");

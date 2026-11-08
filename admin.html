@@ -239,6 +239,7 @@
       <div><label for="pSub">Subcategoria <span class="dica">opcional — ex.: Risoles</span></label><input type="text" id="pSub" maxlength="40" list="listaSubs"><datalist id="listaSubs"></datalist></div>
       <div><label for="pUnidade">Vendido por</label><select id="pUnidade"><option value="kg">Quilo (kg)</option><option value="un">Unidade</option><option value="cento">Cento</option><option value="embalagem">Embalagem</option><option value="porcao">Porção</option></select></div>
     </div>
+    <div id="pPesoBox" style="margin-top:12px" hidden><label for="pPeso">Peso de 1 unidade (g) <span class="dica">opcional — preencha para o cliente pedir em <b>unidades</b> (ex.: pão 50 g). O preço continua sendo o do kg.</span></label><input type="text" id="pPeso" inputmode="decimal" placeholder="ex.: 50" style="max-width:160px"><div class="dica" id="pPesoEx"></div></div>
     <div class="grade" style="margin-top:12px">
       <div><label for="pMin">Quantidade mínima</label><input type="text" id="pMin" inputmode="decimal" value="1"></div>
       <div><label for="pInc">Aumenta de quanto em quanto</label><input type="text" id="pInc" inputmode="decimal" value="1"></div>
@@ -565,7 +566,7 @@
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
-    (p.pedido_itens || []).forEach(function(i){ h += '<tr><td>' + esc(i.codigo) + '</td><td>' + esc(i.nome) + (i.observacao ? '<div class="meta">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td><td class="num">' + numBR(i.quantidade) + ' ' + unid(i.unidade) + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>'; });
+    (p.pedido_itens || []).forEach(function(i){ h += '<tr><td>' + esc(i.codigo) + '</td><td>' + esc(i.nome) + (i.observacao ? '<div class="meta">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td><td class="num">' + esc(qtdI(i)) + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>'; });
     h += '</tbody></table></div>';
     if (p.pagamento) h += '<p class="meta">Pagamento: ' + esc(p.pagamento) + '</p>';
     if (p.observacoes) h += '<p class="meta">Observações: ' + esc(p.observacoes) + '</p>';
@@ -577,6 +578,7 @@
   /* ---------- Acompanhamento / avisar cliente ---------- */
   function linkAcompanhar(tk){ return location.origin + location.pathname.replace(/[^\/]*$/, "") + "acompanhar.html?c=" + encodeURIComponent(tk); }
   function qtdUn(u, q){ return numBR(q) + " " + unid(u); }
+  function qtdI(i){ return i.unidades ? numBR(i.unidades) + " un (≈ " + numBR(i.quantidade) + " kg)" : qtdUn(i.unidade, i.quantidade); }
   function avisarCliente(p, btn){
     if (!p) return;
     var aba = window.open("", "_blank");
@@ -601,9 +603,9 @@
         var agora = {}; (p.pedido_itens || []).forEach(function(i){ agora[i.codigo] = i; });
         (orig.itens || []).forEach(function(a){ var n = agora[a.codigo];
           if (!n) L.push("- " + a.nome + ": retirado");
-          else if (Number(n.quantidade) !== Number(a.quantidade) || n.subtotal_centavos !== a.subtotal_centavos) L.push("- " + a.nome + ": " + qtdUn(a.unidade, a.quantidade) + " → " + qtdUn(n.unidade, n.quantidade) + " (" + reais(n.subtotal_centavos) + ")");
+          else if (Number(n.quantidade) !== Number(a.quantidade) || n.subtotal_centavos !== a.subtotal_centavos) L.push("- " + a.nome + ": " + qtdI(a) + " → " + qtdI(n) + " (" + reais(n.subtotal_centavos) + ")");
         });
-        (p.pedido_itens || []).forEach(function(n){ if (!antes[n.codigo]) L.push("- " + n.nome + ": novo, " + qtdUn(n.unidade, n.quantidade) + " (" + reais(n.subtotal_centavos) + ")"); });
+        (p.pedido_itens || []).forEach(function(n){ if (!antes[n.codigo]) L.push("- " + n.nome + ": novo, " + qtdI(n) + " (" + reais(n.subtotal_centavos) + ")"); });
         L.push("Total: " + reais(orig.total_centavos) + " → *" + reais(p.total_centavos) + "*" + (p.total_estimado ? " (estimado)" : " (valor final)"));
         if (p.cliente_ok_versao !== p.versao) L.push("Por favor, confira e toque em \"Estou de acordo\" no link abaixo.");
       }
@@ -625,7 +627,7 @@
     v("ePMod", p.modalidade); v("ePPag", p.pagamento); v("ePEnd", p.endereco); v("ePBairro", p.bairro); v("ePRef", p.referencia);
     v("ePObsCli", p.observacoes); v("ePObsCoz", p.obs_cozinha); v("ePMotivo", "");
     document.getElementById("ePFinal").checked = !p.total_estimado && (p.pedido_itens || []).some(function(i){ var pr = prodPorCodigo(i.codigo); return pr && pr.valor_estimado; });
-    itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), obs:i.observacao || ""}; });
+    itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), uns:i.unidades ? Number(i.unidades) : null, obs:i.observacao || ""}; });
     document.getElementById("ePNovo").innerHTML = '<option value="">— escolha o produto —</option>' + S.categorias.concat([{id:null, nome:"Outros"}]).map(function(c){
       var ps = S.produtos.filter(function(x){ return c.id === null ? !catPorId(x.categoria_id) : x.categoria_id === c.id; });
       if (!ps.length) return "";
@@ -642,7 +644,7 @@
   function desenharItensEdit(){
     var tb = document.getElementById("ePItens");
     tb.innerHTML = itensEdit.length ? itensEdit.map(function(i, k){
-      return '<tr><td><strong>' + esc(i.nome) + '</strong><div class="dica">' + esc(i.codigo) + ' · ' + reais(i.preco) + '/' + unid(i.unidade) + '</div></td>' +
+      return '<tr><td><strong>' + esc(i.nome) + '</strong><div class="dica">' + esc(i.codigo) + ' · ' + reais(i.preco) + '/' + unid(i.unidade) + (i.uns ? ' · <b>' + numBR(i.uns) + ' un pedidas</b>' : '') + '</div></td>' +
         '<td><div style="display:flex;align-items:center;gap:6px"><input type="text" inputmode="decimal" data-q="' + k + '" value="' + esc(qtdParaTexto(i.qtd)) + '" style="min-height:40px"><span class="dica" style="margin:0">' + unid(i.unidade) + '</span></div></td>' +
         '<td><input type="text" data-o="' + k + '" maxlength="300" value="' + esc(i.obs) + '" placeholder="Ex.: sem passas" style="min-height:40px"></td>' +
         '<td class="num" data-s="' + k + '">' + (i.qtd > 0 ? reais(Math.round(i.qtd * i.preco)) : '<span style="color:var(--erro)">inválido</span>') + '</td>' +
@@ -678,7 +680,7 @@
     var dados = { cliente_nome:g("ePNome"), cliente_whatsapp:g("ePWpp"), data_desejada:g("ePData"), horario:g("ePHora"), modalidade:mod, pagamento:g("ePPag"),
       endereco:g("ePEnd"), bairro:g("ePBairro"), referencia:g("ePRef"), observacoes:g("ePObsCli"), obs_cozinha:g("ePObsCoz"), motivo:g("ePMotivo"),
       valor_final: document.getElementById("ePFinal").checked,
-      itens: itensEdit.map(function(i){ return {codigo:i.codigo, quantidade:i.qtd, observacao:i.obs}; }) };
+      itens: itensEdit.map(function(i){ return {codigo:i.codigo, quantidade:i.qtd, unidades:i.uns || null, observacao:i.obs}; }) };
     var b1 = document.getElementById("ePSalvar"), b2 = document.getElementById("ePSalvarImprimir"); b1.disabled = b2.disabled = true;
     var id = pedEdit.id;
     sb.rpc("editar_pedido", {p_pedido_id: id, dados: dados}).then(function(r){
@@ -719,7 +721,7 @@
     h += '<div class="secao">Itens</div><table><thead><tr><th class="ck">✓</th><th>Código</th><th>Produto</th><th class="num">Quantidade</th><th class="num">Preço un.</th><th class="num">Subtotal</th></tr></thead><tbody>';
     (p.pedido_itens || []).forEach(function(i){
       h += '<tr><td class="ck"><span class="caixa"></span></td><td>' + esc(i.codigo) + '</td><td><b>' + esc(i.nome) + '</b>' + (i.observacao ? '<div class="obs-item">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td>';
-      h += '<td class="num"><b>' + numBR(i.quantidade) + ' ' + unid(i.unidade) + '</b></td><td class="num">' + (i.preco_centavos != null ? reais(i.preco_centavos) : '—') + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>';
+      h += '<td class="num"><b>' + esc(qtdI(i)) + '</b></td><td class="num">' + (i.preco_centavos != null ? reais(i.preco_centavos) + (i.unidades ? '/kg' : '') : '—') + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>';
     });
     h += '<tr class="tot"><td colspan="5" class="num">TOTAL ' + (p.total_estimado ? 'ESTIMADO (confirmar após pesagem)' : '') + '</td><td class="num">' + reais(p.total_centavos) + '</td></tr>';
     if (p.total_estimado) h += '<tr><td colspan="5" class="num">Total final após pesagem</td><td class="num">R$ ____________</td></tr>';
@@ -814,12 +816,12 @@
       var conf = STATUS_PRODUCAO.indexOf(p.status) >= 0;
       (p.pedido_itens || []).forEach(function(i){
         var k = i.codigo + "|" + i.unidade;
-        if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.codigo, nome:i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, pedidos:[], obs:[], porDia:{}}; }
+        if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.codigo, nome:i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, uTot:0, uPrev:0, pedidos:[], obs:[], porDia:{}}; }
         var m = mapa[k], q = Number(i.quantidade);
         if (conf) {
-          m.total += q; m.pedidos.push(p.numero); if (i.observacao) m.obs.push(p.numero + ": " + i.observacao);
+          m.total += q; m.uTot += Number(i.unidades) || 0; m.pedidos.push(p.numero); if (i.observacao) m.obs.push(p.numero + ": " + i.observacao);
           m.porDia[p.data_desejada] = (m.porDia[p.data_desejada] || 0) + q; diasVistos[p.data_desejada] = 1;
-        } else m.prev += q;
+        } else { m.prev += q; m.uPrev += Number(i.unidades) || 0; }
       });
     });
     var linhas = Object.keys(mapa).map(function(k){ return mapa[k]; });
@@ -836,7 +838,7 @@
         if (mostrarDias && l.total) h += '<div class="dica">' + Object.keys(l.porDia).sort().map(function(d){ return esc(dataBR(d)) + ': ' + numBR(l.porDia[d]) + ' ' + unid(l.unidade); }).join(" · ") + '</div>';
         if (l.pedidos.length) h += '<details class="nao-imprimir"><summary class="dica">Pedidos</summary><div class="dica">' + esc(l.pedidos.join(", ")) + '</div></details>';
         if (l.obs.length) h += '<div class="dica">Obs.: ' + l.obs.map(esc).join(" · ") + '</div>';
-        h += '</td><td class="num" style="font-size:17px;font-weight:700">' + (l.total ? numBR(l.total) + ' ' + unid(l.unidade) : '—') + '</td><td class="num">' + (l.pedidos.length || '—') + '</td><td class="num">' + (l.prev ? numBR(l.prev) + ' ' + unid(l.unidade) : '—') + '</td></tr>';
+        h += '</td><td class="num" style="font-size:17px;font-weight:700">' + (l.total ? (l.uTot ? numBR(l.uTot) + ' un<div class="dica">≈ ' + numBR(Math.round(l.total * 1000) / 1000) + ' kg</div>' : numBR(l.total) + ' ' + unid(l.unidade)) : '—') + '</td><td class="num">' + (l.pedidos.length || '—') + '</td><td class="num">' + (l.prev ? (l.uPrev ? numBR(l.uPrev) + ' un (≈ ' + numBR(Math.round(l.prev * 1000) / 1000) + ' kg)' : numBR(l.prev) + ' ' + unid(l.unidade)) : '—') + '</td></tr>';
       });
       var cols = '<td colspan="2">Total ' + esc(g.cat.nome) + '</td><td class="num" style="font-size:17px">' + txtSoma(somaPorUn(g.itens, "total")) + '</td><td class="num">' + (function(){ var u = {}; g.itens.forEach(function(l){ l.pedidos.forEach(function(n){ u[n] = 1; }); }); return Object.keys(u).length || '—'; })() + '</td><td class="num">' + txtSoma(somaPorUn(g.itens, "prev")) + '</td>';
       h += '</tbody><tfoot><tr class="tot-cat">' + cols + '</tr></tfoot></table></div>';
@@ -845,7 +847,7 @@
   }
   function carregarProducao(){
     var de = prDe, ate = prAte || prDe, umDia = de === ate;
-    sb.from("pedidos").select("numero,status,data_desejada,horario,pedido_itens(codigo,nome,unidade,quantidade,observacao,produto_id)").gte("data_desejada", de).lte("data_desejada", ate).neq("status","cancelado").then(function(r){
+    sb.from("pedidos").select("numero,status,data_desejada,horario,pedido_itens(codigo,nome,unidade,quantidade,unidades,observacao,produto_id)").gte("data_desejada", de).lte("data_desejada", ate).neq("status","cancelado").then(function(r){
       var box = document.getElementById("prConteudo"); if (!box) return;
       if (de !== prDe || ate !== (prAte || prDe)) return; // resposta antiga
       if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
@@ -1240,7 +1242,7 @@
       h += '<div class="tabela"><table><thead><tr>' + (b ? '' : '<th title="Ordem na loja">Ordem</th>') + '<th>Código</th><th>Nome</th><th class="num">Preço</th><th>Venda</th><th>Situação</th><th></th></tr></thead><tbody>';
       g.itens.forEach(function(p, idx){
         h += '<tr>' + (b ? '' : '<td class="ordem-btns" style="white-space:nowrap"><button type="button" class="btn sec peq" data-mover="topo" data-pid="' + p.id + '" title="Mover para o topo"' + (idx ? '' : ' disabled') + '>⤒</button><button type="button" class="btn sec peq" data-mover="sobe" data-pid="' + p.id + '" title="Subir"' + (idx ? '' : ' disabled') + '>↑</button><button type="button" class="btn sec peq" data-mover="desce" data-pid="' + p.id + '" title="Descer"' + (idx < g.itens.length - 1 ? '' : ' disabled') + '>↓</button><button type="button" class="btn sec peq" data-mover="fim" data-pid="' + p.id + '" title="Mover para o fim"' + (idx < g.itens.length - 1 ? '' : ' disabled') + '>⤓</button></td>') + '<td>' + esc(p.codigo) + (p.ean ? '<div class="dica" title="Código de barras">▮▯ ' + esc(p.ean) + '</div>' : '') + '</td><td><div style="display:flex;gap:8px;align-items:center">' + (p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="" width="40" height="40" style="object-fit:cover;border-radius:8px;flex:none" loading="lazy">' : '') + '<div><strong>' + esc(p.nome) + '</strong>' + (p.descricao_caixa ? '<div class="dica">' + esc(p.descricao_caixa) + '</div>' : '') + '</div></div></td>';
-        h += '<td class="num">' + reais(p.preco_centavos) + '</td><td>' + unid(p.unidade) + ' · mín. ' + numBR(p.minimo) + ' · +' + numBR(p.incremento) + (p.valor_estimado ? '<div class="dica">valor estimado</div>' : '') + '</td>';
+        h += '<td class="num">' + reais(p.preco_centavos) + '</td><td>' + unid(p.unidade) + (p.peso_unidade_g ? ' · <b>pedido por unidade (' + numBR(p.peso_unidade_g) + ' g)</b>' : '') + ' · mín. ' + numBR(p.minimo) + ' · +' + numBR(p.incremento) + (p.valor_estimado ? '<div class="dica">valor estimado</div>' : '') + '</td>';
         h += '<td><button type="button" class="btn sec peq" data-toggle="' + p.id + '" title="Mudar disponibilidade">' + (p.ativo ? '✓ Na loja' : 'Fora da loja') + '</button> <button type="button" class="btn sec peq" data-esg="' + p.id + '" title="Marcar/desmarcar esgotado"' + (p.esgotado ? ' style="background:#2E211B;color:#fff"' : '') + '>' + (p.esgotado ? 'Esgotado' : 'Tem estoque') + '</button>' + (p.antecedencia_dias != null ? '<div class="dica">antecedência: ' + p.antecedencia_dias + ' dia(s)</div>' : '') + '</td>';
         h += '<td><button type="button" class="btn peq" data-edit="' + p.id + '">Editar</button></td></tr>';
       });
@@ -1337,6 +1339,7 @@
     v("pPreco", p ? (p.preco_centavos/100).toFixed(2).replace(".",",") : "");
     preencherCategorias(document.getElementById("pCategoria"), p ? p.categoria_id : (S.categorias[0] && S.categorias[0].id));
     v("pUnidade", p ? p.unidade : "kg");
+    v("pPeso", p && p.peso_unidade_g ? numBR(p.peso_unidade_g) : ""); mostrarPeso();
     v("pMin", p ? numBR(p.minimo) : "0,5"); v("pInc", p ? numBR(p.incremento) : "0,5"); v("pMax", p && p.maximo != null ? numBR(p.maximo) : "");
     v("pOrdem", p ? p.ordem : 0);
     document.getElementById("pEstimado").checked = p ? p.valor_estimado : false;
@@ -1352,7 +1355,15 @@
     dlgP.showModal();
     document.getElementById(p ? "pNome" : "pCodigo").focus();
   }
+  function mostrarPeso(){
+    var kg = document.getElementById("pUnidade").value === "kg", g = lerNum(document.getElementById("pPeso").value), pr = lerNum(document.getElementById("pPreco").value);
+    document.getElementById("pPesoBox").hidden = !kg;
+    document.getElementById("pPesoEx").textContent = kg && g > 0 ? "O cliente escolhe unidades. Ex.: 10 un = " + numBR(Math.round(g * 10) / 1000) + " kg" + (pr > 0 ? " = " + reais(Math.round(g * 10 / 1000 * pr * 100)) : "") + ". Mínimo e incremento passam a ser em unidades." : "";
+  }
+  document.getElementById("pPeso").oninput = mostrarPeso;
+  document.getElementById("pPreco").addEventListener("input", mostrarPeso);
   document.getElementById("pUnidade").onchange = function(){
+    mostrarPeso();
     if (!editando) { var kg = this.value === "kg"; document.getElementById("pMin").value = kg ? "0,5" : "1"; document.getElementById("pInc").value = kg ? "0,5" : "1"; }
   };
   document.getElementById("pCancelar").onclick = function(){ dlgP.close(); };
@@ -1362,13 +1373,15 @@
     function falha(m){ er.textContent = m; er.hidden = false; }
     var g = function(id){ return document.getElementById(id).value.trim(); };
     var preco = lerNum(g("pPreco")), min = lerNum(g("pMin")), inc = lerNum(g("pInc")), max = g("pMax") ? lerNum(g("pMax")) : null;
-    var un = g("pUnidade");
+    var un = g("pUnidade"), peso = un === "kg" && g("pPeso") ? lerNum(g("pPeso")) : null;
+    if (peso != null && !(peso > 0 && peso <= 20000)) return falha("Peso de 1 unidade inválido. Use gramas, por exemplo 50.");
+    if (peso) { if (min % 1 !== 0) min = Math.max(1, Math.round(min)); if (inc % 1 !== 0) inc = 1; if (max != null && max % 1 !== 0) max = Math.round(max); }
     if (!g("pCodigo")) return falha("Informe o código de vendas.");
     if (!g("pNome")) return falha("Informe o nome do produto.");
     if (!(preco >= 0)) return falha("Preço inválido. Use, por exemplo, 129,90.");
     if (!(min > 0)) return falha("A quantidade mínima precisa ser maior que zero.");
     if (!(inc > 0)) return falha("O incremento precisa ser maior que zero.");
-    if (un !== "kg" && (min % 1 !== 0 || inc % 1 !== 0)) return falha("Para unidade, cento, embalagem ou porção, use números inteiros no mínimo e no incremento.");
+    if ((un !== "kg" || peso) && (min % 1 !== 0 || inc % 1 !== 0)) return falha("Para unidade, cento, embalagem ou porção, use números inteiros no mínimo e no incremento.");
     var ant = g("pAntec") === "" ? null : parseInt(g("pAntec"), 10);
     if (ant != null && !(ant >= 0 && ant <= 60)) return falha("Antecedência: use de 0 a 60 dias, ou deixe vazio.");
     if (max != null && !(max >= min)) return falha("O máximo precisa ser maior ou igual ao mínimo.");
@@ -1378,7 +1391,7 @@
       codigo: g("pCodigo"), nome: g("pNome"), descricao: g("pDesc") || null, descricao_caixa: g("pCaixa") || null,
       categoria_id: g("pCategoria") ? +g("pCategoria") : null, unidade: un, preco_centavos: Math.round(preco*100),
       minimo: min, incremento: inc, maximo: max, ordem: parseInt(g("pOrdem"),10) || 0,
-      valor_estimado: document.getElementById("pEstimado").checked, ativo: document.getElementById("pAtivo").checked,
+      valor_estimado: document.getElementById("pEstimado").checked || !!peso, peso_unidade_g: peso || null, ativo: document.getElementById("pAtivo").checked,
       destaque: document.getElementById("pDestaque").checked, subcategoria: (document.getElementById("pSub").value.trim() || null), selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null),
       esgotado: document.getElementById("pEsgotado").checked, antecedencia_dias: ant, ean: ean || null
     };

@@ -92,6 +92,7 @@
   function numBR(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
   function un(u, q){ var um = Number(q) === 1; return {kg:"kg", cento: um ? "cento" : "centos", embalagem: um ? "embalagem" : "embalagens", porcao: um ? "porção" : "porções"}[u] || (um ? "unidade" : "unidades"); }
   function qtd(u, q){ return numBR(q) + " " + un(u, q); }
+  function qtdI(i){ return i.unidades ? numBR(i.unidades) + " un (≈ " + numBR(i.quantidade) + " kg)" : qtd(i.unidade, i.quantidade); }
   function dataBR(iso){ if (!iso) return ""; var p = iso.split("-"), d = new Date(+p[0], +p[1]-1, +p[2]), t = d.toLocaleDateString("pt-BR",{weekday:"long", day:"2-digit", month:"long"}); return t.charAt(0).toUpperCase() + t.slice(1); }
   function quando(ts){ if (!ts) return ""; var d = new Date(ts); return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) + " às " + d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
   function api(caminho, corpo){
@@ -129,10 +130,10 @@
     var h = '<table><thead><tr><th>Item</th><th>Antes</th><th>Agora</th></tr></thead><tbody>';
     ordem.forEach(function(c){
       var a = antes[c], n = agora[c], nome = (n || a).nome;
-      if (a && !n) { h += '<tr class="retirado mudou"><td class="n">' + esc(nome) + '</td><td class="de">' + qtd(a.unidade, a.quantidade) + '<br>' + reais(a.subtotal_centavos) + '</td><td class="para"><span class="tag saiu">Retirado</span></td></tr>'; return; }
-      if (!a && n) { h += '<tr class="mudou"><td class="n">' + esc(nome) + ' <span class="tag novo">Novo</span></td><td class="de">—</td><td class="para">' + qtd(n.unidade, n.quantidade) + '<br>' + reais(n.subtotal_centavos) + '</td></tr>'; return; }
+      if (a && !n) { h += '<tr class="retirado mudou"><td class="n">' + esc(nome) + '</td><td class="de">' + qtdI(a) + '<br>' + reais(a.subtotal_centavos) + '</td><td class="para"><span class="tag saiu">Retirado</span></td></tr>'; return; }
+      if (!a && n) { h += '<tr class="mudou"><td class="n">' + esc(nome) + ' <span class="tag novo">Novo</span></td><td class="de">—</td><td class="para">' + qtdI(n) + '<br>' + reais(n.subtotal_centavos) + '</td></tr>'; return; }
       var mudou = Number(a.quantidade) !== Number(n.quantidade) || a.subtotal_centavos !== n.subtotal_centavos;
-      h += '<tr class="' + (mudou ? 'mudou' : '') + '"><td class="n">' + esc(nome) + '</td><td class="de">' + qtd(a.unidade, a.quantidade) + '<br>' + reais(a.subtotal_centavos) + '</td><td class="para">' + (mudou ? qtd(n.unidade, n.quantidade) + '<br>' + reais(n.subtotal_centavos) : '<span class="de">sem mudança</span>') + '</td></tr>';
+      h += '<tr class="' + (mudou ? 'mudou' : '') + '"><td class="n">' + esc(nome) + '</td><td class="de">' + qtdI(a) + '<br>' + reais(a.subtotal_centavos) + '</td><td class="para">' + (mudou ? qtdI(n) + '<br>' + reais(n.subtotal_centavos) : '<span class="de">sem mudança</span>') + '</td></tr>';
     });
     h += '<tr class="total"><td>Total</td><td class="de">' + reais(o.total_centavos) + (o.total_estimado ? '<br><small>estimado</small>' : '') + '</td><td class="para">' + reais(p.total_centavos) + '<br><small>' + (p.total_estimado ? 'estimado' : 'valor final') + '</small></td></tr>';
     return h + '</tbody></table>';
@@ -194,7 +195,7 @@
       h += '</div>';
     } else {
       h += '<div class="painel"><h2>Itens</h2><div class="itens">';
-      (p.itens || []).forEach(function(i){ h += '<div class="linha-i"><span><b>' + esc(i.nome) + '</b><br><span class="dica">' + qtd(i.unidade, i.quantidade) + '</span></span><span>' + reais(i.subtotal_centavos) + '</span></div>'; });
+      (p.itens || []).forEach(function(i){ h += '<div class="linha-i"><span><b>' + esc(i.nome) + '</b><br><span class="dica">' + qtdI(i) + '</span></span><span>' + reais(i.subtotal_centavos) + '</span></div>'; });
       h += '<div class="tot"><span>Total ' + (p.total_estimado ? 'estimado' : '') + '</span><span>' + reais(p.total_centavos) + '</span></div>';
       if (p.total_estimado) h += '<div class="dica">O valor final é confirmado após a pesagem. Se mudar, aparece aqui.</div>';
       h += '</div></div>';

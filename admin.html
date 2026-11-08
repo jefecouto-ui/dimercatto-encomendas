@@ -934,7 +934,7 @@
     descricao: ["descricao","descricao produto","descricao do produto","produto","nome","nome produto","desc"],
     preco: ["preco","preco venda","preco de venda","pr venda","valor","valor venda","venda","preco unitario","preco varejo","vl venda"],
     unidade: ["unidade","un","und","unid","unidade medida","unidade de medida","medida","um"],
-    grupo: ["grupo","secao","departamento","categoria","depto"],
+    grupo: ["grupo","secao","departamento","categoria","depto","depto."],
     subgrupo: ["subgrupo","sub grupo","subcategoria","familia","sub secao"],
     ean: ["ean","gtin","ean13","ean 13","codigo de barras","cod de barras","cod barras","codigo barras","codbarras","barras","cod barra","codigo barra"]
   };
@@ -955,7 +955,10 @@
   }
   function nomeBonito(d){
     var peq = {de:1, da:1, do:1, das:1, dos:1, e:1, com:1, sem:1, ao:1, a:1, o:1, em:1, na:1, no:1};
-    return String(d || "").toLowerCase().replace(/\s+/g, " ").trim().split(" ").map(function(w, i){ return (i && peq[w]) ? w : w.charAt(0).toUpperCase() + w.slice(1); }).join(" ").replace(/\bC\//g, "c/").replace(/\bS\//g, "s/");
+    return String(d || "").toLowerCase().replace(/\s+/g, " ").trim().split(" ").map(function(w, i){
+      var m = w.match(/^(\d+(?:[.,]\d+)?)(lt|l|ltr)$/); if (m) return m[1] + "L";
+      if (/^\d+(?:[.,]\d+)?(ml|g|gr|kg|un|und)$/.test(w)) return w.replace(/gr$/, "g");
+      return (i && peq[w]) ? w : w.charAt(0).toUpperCase() + w.slice(1); }).join(" ").replace(/\bC\//g, "c/").replace(/\bS\//g, "s/");
   }
   function interpretarPlanilha(linhas){
     var cab = -1, mapa = null;
@@ -968,10 +971,12 @@
     var ok = [], prob = [], vistos = {};
     linhas.slice(cab + 1).forEach(function(l, idx){
       if (!l || !l.some(function(c){ return String(c == null ? "" : c).trim() !== ""; })) return;
+      if (String(mapa.codigo == null ? "" : (l[mapa.codigo] == null ? "" : l[mapa.codigo])).trim() === "" && (l[mapa.preco] == null || String(l[mapa.preco]).trim() === "")) return;
       var nlin = cab + idx + 2, g = function(k){ return mapa[k] == null ? "" : String(l[mapa[k]] == null ? "" : l[mapa[k]]).trim(); };
-      var cod = g("codigo").replace(/\.0+$/, ""), desc = g("descricao"), pc = precoImp(l[mapa.preco]), unOrig = g("unidade"), un = UN_IMP[semAcento(unOrig).replace(/ /g, "")] || null;
+      var cod = g("codigo").replace(/\.0+$/, ""), desc = g("descricao"), pc = precoImp(l[mapa.preco]), unOrig = g("unidade"), un = UN_IMP[semAcento(unOrig).replace(/ /g, "")] || null, unDeduzida = false;
+      if (!unOrig) { un = /(^|[\s\/])KGS?\.?$/i.test(desc) || /\bKG\b/i.test(desc) ? "kg" : "un"; unDeduzida = true; }
       var eanTxt = g("ean").replace(/\.0+$/, "").replace(/\D/g, ""), eanOk = eanTxt && eanValido(eanTxt) ? eanTxt : "";
-      var item = {linha: nlin, codigo: cod, descricao: desc, preco_centavos: pc, unidade: un, unidade_orig: unOrig, grupo: g("grupo"), subgrupo: g("subgrupo"), ean: eanOk, eanRuim: eanTxt && !eanOk ? eanTxt : ""};
+      var item = {linha: nlin, codigo: cod, descricao: desc, preco_centavos: pc, unidade: un, unidade_orig: unOrig, unDeduzida: unDeduzida, grupo: g("grupo"), subgrupo: g("subgrupo"), ean: eanOk, eanRuim: eanTxt && !eanOk ? eanTxt : ""};
       var erro = !cod ? "sem código" : (vistos[cod] ? "código repetido na planilha (linha " + vistos[cod] + ")" : (!pc || pc <= 0 ? "preço vazio ou inválido" : ""));
       if (!erro) vistos[cod] = nlin;
       if (erro) { item.erro = erro; prob.push(item); } else ok.push(item);
@@ -1009,7 +1014,7 @@
       var h = '<div class="msg ok" style="margin:0">Planilha lida: ' + (r.ok.length + r.prob.length) + ' linha(s). <b>' + novos.length + '</b> produto(s) novo(s), <b>' + precos.length + '</b> preço(s) alterado(s), ' + iguais + ' sem alteração' + (prob.length ? ', <b style="color:#B3261E">' + prob.length + ' com problema</b> (não serão importadas)' : '') + '.</div>';
       if (eans.length) h += '<p class="dica" style="margin:8px 0 0">▮▯ ' + eans.length + ' produto(s) já cadastrado(s) vão receber o código de barras da planilha.</p>';
       if (eanRuins.length) h += '<p class="dica" style="margin:4px 0 0;color:#B3261E">' + eanRuins.length + ' código(s) de barras inválido(s) foram ignorados (dígito verificador não confere): ' + eanRuins.slice(0, 5).map(function(it){ return esc(it.codigo) + ' → ' + esc(it.eanRuim); }).join(", ") + (eanRuins.length > 5 ? "…" : "") + '</p>';
-      if (r.faltam.length) h += '<p class="dica">Colunas não encontradas: ' + r.faltam.join(", ") + '.' + (r.faltam.indexOf("unidade") >= 0 ? ' Sem a unidade, só dá para atualizar preços de produtos que já existem.' : '') + '</p>';
+      if (r.faltam.length) h += '<p class="dica">Colunas não encontradas: ' + r.faltam.join(", ") + '.' + (r.faltam.indexOf("unidade") >= 0 ? ' A unidade dos produtos novos foi deduzida pela descrição (KG na descrição = kg; senão, unidade): confira na lista.' : '') + '</p>';
       if (precos.length) {
         h += '<details class="imp-grupo" open><summary>💲 Preços alterados (' + precos.length + ')</summary><table><tr><th>Código</th><th>Produto</th><th>Atual</th><th>Novo</th><th>Variação</th></tr>';
         precos.sort(function(a, b){ return Math.abs(b.it.preco_centavos / b.p.preco_centavos - 1) - Math.abs(a.it.preco_centavos / a.p.preco_centavos - 1); }).forEach(function(x){
@@ -1020,7 +1025,7 @@
       }
       if (novos.length) {
         h += '<details class="imp-grupo" open><summary>🆕 Produtos novos (' + novos.length + ')</summary><table><tr><th>Código</th><th>Nome na loja</th><th>Preço</th><th>Unidade</th><th>Categoria</th></tr>';
-        novos.forEach(function(it){ h += '<tr><td>' + esc(it.codigo) + '</td><td>' + esc(it.nome) + '</td><td>' + reais(it.preco_centavos) + '</td><td>' + esc(unid(it.unidade)) + '</td><td>' + (it.cat ? esc(it.cat.nome) : '<span class="dica">' + (it.grupo ? 'sem correspondente: "' + esc(it.grupo) + '"' : 'sem categoria') + '</span>') + (it.subgrupo ? ' · ' + esc(it.subgrupo) : '') + '</td></tr>'; });
+        novos.forEach(function(it){ h += '<tr><td>' + esc(it.codigo) + '</td><td>' + esc(it.nome) + '</td><td>' + reais(it.preco_centavos) + '</td><td>' + esc(unid(it.unidade)) + (it.unDeduzida ? ' <span class="dica" title="A planilha não tem coluna de unidade: deduzida pela descrição (KG na descrição = kg; senão, unidade). Confira e ajuste no produto se precisar.">(deduzida)</span>' : '') + '</td><td>' + (it.cat ? esc(it.cat.nome) : '<span class="dica">' + (it.grupo ? 'sem correspondente: "' + esc(it.grupo) + '"' : 'sem categoria') + '</span>') + (it.subgrupo ? ' · ' + esc(it.subgrupo) : '') + '</td></tr>'; });
         h += '</table></details><label class="check" style="margin-top:10px"><input type="checkbox" id="impAtivar"> Já colocar os produtos novos na loja (só os que têm categoria). Sem marcar, entram fora da loja para revisão.</label>';
       }
       if (prob.length) {

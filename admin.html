@@ -90,6 +90,9 @@
   .faixa-cab{font-size:20px;font-weight:800;color:var(--vinho);margin:10px 0 0}
   .faixa-cab span{font-size:14px;font-weight:600;color:var(--suave);margin-left:8px}
   @media print{.faixa-prod{border-width:1.5px;border-color:#000}.faixa-cab{color:#000}}
+  .foto-prod{display:flex;gap:12px;align-items:flex-start;background:#FFF7EF;border:1px solid var(--borda);border-radius:12px;padding:10px;margin-bottom:12px}
+  .foto-prev{width:96px;height:96px;flex:none;border-radius:10px;background:#F3ECE4 center/cover no-repeat;display:grid;place-items:center;color:#A99485;font-size:12px;text-align:center}
+  .foto-acoes{flex:1;min-width:0}
   .fot-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:10px}
   .fot-card{border:1px solid var(--borda);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:#fff}
   .fot-card.sem{background:#FAF6F2}
@@ -207,6 +210,20 @@
 <dialog id="dlgProduto">
   <form method="dialog" id="formProduto" novalidate>
     <h2 id="dlgProdutoTitulo">Produto</h2>
+    <div class="foto-prod" id="pFotoBox">
+      <div class="foto-prev" id="pFotoPrev">Sem foto</div>
+      <div class="foto-acoes">
+        <div class="dica" id="pFotoInfo"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <label class="btn sec peq" for="pFotoArq" style="cursor:pointer">📷 Enviar foto</label><input type="file" id="pFotoArq" accept="image/*" hidden>
+          <button type="button" class="btn sec peq" id="pFotoLinkBtn">🔗 Usar link de imagem</button>
+          <button type="button" class="btn sec peq" id="pFotoGoogle">🔎 Procurar no Google</button>
+          <button type="button" class="btn sec peq" id="pFotoRemover">Remover foto</button>
+        </div>
+        <div id="pFotoLinkBox" hidden style="display:flex;gap:6px;margin-top:6px"><input type="url" id="pFotoLink" placeholder="Cole aqui o endereço da imagem (https://…)" style="flex:1"><button type="button" class="btn peq" id="pFotoLinkOk">Usar</button></div>
+        <div class="dica" id="pFotoMsg" style="margin-top:4px"></div>
+      </div>
+    </div>
     <div class="grade">
       <div><label for="pCodigo">Código de vendas *</label><input type="text" id="pCodigo" required maxlength="30"></div>
       <div><label for="pEan">Código de barras (EAN) <span class="dica">só industrializados</span></label><input type="text" id="pEan" inputmode="numeric" maxlength="14"></div>
@@ -1212,8 +1229,59 @@
   function preencherCategorias(sel, atual){
     sel.innerHTML = '<option value="">— Sem categoria —</option>' + S.categorias.map(function(c){ return '<option value="' + c.id + '"' + (c.id === atual ? " selected" : "") + '>' + esc(c.nome) + '</option>'; }).join("");
   }
+  function desenharFotoProd(){
+    var p = editando, prev = document.getElementById("pFotoPrev"), tem = p && p.foto_url;
+    prev.style.backgroundImage = tem ? "url(" + JSON.stringify(p.foto_url) + ")" : ""; prev.textContent = tem ? "" : "Sem foto";
+    document.getElementById("pFotoInfo").textContent = !p ? "Salve o produto primeiro para adicionar a foto." : (tem ? (p.foto_origem ? "Origem: " + p.foto_origem : "Foto cadastrada") : "Produto sem foto.");
+    ["pFotoLinkBtn","pFotoGoogle","pFotoRemover"].forEach(function(id){ document.getElementById(id).disabled = !p; });
+    document.querySelector('label[for="pFotoArq"]').style.opacity = p ? "" : ".5"; document.getElementById("pFotoArq").disabled = !p;
+    document.getElementById("pFotoRemover").hidden = !tem;
+  }
+  function fotoGravada(url, origem){
+    var p = editando; if (!p) return;
+    p.foto_url = url; p.foto_origem = origem;
+    S.produtos.forEach(function(x){ if (x.id === p.id) { x.foto_url = url; x.foto_origem = origem; } });
+    desenharFotoProd(); desenharProdutos();
+  }
+  function msgFoto(t, erro){ var m = document.getElementById("pFotoMsg"); m.textContent = t; m.style.color = erro ? "#B3261E" : ""; }
+  document.getElementById("pFotoArq").onchange = function(){
+    var f = this.files[0], p = editando; this.value = ""; if (!f || !p) return;
+    if (!/^image\//.test(f.type)) { msgFoto("Escolha um arquivo de imagem.", true); return; }
+    msgFoto("Enviando foto…");
+    var caminho = "manual/" + p.codigo.replace(/[^A-Za-z0-9_-]/g, "_") + "-" + Date.now() + ".jpg";
+    createImageBitmap(f).then(function(bmp){
+      var fator = Math.min(1, 1000 / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas");
+      c.width = Math.round(bmp.width * fator); c.height = Math.round(bmp.height * fator);
+      var ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height);
+      return new Promise(function(ok){ c.toBlob(ok, "image/jpeg", 0.85); });
+    }).then(function(jpg){ return sb.storage.from("fotos-produtos").upload(caminho, jpg, {contentType: "image/jpeg", cacheControl: "604800"}); })
+    .then(function(up){
+      if (up.error) throw up.error;
+      var url = sb.storage.from("fotos-produtos").getPublicUrl(caminho).data.publicUrl, origem = "enviada por " + S.usuario.email;
+      return sb.from("produtos").update({foto_url: url, foto_origem: origem}).eq("id", p.id).then(function(r){ if (r.error) throw r.error; fotoGravada(url, origem); msgFoto("✓ Foto salva. Já aparece na loja."); });
+    }).catch(function(e){ msgFoto("Não foi possível enviar: " + erroTxt(e), true); });
+  };
+  document.getElementById("pFotoLinkBtn").onclick = function(){ var b = document.getElementById("pFotoLinkBox"); b.hidden = !b.hidden; if (!b.hidden) document.getElementById("pFotoLink").focus(); };
+  document.getElementById("pFotoGoogle").onclick = function(){ var p = editando; if (!p) return; window.open("https://www.google.com/search?tbm=isch&q=" + encodeURIComponent((p.ean ? p.ean + " " : "") + (p.descricao_caixa || p.nome)), "_blank", "noopener"); };
+  document.getElementById("pFotoLinkOk").onclick = function(){
+    var p = editando, link = document.getElementById("pFotoLink").value.trim(), b = this; if (!p || !link) return;
+    b.disabled = true; msgFoto("Baixando a imagem…");
+    sb.functions.invoke("foto-por-link", {body: {produto_id: p.id, link: link}}).then(function(r){
+      b.disabled = false;
+      var erroMsg = r.error ? ((r.data && r.data.erro) || null) : null;
+      if (r.error && !erroMsg && r.error.context && r.error.context.json) return r.error.context.json().then(function(j){ msgFoto(j.erro || "Não foi possível usar esse link.", true); });
+      if (r.error) { msgFoto(erroMsg || "Não foi possível usar esse link.", true); return; }
+      fotoGravada(r.data.foto_url, "link"); document.getElementById("pFotoLink").value = ""; document.getElementById("pFotoLinkBox").hidden = true;
+      msgFoto("✓ Foto salva a partir do link. Já aparece na loja.");
+    });
+  };
+  document.getElementById("pFotoRemover").onclick = function(){
+    var p = editando; if (!p || !confirm("Remover a foto deste produto?")) return;
+    sb.from("produtos").update({foto_url: null, foto_origem: null}).eq("id", p.id).then(function(r){ if (r.error) { msgFoto(erroTxt(r.error), true); return; } fotoGravada(null, null); msgFoto("Foto removida."); });
+  };
   function abrirProduto(p){
     editando = p;
+    msgFoto(""); document.getElementById("pFotoLinkBox").hidden = true; desenharFotoProd();
     document.getElementById("dlgProdutoTitulo").textContent = p ? "Editar produto" : "Cadastrar produto";
     var v = function(id, val){ document.getElementById(id).value = val == null ? "" : val; };
     v("pEan", p && p.ean ? p.ean : "");

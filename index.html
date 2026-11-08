@@ -496,11 +496,12 @@
       document.body.classList.toggle("tema-dia", temaDia());
       // limpa do carrinho o que não existe mais
       Object.keys(estado.carrinho).forEach(function(c){ var pp = produtoPorCodigo(c); if (!pp || pp.esgotado) delete estado.carrinho[c]; });
-      var ajuda = linkWhats("Olá! Gostaria de ajuda para fazer uma encomenda.");
+      var ajuda = linkWhats(temaDia() ? "Olá! Gostaria de ajuda para fazer um pedido." : "Olá! Gostaria de ajuda para fazer uma encomenda.");
       document.getElementById("btnAjuda").href = ajuda;
       document.getElementById("linkAjudaRodape").href = ajuda;
       document.getElementById("faixaTeste").hidden = !estado.config.modo_teste;
-      if (estado.config.campanha_titulo) document.title = "Encomendas — " + estado.config.campanha_titulo;
+      if (temaDia()) document.title = "Di Mercatto — " + (estado.config.dia_titulo || "Peça online");
+      else if (estado.config.campanha_titulo) document.title = "Encomendas — " + estado.config.campanha_titulo;
       var mh = location.hash.match(/^#categoria-(\d+)$/); if (mh) estado.cat = +mh[1];
       irPara(1, true);
     }).catch(function(){
@@ -565,9 +566,9 @@
     if (temaDia()) {
       h += '<section class="capa-dia" aria-label="Apresentação">';
       h += '<img class="logo-capa" src="img/logo-dimercatto.webp" alt="Di Mercatto" width="290" height="137">';
-      h += '<div class="script">' + esc(cfg.dia_titulo || "Encomendas") + '</div>';
-      h += '<h1>' + esc(cfg.dia_subtitulo || "Do café da manhã à jantinha, feito na nossa cozinha.") + '</h1>';
-      var txtDia = cfg.dia_texto != null && cfg.dia_texto !== "" ? cfg.dia_texto : "Escolha pelo celular, envie pelo WhatsApp e " + (cfg.entrega_ativa ? "retire na loja ou receba em casa." : "retire na loja.");
+      h += '<div class="script">' + esc(cfg.dia_titulo || "Peça online") + '</div>';
+      h += '<h1>' + esc(cfg.dia_subtitulo || "O melhor da Di Mercatto, do café da manhã à jantinha.") + '</h1>';
+      var txtDia = cfg.dia_texto != null && cfg.dia_texto !== "" ? cfg.dia_texto : "Padaria, delicatessen e pratos da nossa cozinha. Escolha pelo celular, envie pelo WhatsApp e " + (cfg.entrega_ativa ? "retire na loja da Graça ou receba em casa." : "retire na loja da Graça.");
       h += '<p class="txt">' + esc(txtDia) + '</p>';
       h += '<div class="botoes"><a class="b1" href="#cardapio" data-irpara="cardapio">Ver o cardápio</a><a class="b2" href="#" data-irpara="destaques">' + (estado.produtos.some(function(p){ return p.destaque; }) ? 'Destaques' : 'Buscar') + '</a></div>';
       h += '</section>';
@@ -895,7 +896,7 @@
     if (d.pagamento) h += linha("Pagamento", d.pagamento);
     if (d.observacoes) h += linha("Observações", d.observacoes);
     h += '<div class="acoes" style="margin:14px 0 0"><button type="button" class="btn-sec" data-ir="2">← Corrigir meus dados</button></div></div>';
-    h += '<label class="confirmo"><input type="checkbox" id="fConfirmo"> <span>Confirmo que revisei os produtos, quantidades e informações da minha encomenda.</span></label>';
+    h += '<label class="confirmo"><input type="checkbox" id="fConfirmo"> <span>Confirmo que revisei os produtos, quantidades e informações ' + (temaDia() ? 'do meu pedido' : 'da minha encomenda') + '.</span></label>';
     h += '<div class="erro-campo" id="eConf" hidden></div><div id="erroEnvio"></div>';
     h += '<p class="aviso" style="margin-top:16px">Ao continuar, vamos abrir o WhatsApp com o seu pedido já escrito. <strong>É só apertar ENVIAR.</strong></p>';
     h += '<div class="acoes"><button type="button" class="btn-principal btn-wpp" id="btnEnviar">' + iconeWpp() + ' Continuar no WhatsApp para enviar o pedido</button></div>';
@@ -906,7 +907,7 @@
 
   function montarMensagem(r){
     var d = estado.dados, L = [];
-    L.push("*ENCOMENDA — DI MERCATTO*  #" + r.numero);
+    L.push((temaDia() ? "*PEDIDO — DI MERCATTO*  #" : "*ENCOMENDA — DI MERCATTO*  #") + r.numero);
     L.push("");
     L.push("Cliente: " + d.nome);
     L.push("WhatsApp: " + d.whatsapp);

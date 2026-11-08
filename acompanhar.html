@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acompanhar pedido — Di Mercatto</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#94392D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--vinho:#94392D;--creme-claro:#FFF7EF;--laranja:#E07F40;--dourado:#B8913A;--verde:#2F5D46;--texto:#2E211B;--texto-suave:#5C4A40;--borda:#E8D3C0;--erro:#B3261E}
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden}
+  body{margin:0;background:var(--creme-claro);color:var(--texto);font-family:Montserrat,system-ui,sans-serif;font-size:17px;line-height:1.45}
+  header{background:var(--vinho);color:#fff;position:sticky;top:0;z-index:5}
+  .wrap{max-width:640px;margin:0 auto;padding:0 16px}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;min-height:60px;gap:10px}
+  .marca{font-family:"Great Vibes",cursive;font-size:32px;line-height:1;color:#fff;text-decoration:none}
+  .ajuda{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--vinho);border-radius:999px;padding:8px 14px;font-weight:800;font-size:15px;text-decoration:none}
+  main{padding:18px 0 40px}
+  .painel{background:#fff;border:1px solid var(--borda);border-radius:18px;padding:16px;margin-bottom:14px}
+  h1{font-size:22px;margin:0 0 4px;color:var(--vinho)}
+  h2{font-size:18px;margin:0 0 12px;color:var(--vinho)}
+  .num{font-size:28px;font-weight:800;letter-spacing:.5px}
+  .meta{color:var(--texto-suave);font-size:15px}
+  .linha{position:relative;padding-left:34px;padding-bottom:16px}
+  .linha:last-child{padding-bottom:0}
+  .linha::before{content:"";position:absolute;left:11px;top:24px;bottom:-2px;width:2px;background:var(--borda)}
+  .linha:last-child::before{display:none}
+  .linha.feito::before{background:var(--verde)}
+  .bola{position:absolute;left:0;top:1px;width:24px;height:24px;border-radius:50%;border:2px solid var(--borda);background:#fff;display:grid;place-items:center;font-size:13px;font-weight:800;color:#fff}
+  .feito .bola{background:var(--verde);border-color:var(--verde)}
+  .atual .bola{background:var(--laranja);border-color:var(--laranja);box-shadow:0 0 0 5px rgba(224,127,64,.22)}
+  .linha b{display:block;font-size:16px}
+  .linha .quando{font-size:13.5px;color:var(--texto-suave)}
+  .pendente b{color:#A99485;font-weight:600}
+  .cancelado{background:#FBE9E7;border-color:#F0B8B0;color:var(--erro);font-weight:700}
+  .alterado{border:2px solid var(--laranja);background:#FFF4EA}
+  .alterado h2{color:#B4551A}
+  table{width:100%;border-collapse:collapse;font-size:14.5px}
+  th{text-align:left;font-size:12.5px;color:var(--texto-suave);font-weight:700;padding:6px 4px;border-bottom:1px solid var(--borda)}
+  td{padding:8px 4px;border-bottom:1px solid #F3E6DA;vertical-align:top}
+  td.n{font-weight:700}
+  .de{color:var(--texto-suave);font-size:13.5px}
+  .para{font-weight:800}
+  .mudou .para{color:#B4551A}
+  .tag{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:800;margin-left:4px;vertical-align:middle}
+  .tag.novo{background:#E3F0E8;color:var(--verde)}
+  .tag.saiu{background:#FBE9E7;color:var(--erro)}
+  tr.retirado td.n,tr.retirado .de{text-decoration:line-through;color:#A99485}
+  tr.total td{font-weight:800;font-size:16px;border-bottom:0;padding-top:10px}
+  .motivo{background:#fff;border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:15px}
+  .btn{display:flex;width:100%;justify-content:center;align-items:center;gap:8px;min-height:52px;border-radius:14px;border:0;font-weight:800;font-size:16px;text-decoration:none;cursor:pointer}
+  .btn-ok{background:var(--verde);color:#fff;margin-top:12px}
+  .btn-ok:disabled{opacity:.6}
+  .btn-wpp{background:#1F8F4E;color:#fff}
+  .ok-cliente{margin-top:12px;background:#E3F0E8;color:var(--verde);border-radius:12px;padding:10px 12px;font-weight:700;font-size:15px}
+  .erro{color:var(--erro);font-size:14.5px;margin-top:8px}
+  .itens .linha-i{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #F3E6DA;font-size:15px}
+  .itens .linha-i:last-child{border-bottom:0}
+  .itens .tot{display:flex;justify-content:space-between;font-weight:800;font-size:17px;padding-top:10px}
+  .dica{font-size:13px;color:var(--texto-suave)}
+  .centro{text-align:center;padding:40px 0;color:var(--texto-suave)}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a class="marca" href="./">Di Mercatto</a><a class="ajuda" id="ajuda" href="#" target="_blank" rel="noopener">Falar com a loja</a></div></header>
+<main class="wrap" id="app"><div class="centro">Carregando seu pedido…</div></main>
+<script src="config.js"></script>
+<script>
+(function(){
+  "use strict";
+  var CFG = window.DM_CONFIG, token = new URLSearchParams(location.search).get("c") || "", wpp = "", ultimo = null;
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function reais(c){ return (c/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
+  function numBR(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
+  function un(u, q){ var um = Number(q) === 1; return {kg:"kg", cento: um ? "cento" : "centos", embalagem: um ? "embalagem" : "embalagens", porcao: um ? "porção" : "porções"}[u] || (um ? "unidade" : "unidades"); }
+  function qtd(u, q){ return numBR(q) + " " + un(u, q); }
+  function dataBR(iso){ if (!iso) return ""; var p = iso.split("-"), d = new Date(+p[0], +p[1]-1, +p[2]), t = d.toLocaleDateString("pt-BR",{weekday:"long", day:"2-digit", month:"long"}); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function quando(ts){ if (!ts) return ""; var d = new Date(ts); return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) + " às " + d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
+  function api(caminho, corpo){
+    return fetch(CFG.SUPABASE_URL + "/rest/v1/" + caminho, { method: corpo ? "POST" : "GET", headers: { apikey: CFG.SUPABASE_KEY, "Content-Type":"application/json" }, body: corpo ? JSON.stringify(corpo) : undefined })
+      .then(function(r){ return r.json().then(function(j){ if (!r.ok) { var e = new Error((j && j.message) || "Erro"); throw e; } return j; }); });
+  }
+  function linkWpp(txt){ return "https://wa.me/" + String(wpp).replace(/\D/g,"") + (txt ? "?text=" + encodeURIComponent(txt) : ""); }
+
+  function etapas(p){
+    var ent = p.modalidade === "entrega";
+    var lista = [
+      {s:["aguardando"], t:"Pedido recebido", d:"Aguardando a confirmação da equipe"},
+      {s:["confirmado"], t:"Confirmado"},
+      {s:["preparacao"], t:"Em preparação", d:"Nossa cozinha está preparando seu pedido"},
+      ent ? {s:["saiu"], t:"Saiu para entrega"} : {s:["pronto"], t:"Pronto para retirada", d:"Pode vir buscar na loja"},
+      {s:["concluido"], t: ent ? "Entregue" : "Retirado"}
+    ];
+    var ordem = {aguardando:0, confirmado:1, preparacao:2, pronto: ent ? 2 : 3, saiu:3, concluido:4};
+    var atual = ordem[p.status] != null ? ordem[p.status] : 0;
+    var horas = {}; (p.historico || []).forEach(function(h){ horas[h.status] = h.em; });
+    var h = '';
+    lista.forEach(function(e, i){
+      var cl = i < atual || (i === atual && p.status === "concluido") ? "feito" : (i === atual ? "atual" : "pendente");
+      var em = horas[e.s[0]] || (i === 0 ? p.criado_em : null);
+      var desc = (i === atual && p.status !== "concluido") ? (p.status === "pronto" && ent ? "Pronto, aguardando a saída para entrega" : (e.d || "")) : "";
+      h += '<div class="linha ' + cl + '"><span class="bola">' + (cl === "feito" ? "✓" : "") + '</span><b>' + esc(e.t) + '</b>' +
+        (cl !== "pendente" && em ? '<span class="quando">' + quando(em) + '</span>' : '') + (desc ? '<div class="quando">' + esc(desc) + '</div>' : '') + '</div>';
+    });
+    return h;
+  }
+  function comparacao(p){
+    var o = p.original, antes = {}, ordem = [];
+    (o.itens || []).forEach(function(i){ antes[i.codigo] = i; ordem.push(i.codigo); });
+    var agora = {}; (p.itens || []).forEach(function(i){ agora[i.codigo] = i; if (ordem.indexOf(i.codigo) < 0) ordem.push(i.codigo); });
+    var h = '<table><thead><tr><th>Item</th><th>Antes</th><th>Agora</th></tr></thead><tbody>';
+    ordem.forEach(function(c){
+      var a = antes[c], n = agora[c], nome = (n || a).nome;
+      if (a && !n) { h += '<tr class="retirado mudou"><td class="n">' + esc(nome) + '</td><td class="de">' + qtd(a.unidade, a.quantidade) + '<br>' + reais(a.subtotal_centavos) + '</td><td class="para"><span class="tag saiu">Retirado</span></td></tr>'; return; }
+      if (!a && n) { h += '<tr class="mudou"><td class="n">' + esc(nome) + ' <span class="tag novo">Novo</span></td><td class="de">—</td><td class="para">' + qtd(n.unidade, n.quantidade) + '<br>' + reais(n.subtotal_centavos) + '</td></tr>'; return; }
+      var mudou = Number(a.quantidade) !== Number(n.quantidade) || a.subtotal_centavos !== n.subtotal_centavos;
+      h += '<tr class="' + (mudou ? 'mudou' : '') + '"><td class="n">' + esc(nome) + '</td><td class="de">' + qtd(a.unidade, a.quantidade) + '<br>' + reais(a.subtotal_centavos) + '</td><td class="para">' + (mudou ? qtd(n.unidade, n.quantidade) + '<br>' + reais(n.subtotal_centavos) : '<span class="de">sem mudança</span>') + '</td></tr>';
+    });
+    h += '<tr class="total"><td>Total</td><td class="de">' + reais(o.total_centavos) + (o.total_estimado ? '<br><small>estimado</small>' : '') + '</td><td class="para">' + reais(p.total_centavos) + '<br><small>' + (p.total_estimado ? 'estimado' : 'valor final') + '</small></td></tr>';
+    return h + '</tbody></table>';
+  }
+  function desenhar(p){
+    var h = '<div class="painel"><h1>Olá' + (p.cliente ? ', ' + esc(p.cliente) : '') + '!</h1><div class="meta">Seu pedido</div><div class="num">' + esc(p.numero) + '</div>';
+    h += '<div class="meta">' + (p.modalidade === "entrega" ? "Entrega" : "Retirada na loja") + ' · ' + esc(dataBR(p.data_desejada)) + (p.horario ? ' · ' + esc(p.horario) : '') + '</div></div>';
+    if (p.status === "cancelado") h += '<div class="painel cancelado">Este pedido foi cancelado. Se tiver dúvida, toque em "Falar com a loja".</div>';
+    else h += '<div class="painel"><h2>Etapas do pedido</h2>' + etapas(p) + '</div>';
+    var alterado = p.versao > 1 && p.original;
+    if (alterado) {
+      h += '<div class="painel alterado"><h2>🔄 Seu pedido foi atualizado</h2><p class="meta" style="margin:-6px 0 10px">' + (p.alterado_em ? 'Em ' + quando(p.alterado_em) : '') + (p.versao > 2 ? ' · alterado ' + (p.versao - 1) + ' vezes' : '') + '</p>';
+      if (p.motivo) h += '<p class="motivo"><b>Motivo:</b> ' + esc(p.motivo) + '</p>';
+      h += comparacao(p);
+      if (p.cliente_ok_versao === p.versao) h += '<div class="ok-cliente">✓ Você concordou com esta alteração' + (p.cliente_ok_em ? ' em ' + quando(p.cliente_ok_em) : '') + '.</div>';
+      else if (p.status !== "cancelado") h += '<button type="button" class="btn btn-ok" id="btnOk">Estou de acordo com a alteração</button><div class="dica" style="margin-top:6px;text-align:center">Não concorda? Toque em "Falar com a loja".</div><div class="erro" id="erroOk" hidden></div>';
+      h += '</div>';
+    } else {
+      h += '<div class="painel"><h2>Itens</h2><div class="itens">';
+      (p.itens || []).forEach(function(i){ h += '<div class="linha-i"><span><b>' + esc(i.nome) + '</b><br><span class="dica">' + qtd(i.unidade, i.quantidade) + '</span></span><span>' + reais(i.subtotal_centavos) + '</span></div>'; });
+      h += '<div class="tot"><span>Total ' + (p.total_estimado ? 'estimado' : '') + '</span><span>' + reais(p.total_centavos) + '</span></div>';
+      if (p.total_estimado) h += '<div class="dica">O valor final é confirmado após a pesagem. Se mudar, aparece aqui.</div>';
+      h += '</div></div>';
+    }
+    h += '<a class="btn btn-wpp" href="' + esc(linkWpp("Olá! Sobre o meu pedido " + p.numero + ":")) + '" target="_blank" rel="noopener">Falar com a loja no WhatsApp</a>';
+    h += '<p class="dica" style="text-align:center;margin-top:14px">Esta página se atualiza sozinha. Última verificação: ' + new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) + '</p>';
+    document.getElementById("app").innerHTML = h;
+    var b = document.getElementById("btnOk");
+    if (b) b.onclick = function(){
+      b.disabled = true; b.textContent = "Registrando…";
+      api("rpc/concordar_alteracao", {p_token: token, p_versao: p.versao}).then(carregar).catch(function(e){
+        b.disabled = false; b.textContent = "Estou de acordo com a alteração";
+        var er = document.getElementById("erroOk"); er.textContent = e.message || "Não foi possível registrar. Tente de novo."; er.hidden = false;
+        if (/mudou de novo/.test(e.message || "")) setTimeout(carregar, 1500);
+      });
+    };
+  }
+  function carregar(){
+    return api("rpc/acompanhar_pedido", {p_token: token}).then(function(p){
+      if (!p) { document.getElementById("app").innerHTML = '<div class="painel">Não encontramos este pedido. Confira se o link está completo, ou toque em "Falar com a loja".</div>'; return; }
+      var chave = JSON.stringify(p); if (chave === ultimo) return; ultimo = chave;
+      desenhar(p);
+    }).catch(function(){ if (!ultimo) document.getElementById("app").innerHTML = '<div class="painel">Não conseguimos carregar agora. Verifique sua internet e tente de novo.</div>'; });
+  }
+  api("configuracoes?select=chave,valor&chave=eq.whatsapp").then(function(r){ wpp = r[0] ? r[0].valor : ""; document.getElementById("ajuda").href = linkWpp("Olá! Preciso de ajuda com meu pedido."); }).catch(function(){}).then(carregar);
+  setInterval(function(){ if (!document.hidden) carregar(); }, 60000);
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) carregar(); });
+})();
+</script>
+</body>
+</html>

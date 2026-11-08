@@ -213,6 +213,7 @@
       <label class="check"><input type="checkbox" id="ePFinal"> Quantidades já pesadas — valor final (não estimado)</label>
       <div style="font-size:20px;font-weight:700">Total: <span id="ePTotal">R$ 0,00</span></div>
     </div>
+    <div style="margin-top:14px"><label for="ePMotivo">Motivo da alteração <span class="dica">o cliente vê no link de acompanhamento</span></label><input type="text" id="ePMotivo" maxlength="300" placeholder="Ex.: peso final após a pesagem" list="motivosProntos"><datalist id="motivosProntos"><option value="Peso final após a pesagem"><option value="Alteração a pedido do cliente"><option value="Item indisponível — substituído"><option value="Item indisponível — retirado do pedido"></datalist></div>
     <div class="grade" style="margin-top:14px">
       <div><label for="ePObsCli">Observações do cliente</label><textarea id="ePObsCli" maxlength="600"></textarea></div>
       <div><label for="ePObsCoz">Observação para a cozinha <span class="dica">sai em destaque no formulário</span></label><textarea id="ePObsCoz" maxlength="600" style="border-color:var(--dourado)"></textarea></div>
@@ -267,7 +268,7 @@
   function hojeISO(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function dataBR(iso){ if (!iso) return ""; var p = iso.split("-"); return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"}); }
   function dataHora(ts){ return new Date(ts).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }
-  function statusNome(s){ if (s === "alterado") return "Pedido alterado"; for (var i=0;i<STATUS.length;i++) if (STATUS[i][0]===s) return STATUS[i][1]; return s; }
+  function statusNome(s){ if (s === "alterado") return "Pedido alterado"; if (s === "cliente_ok") return "Cliente concordou com a alteração"; for (var i=0;i<STATUS.length;i++) if (STATUS[i][0]===s) return STATUS[i][1]; return s; }
   function catPorId(id){ for (var i=0;i<S.categorias.length;i++) if (S.categorias[i].id === id) return S.categorias[i]; return null; }
   function soDig(s){ return String(s||"").replace(/\D/g,""); }
   function erroTxt(e){
@@ -406,16 +407,18 @@
       box.querySelectorAll("select[data-status]").forEach(function(sel){ sel.onchange = function(){ mudarStatus(+sel.dataset.status, sel.value, sel); }; });
       document.getElementById("imprimirTodos").onclick = function(){ imprimirPedidos(ultimosPedidos); };
       box.querySelectorAll("[data-editped]").forEach(function(b){ b.onclick = function(){ abrirEdicao(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.editped; })[0]); }; });
+      box.querySelectorAll("[data-avisar]").forEach(function(b){ b.onclick = function(){ avisarCliente(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.avisar; })[0], b); }; });
       box.querySelectorAll("[data-imprimir]").forEach(function(b){ b.onclick = function(){ imprimirPedidos(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.imprimir; })); }; });
     });
   }
   function cartaoPedido(p){
-    var h = '<div class="pedido"><div class="topo"><div><span class="num">' + esc(p.numero) + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>' + (p.alterado_em ? ' <span class="tag" title="Alterado em ' + esc(dataHora(p.alterado_em)) + '">✎ alterado</span>' : '');
+    var h = '<div class="pedido"><div class="topo"><div><span class="num">' + esc(p.numero) + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>' + (p.alterado_em ? ' <span class="tag" title="Alterado em ' + esc(dataHora(p.alterado_em)) + '">✎ alterado</span>' : '') + (p.versao > 1 ? (p.cliente_ok_versao === p.versao ? ' <span class="tag st-concluido">✓ cliente concordou</span>' : ' <span class="tag st-aguardando">aguardando OK do cliente</span>') : '');
     h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + '</div></div>';
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
     if (p.modalidade === "entrega") h += '<div class="meta">' + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
-    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button></div>';
+    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
+    if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
     (p.pedido_itens || []).forEach(function(i){ h += '<tr><td>' + esc(i.codigo) + '</td><td>' + esc(i.nome) + (i.observacao ? '<div class="meta">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td><td class="num">' + numBR(i.quantidade) + ' ' + unid(i.unidade) + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>'; });
@@ -427,6 +430,45 @@
     h += '</details></div>';
     return h;
   }
+  /* ---------- Acompanhamento / avisar cliente ---------- */
+  function linkAcompanhar(tk){ return location.origin + location.pathname.replace(/[^\/]*$/, "") + "acompanhar.html?c=" + encodeURIComponent(tk); }
+  function qtdUn(u, q){ return numBR(q) + " " + unid(u); }
+  function avisarCliente(p, btn){
+    if (!p) return;
+    var aba = window.open("", "_blank");
+    btn.disabled = true;
+    sb.from("pedido_versoes").select("itens,total_centavos,total_estimado").eq("pedido_id", p.id).order("versao").limit(1).then(function(r){
+      btn.disabled = false;
+      var orig = r.data && r.data[0], nome = String(p.cliente_nome || "").split(" ")[0], L = [];
+      var dt = dataBR(p.data_desejada) + (p.horario ? " — " + p.horario : "");
+      var txt = {
+        aguardando: "recebemos seu pedido *" + p.numero + "* e já vamos confirmar.",
+        confirmado: "seu pedido *" + p.numero + "* está *confirmado* para " + dt + ".",
+        preparacao: "seu pedido *" + p.numero + "* está *em preparação* na nossa cozinha.",
+        pronto: p.modalidade === "entrega" ? "seu pedido *" + p.numero + "* está *pronto* e logo sai para entrega." : "seu pedido *" + p.numero + "* está *pronto para retirada*! Pode vir buscar na loja.",
+        saiu: "seu pedido *" + p.numero + "* *saiu para entrega*.",
+        concluido: "seu pedido *" + p.numero + "* foi concluído. Obrigado pela preferência!",
+        cancelado: "seu pedido *" + p.numero + "* foi *cancelado*. Qualquer dúvida, é só responder esta mensagem."
+      }[p.status] || ("atualização do seu pedido *" + p.numero + "*.");
+      L.push("Olá" + (nome ? ", " + nome : "") + "! Aqui é a Di Mercatto: " + txt);
+      if (p.versao > 1 && orig) {
+        L.push(""); L.push("*Seu pedido foi atualizado*" + (p.motivo_alteracao ? " (" + p.motivo_alteracao + ")" : "") + ":");
+        var antes = {}; (orig.itens || []).forEach(function(i){ antes[i.codigo] = i; });
+        var agora = {}; (p.pedido_itens || []).forEach(function(i){ agora[i.codigo] = i; });
+        (orig.itens || []).forEach(function(a){ var n = agora[a.codigo];
+          if (!n) L.push("- " + a.nome + ": retirado");
+          else if (Number(n.quantidade) !== Number(a.quantidade) || n.subtotal_centavos !== a.subtotal_centavos) L.push("- " + a.nome + ": " + qtdUn(a.unidade, a.quantidade) + " → " + qtdUn(n.unidade, n.quantidade) + " (" + reais(n.subtotal_centavos) + ")");
+        });
+        (p.pedido_itens || []).forEach(function(n){ if (!antes[n.codigo]) L.push("- " + n.nome + ": novo, " + qtdUn(n.unidade, n.quantidade) + " (" + reais(n.subtotal_centavos) + ")"); });
+        L.push("Total: " + reais(orig.total_centavos) + " → *" + reais(p.total_centavos) + "*" + (p.total_estimado ? " (estimado)" : " (valor final)"));
+        if (p.cliente_ok_versao !== p.versao) L.push("Por favor, confira e toque em \"Estou de acordo\" no link abaixo.");
+      }
+      if (p.token) { L.push(""); L.push("Acompanhe seu pedido: " + linkAcompanhar(p.token)); }
+      var num = soDig(p.cliente_whatsapp); if (num.length <= 11) num = "55" + num;
+      var url = "https://wa.me/" + num + "?text=" + encodeURIComponent(L.join("\n"));
+      if (aba) aba.location.href = url; else location.href = url;
+    });
+  }
   /* ---------- Edição de pedido ---------- */
   var dlgE = document.getElementById("dlgPedido"), pedEdit = null, itensEdit = [];
   function qtdParaTexto(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
@@ -437,7 +479,7 @@
     var v = function(id, val){ document.getElementById(id).value = val == null ? "" : val; };
     v("ePNome", p.cliente_nome); v("ePWpp", p.cliente_whatsapp); v("ePData", p.data_desejada); v("ePHora", p.horario);
     v("ePMod", p.modalidade); v("ePPag", p.pagamento); v("ePEnd", p.endereco); v("ePBairro", p.bairro); v("ePRef", p.referencia);
-    v("ePObsCli", p.observacoes); v("ePObsCoz", p.obs_cozinha);
+    v("ePObsCli", p.observacoes); v("ePObsCoz", p.obs_cozinha); v("ePMotivo", "");
     document.getElementById("ePFinal").checked = !p.total_estimado && (p.pedido_itens || []).some(function(i){ var pr = prodPorCodigo(i.codigo); return pr && pr.valor_estimado; });
     itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), obs:i.observacao || ""}; });
     document.getElementById("ePNovo").innerHTML = '<option value="">— escolha o produto —</option>' + S.categorias.concat([{id:null, nome:"Outros"}]).map(function(c){
@@ -490,7 +532,7 @@
     var mod = g("ePMod");
     if (mod === "entrega" && (!g("ePEnd") || !g("ePBairro"))) return falha("Para entrega, informe endereço e bairro.");
     var dados = { cliente_nome:g("ePNome"), cliente_whatsapp:g("ePWpp"), data_desejada:g("ePData"), horario:g("ePHora"), modalidade:mod, pagamento:g("ePPag"),
-      endereco:g("ePEnd"), bairro:g("ePBairro"), referencia:g("ePRef"), observacoes:g("ePObsCli"), obs_cozinha:g("ePObsCoz"),
+      endereco:g("ePEnd"), bairro:g("ePBairro"), referencia:g("ePRef"), observacoes:g("ePObsCli"), obs_cozinha:g("ePObsCoz"), motivo:g("ePMotivo"),
       valor_final: document.getElementById("ePFinal").checked,
       itens: itensEdit.map(function(i){ return {codigo:i.codigo, quantidade:i.qtd, observacao:i.obs}; }) };
     var b1 = document.getElementById("ePSalvar"), b2 = document.getElementById("ePSalvarImprimir"); b1.disabled = b2.disabled = true;

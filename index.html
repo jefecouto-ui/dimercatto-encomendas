@@ -818,9 +818,11 @@
     if (d.observacoes) L.push("Observações: " + d.observacoes);
     L.push("");
     L.push("Este pedido depende do envio desta mensagem e da confirmação da equipe DI MERCATTO.");
+    if (r.token) { L.push(""); L.push("Acompanhe seu pedido: " + linkAcompanhar(r.token)); }
     return L.join("\n");
   }
 
+  function linkAcompanhar(tk){ return location.origin + location.pathname.replace(/[^\/]*$/, "") + "acompanhar.html?c=" + encodeURIComponent(tk); }
   var enviando = false;
   function enviar(){
     var chk = document.getElementById("fConfirmo");
@@ -871,6 +873,7 @@
     h += '<div class="acoes"><a class="btn-principal btn-wpp" href="' + esc(url) + '" target="_blank" rel="noopener">' + iconeWpp() + ' Abrir o WhatsApp com meu pedido</a>';
     h += '<button type="button" class="btn-sec" id="btnCopiar">Copiar o texto do pedido</button><div id="copiado" class="aviso" hidden>Texto copiado! Cole no WhatsApp da Di Mercatto e envie.</div></div>';
     h += '<p class="aviso">Seu pedido só é confirmado depois que você enviar a mensagem e nossa equipe responder.</p>';
+    if (r.token) h += '<div class="painel"><h2 style="margin-top:0">Acompanhe seu pedido</h2><p style="margin:0 0 12px">Veja as etapas e qualquer alteração (peso, quantidade, valor). O link também vai na mensagem do WhatsApp.</p><a class="btn-sec" style="display:flex;justify-content:center;align-items:center;text-decoration:none" href="' + esc(linkAcompanhar(r.token)) + '" target="_blank" rel="noopener">Acompanhar meu pedido →</a></div>';
     h += '<div class="acoes"><button type="button" class="btn-sec" id="btnNovo">Fazer outro pedido</button></div>';
     document.getElementById("app").innerHTML = h;
   }

@@ -1058,7 +1058,7 @@
         novos.forEach(function(it){ h += '<tr><td>' + esc(it.codigo) + '</td><td>' + esc(it.nome) + '</td><td>' + reais(it.preco_centavos) + '</td><td>' + esc(unid(it.unidade)) + (it.unDeduzida ? ' <span class="dica" title="A planilha não tem coluna de unidade: deduzida pela descrição (KG na descrição = kg; senão, unidade). Confira e ajuste no produto se precisar.">(deduzida)</span>' : '') + '</td><td>' + (it.cat ? esc(it.cat.nome) : (it.grupoNome ? esc(it.grupoNome) + ' <span class="tag" style="font-size:11px">nova</span>' : '<span class="dica">sem categoria</span>')) + (it.subgrupo ? ' · ' + esc(it.subgrupo) : '') + '</td></tr>'; });
         h += '</table></details>';
         if (catsNovas.length) h += '<label class="check" style="margin-top:10px"><input type="checkbox" id="impCriarCats" checked> Criar ' + catsNovas.length + ' categoria(s) que ainda não existe(m) na loja: <b>' + catsNovas.map(esc).join(", ") + '</b>. Sem marcar, esses produtos entram sem categoria.</label>';
-        h += '<label class="check" style="margin-top:10px"><input type="checkbox" id="impAtivar"> Já colocar os produtos novos na loja (só os que ficarem com categoria). Sem marcar, entram fora da loja para revisão.</label>';
+        h += '<label class="check" style="margin-top:10px"><input type="checkbox" id="impAtivar" checked> Já colocar os produtos novos na loja (só os que ficarem com categoria; os sem foto só aparecem quando a foto chegar). Sem marcar, entram fora da loja para revisão.</label>';
       }
       if (prob.length) {
         h += '<details class="imp-grupo"><summary>⚠️ Linhas com problema (' + prob.length + ')</summary><table><tr><th>Linha</th><th>Código</th><th>Descrição</th><th>Problema</th></tr>';

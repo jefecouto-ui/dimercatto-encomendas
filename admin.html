@@ -930,7 +930,7 @@
   }
   function semAcento(t){ return String(t == null ? "" : t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
   var COLS_IMP = {
-    codigo: ["codigo","cod","cod produto","codigo produto","codigo do produto","cod prod","referencia","ref","cod interno","codigo interno","plu"],
+    codigo: ["codigo","cod","cod produto","codigo produto","codigo do produto","cod prod","referencia","ref","cod interno","codigo interno","plu","produto"],
     descricao: ["descricao","descricao produto","descricao do produto","produto","nome","nome produto","desc"],
     preco: ["preco","preco venda","preco de venda","pr venda","valor","valor venda","venda","preco unitario","preco varejo","vl venda"],
     unidade: ["unidade","un","und","unid","unidade medida","unidade de medida","medida","um"],
@@ -954,11 +954,12 @@
     var n = parseFloat(t); return isFinite(n) ? Math.round(n * 100) : null;
   }
   function nomeBonito(d){
+    d = String(d || "").replace(/\s+KGS?\.?\s*$/i, "");
     var peq = {de:1, da:1, do:1, das:1, dos:1, e:1, com:1, sem:1, ao:1, a:1, o:1, em:1, na:1, no:1};
     return String(d || "").toLowerCase().replace(/\s+/g, " ").trim().split(" ").map(function(w, i){
       var m = w.match(/^(\d+(?:[.,]\d+)?)(lt|l|ltr)$/); if (m) return m[1] + "L";
       if (/^\d+(?:[.,]\d+)?(ml|g|gr|kg|un|und)$/.test(w)) return w.replace(/gr$/, "g");
-      return (i && peq[w]) ? w : w.charAt(0).toUpperCase() + w.slice(1); }).join(" ").replace(/\bC\//g, "c/").replace(/\bS\//g, "s/");
+      return (i && peq[w]) ? w : w.split("/").map(function(p){ return p.charAt(0).toUpperCase() + p.slice(1); }).join("/"); }).join(" ").replace(/\bC\//g, "c/").replace(/\bS\//g, "s/");
   }
   function interpretarPlanilha(linhas){
     var cab = -1, mapa = null;
@@ -979,6 +980,7 @@
       var cod = g("codigo").replace(/\.0+$/, ""), desc = g("descricao"), pc = precoImp(l[mapa.preco]), unOrig = g("unidade"), un = UN_IMP[semAcento(unOrig).replace(/ /g, "")] || null, unDeduzida = false;
       if (!unOrig) { un = /(^|[\s\/])KGS?\.?$/i.test(desc) || /\bKG\b/i.test(desc) ? "kg" : "un"; unDeduzida = true; }
       var eanTxt = g("ean").replace(/\.0+$/, "").replace(/\D/g, ""), eanOk = eanTxt && eanValido(eanTxt) ? eanTxt : "";
+      if (!eanOk && eanTxt && eanTxt.length >= 7 && eanTxt.length < 13 && eanValido(("0000000" + eanTxt).slice(-(eanTxt.length < 12 ? 12 : 13)))) eanOk = ("0000000" + eanTxt).slice(-(eanTxt.length < 12 ? 12 : 13)); // zero à esquerda perdido no Excel
       var item = {linha: nlin, codigo: cod, descricao: desc, preco_centavos: pc, unidade: un, unidade_orig: unOrig, unDeduzida: unDeduzida, grupo: g("grupo"), subgrupo: g("subgrupo"), ean: eanOk, eanRuim: eanTxt && !eanOk ? eanTxt : ""};
       var erro = !cod ? "sem código" : (vistos[cod] ? "código repetido na planilha (linha " + vistos[cod] + ")" : (!pc || pc <= 0 ? "preço vazio ou inválido" : ""));
       if (!erro) vistos[cod] = nlin;

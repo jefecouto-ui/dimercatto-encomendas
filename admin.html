@@ -1085,8 +1085,28 @@
       document.getElementById("impPrevia").innerHTML = '<div class="msg ok">✓ Importação concluída: ' + (d.novos || 0) + ' produto(s) novo(s), ' + (d.precos || 0) + ' preço(s) atualizado(s)' + (d.eans ? ', ' + d.eans + ' código(s) de barras gravado(s)' : '') + (d.categorias ? ' e ' + d.categorias + ' categoria(s) criada(s)' : '') + '.' + (d.novos ? ' Os novos aparecem na lista de produtos' + (ativ && ativ.checked ? '' : ' marcados como "Fora da loja"') + '.' : '') + '</div>';
       bc.textContent = "Concluído"; impDados = null;
       carregarBase().then(desenharProdutos);
+      fotosAutomaticas(document.getElementById("impPrevia"));
     });
   };
+  /* ---------- Busca automática de fotos (servidor) ----------
+     Roda sozinha a cada 5 minutos; depois de importar, o painel já dispara na hora. */
+  function fotosAutomaticas(caixa){
+    var linha = document.createElement("div"); linha.className = "msg"; linha.style.marginTop = "8px";
+    linha.textContent = "📷 Buscando fotos pelo código de barras automaticamente…"; if (caixa) caixa.appendChild(linha);
+    var total = {fotos: 0, nao: 0}, voltas = 0;
+    function volta(){
+      voltas++;
+      return sb.functions.invoke("fotos-automaticas", {body: {}}).then(function(r){
+        var d = r.data || {};
+        if (r.error || d.erro) { linha.textContent = "📷 A busca automática continua sozinha a cada 5 minutos."; return; }
+        total.fotos += d.fotos || 0; total.nao += (d.nao_encontrados || 0) + (d.sem_foto || 0);
+        linha.textContent = "📷 Fotos encontradas e colocadas: " + total.fotos + (total.nao ? " · sem foto na base pública: " + total.nao + " (ficam na lista \"Produtos sem foto\")" : "") + ((d.analisados && voltas < 15) ? " · continuando…" : ".");
+        if (d.analisados && voltas < 15) return volta();
+      });
+    }
+    return volta().then(function(){ return carregarBase(); }).then(function(){ if (document.getElementById("listaProd")) desenharProdutos(); }).catch(function(){});
+  }
+
   /* ---------- Fotos pelo código de barras (Open Food Facts) ---------- */
   var fotRes = [];
   function abrirFotos(){
@@ -1198,8 +1218,8 @@
     var semFoto = S.produtos.filter(function(p){ var c = catPorId(p.categoria_id); return p.ativo && !p.foto_url && (!c || c.ativo); });
     if (semFoto.length && !b) {
       h += '<details class="card" style="border:2px solid ' + (ocultaSemFoto ? '#E07F40' : 'var(--borda)') + '"' + (ocultaSemFoto ? ' open' : '') + '><summary style="cursor:pointer;font-weight:800">📷 Produtos sem foto: ' + semFoto.length + (ocultaSemFoto ? ' — <span style="color:#B4551A">não aparecem na loja até ter foto</span>' : ' — aparecem na loja com ícone') + '</summary>';
-      h += '<p class="dica" style="margin:8px 0">Clique em <b>Pôr foto</b>, use 📷 Enviar foto ou 🔗 Usar link. Assim que salvar a foto, o produto volta a aparecer na loja.</p><div class="tabela"><table><tbody>';
-      semFoto.forEach(function(p){ var c = catPorId(p.categoria_id); h += '<tr><td>' + esc(p.codigo) + '</td><td><strong>' + esc(p.nome) + '</strong><div class="dica">' + esc(c ? c.nome : "Sem categoria") + (p.subcategoria ? ' · ' + esc(p.subcategoria) : '') + (p.ean ? ' · EAN ' + esc(p.ean) : '') + '</div></td><td><button class="btn sec peq" type="button" data-edit="' + p.id + '">Pôr foto</button></td></tr>'; });
+      h += '<p class="dica" style="margin:8px 0">Os que têm código de barras recebem a foto <b>automaticamente</b> (busca a cada 5 minutos). Para os outros, clique em <b>Pôr foto</b>, use 📷 Enviar foto ou 🔗 Usar link. Assim que salvar a foto, o produto volta a aparecer na loja.</p><div class="tabela"><table><tbody>';
+      semFoto.forEach(function(p){ var c = catPorId(p.categoria_id); h += '<tr><td>' + esc(p.codigo) + '</td><td><strong>' + esc(p.nome) + '</strong><div class="dica">' + esc(c ? c.nome : "Sem categoria") + (p.subcategoria ? ' · ' + esc(p.subcategoria) : '') + (p.ean ? ' · EAN ' + esc(p.ean) : ' · sem código de barras') + '</div></td><td class="dica">' + (!p.ean ? 'Pôr foto manualmente' : ({nao_encontrado: 'Busca automática: não está na base pública', sem_foto: 'Busca automática: está na base, mas sem foto', erro: 'Busca automática: vai tentar de novo'}[p.foto_busca_res] || 'Busca automática em até 5 min')) + '</td><td><button class="btn sec peq" type="button" data-edit="' + p.id + '">Pôr foto</button></td></tr>'; });
       h += '</tbody></table></div></details>';
     }
     var lista = S.produtos.filter(function(p){ return !b || p.nome.toLowerCase().indexOf(b) >= 0 || p.codigo.toLowerCase().indexOf(b) >= 0; });

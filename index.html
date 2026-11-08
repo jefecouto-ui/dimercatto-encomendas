@@ -170,6 +170,9 @@
   .produto.esgotado .arte,.produto.esgotado .corpo{opacity:.45;filter:grayscale(1)}
   .produto.esgotado .tarja{position:absolute;right:6px;bottom:6px;background:#2E211B;color:#fff;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.4px}
   .produto.esgotado .arte{position:relative}
+  .obr{color:#B3261E;font-weight:800;margin-left:3px}
+  .legenda-obr{margin:-6px 0 4px;font-size:13.5px;color:var(--texto-suave)}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .btn-esg{width:100%;min-height:36px;border:0;border-radius:9px;background:#E8E2DC;color:#6B5E55;font-weight:800;font-size:13px}
   .barra .btn-principal:disabled{background:#5C4A40;color:#CDBBA8}
   .btn-principal{min-height:60px;border:0;border-radius:16px;background:var(--vinho);color:#fff;font-weight:700;font-size:20px;padding:8px 22px;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;text-align:center;line-height:1.25}
@@ -412,6 +415,7 @@
     return "https://wa.me/" + num + (texto ? "?text=" + encodeURIComponent(texto) : "");
   }
   function dataBR(iso){ if(!iso) return ""; var p = iso.split("-"); var d = new Date(+p[0], +p[1]-1, +p[2]); return d.toLocaleDateString("pt-BR",{weekday:"long", day:"2-digit", month:"long"}); }
+  var OBR = '<span class="obr" aria-hidden="true">*</span><span class="sr-only"> (obrigatório)</span>';
   function isoMais(n){ var d = new Date(); d.setDate(d.getDate()+n); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
   function diasAntecedencia(){
     var n = Math.max(parseInt(estado.config.antecedencia_dias, 10) || 1, 1);
@@ -670,22 +674,22 @@
     h += '<h1 class="titulo-etapa">Seus dados</h1>';
     h += '<div class="painel"><h2>Seu pedido</h2>' + resumoItensHTML(true) + '<div class="acoes" style="margin:14px 0 0"><button type="button" class="btn-sec" data-ir="1">← Alterar produtos</button></div></div>';
 
-    h += '<div class="painel"><h2>Quem vai receber</h2>';
-    h += '<label class="campo" for="fNome">Seu nome</label><input type="text" id="fNome" autocomplete="name" maxlength="120" value="' + esc(d.nome) + '"><div class="erro-campo" id="eNome" hidden></div>';
-    h += '<label class="campo" for="fWpp">Seu WhatsApp <span class="dica">Com DDD. Ex.: (71) 98765-4321</span></label><input type="tel" id="fWpp" inputmode="tel" autocomplete="tel" maxlength="20" value="' + esc(d.whatsapp) + '"><div class="erro-campo" id="eWpp" hidden></div>';
+    h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>';
+    h += '<label class="campo" for="fNome">Seu nome' + OBR + '</label><input type="text" id="fNome" autocomplete="name" maxlength="120" value="' + esc(d.nome) + '"><div class="erro-campo" id="eNome" hidden></div>';
+    h += '<label class="campo" for="fWpp">Seu WhatsApp' + OBR + ' <span class="dica">Com DDD. Ex.: (71) 98765-4321</span></label><input type="tel" id="fWpp" inputmode="tel" autocomplete="tel" maxlength="20" value="' + esc(d.whatsapp) + '"><div class="erro-campo" id="eWpp" hidden></div>';
     h += '</div>';
 
     var mods = [{valor:"retirada", texto:"Retirar na loja", sub: cfg.retirada_endereco || "Di Mercatto"}];
     if (cfg.entrega_ativa) mods.push({valor:"entrega", texto:"Receber em casa", sub:"Entrega"});
-    h += '<div class="painel"><h2>Como prefere receber?</h2>' + botoesOpcao("modalidade", mods, d.modalidade, "Como prefere receber") + '<div class="erro-campo" id="eMod" hidden></div>';
+    h += '<div class="painel"><h2>Como prefere receber?' + OBR + '</h2>' + botoesOpcao("modalidade", mods, d.modalidade, "Como prefere receber") + '<div class="erro-campo" id="eMod" hidden></div>';
     h += '<div id="blocoEntrega"' + (d.modalidade === "entrega" ? '' : ' hidden') + '>';
     if (cfg.entrega_aviso) h += '<p class="aviso" style="margin-top:14px">' + esc(cfg.entrega_aviso) + '</p>';
-    h += '<label class="campo" for="fEnd">Endereço <span class="dica">Rua, número e complemento</span></label><input type="text" id="fEnd" autocomplete="street-address" maxlength="300" value="' + esc(d.endereco) + '"><div class="erro-campo" id="eEnd" hidden></div>';
-    h += '<label class="campo" for="fBairro">Bairro</label><input type="text" id="fBairro" maxlength="120" value="' + esc(d.bairro) + '"><div class="erro-campo" id="eBairro" hidden></div>';
+    h += '<label class="campo" for="fEnd">Endereço' + OBR + ' <span class="dica">Rua, número e complemento</span></label><input type="text" id="fEnd" autocomplete="street-address" maxlength="300" value="' + esc(d.endereco) + '"><div class="erro-campo" id="eEnd" hidden></div>';
+    h += '<label class="campo" for="fBairro">Bairro' + OBR + '</label><input type="text" id="fBairro" maxlength="120" value="' + esc(d.bairro) + '"><div class="erro-campo" id="eBairro" hidden></div>';
     h += '<label class="campo" for="fRef">Ponto de referência <span class="dica">Opcional</span></label><input type="text" id="fRef" maxlength="200" value="' + esc(d.referencia) + '">';
     h += '</div></div>';
 
-    h += '<div class="painel"><h2>Para quando?</h2>';
+    h += '<div class="painel"><h2>Para quando?' + OBR + '</h2>';
     if (diasAntecedencia() > 1) h += '<p class="aviso" style="margin:0 0 12px">Alguns itens precisam de mais tempo de preparo: datas a partir de <strong>' + ddmm(amanhaISO()) + '</strong>.</p>';
     var datas = Array.isArray(cfg.datas) ? cfg.datas.filter(function(x){ return x >= amanhaISO(); }) : [];
     if (datas.length) {
@@ -695,13 +699,13 @@
     }
     h += '<div class="erro-campo" id="eData" hidden></div>';
     var hor = Array.isArray(cfg.horarios) ? cfg.horarios : [];
-    if (temFaixas()) { h += '<label class="campo">Horário</label><div id="faixasBox"><p class="dica">Escolha a data para ver os horários disponíveis.</p></div><div class="erro-campo" id="eHor" hidden></div>'; }
-    else if (hor.length) { h += '<label class="campo">Horário</label>' + botoesOpcao("horario", hor, d.horario, "Horário") + '<div class="erro-campo" id="eHor" hidden></div>'; }
-    else { h += '<label class="campo" for="fHora">Horário desejado</label><input type="time" id="fHora" step="900" value="' + esc(/^\d{2}:\d{2}$/.test(d.horario) ? d.horario : "") + '"><div class="erro-campo" id="eHor" hidden></div>'; }
+    if (temFaixas()) { h += '<label class="campo">Horário' + OBR + '</label><div id="faixasBox"><p class="dica">Escolha a data para ver os horários disponíveis.</p></div><div class="erro-campo" id="eHor" hidden></div>'; }
+    else if (hor.length) { h += '<label class="campo">Horário' + OBR + '</label>' + botoesOpcao("horario", hor, d.horario, "Horário") + '<div class="erro-campo" id="eHor" hidden></div>'; }
+    else { h += '<label class="campo" for="fHora">Horário desejado' + OBR + '</label><input type="time" id="fHora" step="900" value="' + esc(/^\d{2}:\d{2}$/.test(d.horario) ? d.horario : "") + '"><div class="erro-campo" id="eHor" hidden></div>'; }
     h += '</div>';
 
     var pags = Array.isArray(cfg.pagamentos) ? cfg.pagamentos : [];
-    if (pags.length) h += '<div class="painel"><h2>Forma de pagamento</h2>' + botoesOpcao("pagamento", pags, d.pagamento, "Forma de pagamento") + '<div class="erro-campo" id="ePag" hidden></div></div>';
+    if (pags.length) h += '<div class="painel"><h2>Forma de pagamento' + OBR + '</h2>' + botoesOpcao("pagamento", pags, d.pagamento, "Forma de pagamento") + '<div class="erro-campo" id="ePag" hidden></div></div>';
 
     h += '<div class="painel"><h2>Observações</h2><label class="campo" for="fObs" style="margin-top:0">Algo mais que devemos saber? <span class="dica">Opcional</span></label><textarea id="fObs" maxlength="600">' + esc(d.observacoes) + '</textarea></div>';
 

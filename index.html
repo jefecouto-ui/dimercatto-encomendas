@@ -492,6 +492,9 @@
     ]).then(function(r){
       estado.categorias = r[0];
       estado.produtos = r[1].map(function(x){ x.minimo = Number(x.minimo); x.incremento = Number(x.incremento); x.maximo = x.maximo == null ? null : Number(x.maximo); return x; });
+      // categoria oculta no painel esconde também os produtos dela (inclusive dos Destaques e da busca)
+      var catsVisiveis = {}; estado.categorias.forEach(function(c){ catsVisiveis[c.id] = 1; });
+      estado.produtos = estado.produtos.filter(function(p){ return p.categoria_id == null || catsVisiveis[p.categoria_id]; });
       r[2].forEach(function(c){ estado.config[c.chave] = c.valor; });
       document.body.classList.toggle("tema-dia", temaDia());
       // limpa do carrinho o que não existe mais

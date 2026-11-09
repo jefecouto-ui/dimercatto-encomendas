@@ -151,6 +151,25 @@
   .produto .desc{margin:3px 0 0;color:var(--texto-suave);font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .produto .preco{font-size:17px;font-weight:800;color:var(--vinho);margin-top:5px}
   .produto .preco small{font-size:13px;font-weight:600;color:var(--texto-suave)}
+  .aviso-cat{margin-top:10px;padding:11px 14px;border-radius:12px;background:#FFF4D6;border:1.5px solid #E9C46A;color:#5C4400;font-size:15px;font-weight:600;line-height:1.35}
+  .lista-prod{background:#fff;border:1.5px solid var(--borda);border-radius:16px;overflow:hidden;margin-top:10px}
+  .lista-prod .linha{display:grid;grid-template-columns:minmax(0,1fr) 178px;gap:10px;align-items:center;padding:11px 12px 11px 14px;border:0;border-bottom:1px dashed var(--borda);border-radius:0;box-shadow:none;background:transparent}
+  .lista-prod .linha:last-child{border-bottom:0}
+  .lista-prod .linha.no-pedido{background:#FFF3EC;box-shadow:inset 4px 0 0 var(--vinho)}
+  .lista-prod .l-info{min-width:0}
+  .lista-prod .l-info h3{font-size:16.5px;margin:0;line-height:1.25}
+  .lista-prod .l-info .desc{font-size:13px;margin:2px 0 0;color:var(--texto-suave)}
+  .lista-prod .l-preco{margin-top:3px;font-weight:800;font-size:15px;color:var(--vinho)}
+  .lista-prod .l-preco small{font-weight:600;font-size:12.5px;color:var(--texto-suave)}
+  .lista-prod .ctrl .btn-add{height:42px;font-size:15px;padding:0 10px}
+  .lista-prod .ctrl .qtd{display:grid;grid-template-columns:42px 1fr 42px;gap:4px;align-items:center}
+  .lista-prod .ctrl .qtd button{width:42px;height:42px}
+  .lista-prod .l-un{display:block;font-size:12.5px;font-weight:600;color:var(--texto-suave);margin-top:1px}
+  .lista-prod .linha .ctrl .qtd .valor{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:15px;font-weight:800;line-height:1.1;white-space:nowrap;min-width:0}
+  .lista-prod .ctrl .qtd .valor .kg-eq{display:none}
+  .lista-prod .linha .ctrl .qtd .valor small{display:block;position:static;font-size:13px;font-weight:700;color:var(--vinho);margin-top:2px}
+  .lista-prod .ctrl .qtd input.qtd-in{width:100%;max-width:none;height:42px;font-size:15px;padding:0 2px}
+  @media (min-width:700px){ .lista-prod .l-un{display:inline;margin-left:8px} .lista-prod .linha{grid-template-columns:minmax(0,1fr) 230px;padding:10px 18px} .lista-prod .l-info{display:flex;align-items:baseline;justify-content:space-between;gap:16px} .lista-prod .l-preco{margin:0;white-space:nowrap} }
   .dia-tag.fechado{background:#6B5A50}
   .dia-tag{display:inline-block;margin-top:4px;font-size:12px;font-weight:700;color:#fff;background:var(--vinho);border-radius:999px;padding:2px 9px}
   .btn-opc-sel{background:#2E7D32 !important;color:#fff !important;border-color:#2E7D32 !important;font-size:14px}
@@ -564,7 +583,7 @@
     if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); }
     recuperar();
     Promise.all([
-      api("categorias?select=id,nome,icone,ordem,pedido_de,pedido_ate&ativo=eq.true&order=ordem.asc,nome.asc"),
+      api("categorias?select=id,nome,icone,ordem,pedido_de,pedido_ate,layout,aviso&ativo=eq.true&order=ordem.asc,nome.asc"),
       api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria,esgotado,antecedencia_dias,peso_unidade_g,opcoes,dias_semana,pedido_ate,pedido_de&ativo=eq.true&order=ordem.asc,nome.asc"),
       api("configuracoes?select=chave,valor")
     ]).then(function(r){
@@ -712,7 +731,9 @@
       subs.forEach(function(sb){ h += '<button type="button" class="sub-btn" data-sub="' + esc(sb) + '" aria-pressed="' + (estado.sub === sb) + '">' + (porDia && sb === hojeSub ? 'Hoje · ' : '') + esc(sb) + '</button>'; });
       h += '</div>';
     }
-    h += '<div class="grade-prod">'; vis.forEach(function(p){ h += cartao(p); }); h += '</div>';
+    if (c.aviso) h += '<div class="aviso-cat" role="note"><span aria-hidden="true">⚖️</span> ' + esc(c.aviso) + '</div>';
+    if (c.layout === "lista") { h += '<div class="lista-prod">'; vis.forEach(function(p){ h += linhaLista(p); }); h += '</div>'; }
+    else { h += '<div class="grade-prod">'; vis.forEach(function(p){ h += cartao(p); }); h += '</div>'; }
     var prox = cats[idx + 1];
     h += '<div class="nav-cat">' + (prox ? '<button type="button" class="btn-sec" data-abrircat="' + prox.id + '">Ver ' + esc(prox.nome.toLowerCase()) + ' →</button>' : '') + '<button type="button" class="btn-sec" data-abrircat="inicio">← Voltar ao início</button></div>';
     h += '</div><aside class="lateral" id="lateral" aria-label="Resumo do pedido"></aside></div>';
@@ -735,6 +756,13 @@
     else h += '<button type="button" class="prox" data-guia="fim">Ver meu pedido →</button>';
     h += '</div></div><aside class="lateral" id="lateral" aria-label="Resumo do pedido"></aside></div>';
     document.getElementById("app").innerHTML = h;
+  }
+  function linhaLista(p){ // visualização em lista (cardápio de papel)
+    var it = estado.carrinho[p.codigo];
+    var h = '<article class="produto linha' + (it && it.q ? ' no-pedido' : '') + (p.esgotado ? ' esgotado' : '') + '" id="p-' + esc(p.codigo) + '" data-cod="' + esc(p.codigo) + '">';
+    h += '<div class="l-info"><h3>' + esc(p.nome) + '</h3>' + (p.descricao ? '<p class="desc">' + esc(p.descricao) + '</p>' : '') + '<div class="l-preco">' + reais(p.preco_centavos) + '<small>' + (p.unidade === "kg" ? ' o kg' : ' ' + precoUnTxt(p.unidade)) + '</small>' + (porUn(p) ? '<span class="l-un">mínimo ' + numBR(p.minimo) + ' unidades</span>' : '') + '</div></div>';
+    h += '<div class="ctrl" data-codigo="' + esc(p.codigo) + '">' + controle(p, it) + '</div>';
+    return h + '</article>';
   }
   function cartao(p, noCarrossel){
     var it = temOpcoes(p) ? {q: qtdNoCarrinho(p.codigo)} : estado.carrinho[p.codigo], cor = corCat(p.categoria_id);

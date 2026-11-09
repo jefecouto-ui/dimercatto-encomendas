@@ -327,6 +327,11 @@
       <div><label for="cAte">até <span class="dica">opcional</span></label><input type="time" id="cAte"></div>
     </div>
     <p class="dica" style="margin:4px 0 0">Vale para todos os produtos da categoria (ex.: Almoço 11:30 às 15:00). Fora desse horário o cliente só consegue pedir para outro dia.</p>
+    <div class="grade" style="margin-top:12px">
+      <div><label for="cLayout">Como mostrar os produtos</label><select id="cLayout"><option value="">Cards com foto</option><option value="lista">Lista (estilo cardápio)</option></select></div>
+    </div>
+    <label for="cAviso" style="margin-top:12px">Aviso para o cliente nesta categoria <span class="dica">opcional, ex.: produtos de peso variável</span></label>
+    <textarea id="cAviso" rows="2" maxlength="300"></textarea>
     <label class="check" style="margin-top:12px"><input type="checkbox" id="cAtivo" checked> Visível na loja</label>
     <div id="cErro" class="msg erro" hidden></div>
     <div class="rodape">
@@ -1472,6 +1477,8 @@
     selIcone.value = c ? c.icone : "talheres";
     document.getElementById("cOrdem").value = c ? c.ordem : (S.categorias.length + 1);
     document.getElementById("cAtivo").checked = c ? c.ativo : true;
+    document.getElementById("cLayout").value = c && c.layout === "lista" ? "lista" : "";
+    document.getElementById("cAviso").value = c && c.aviso ? c.aviso : "";
     document.getElementById("cDe").value = c && c.pedido_de ? String(c.pedido_de).slice(0,5) : "";
     document.getElementById("cAte").value = c && c.pedido_ate ? String(c.pedido_ate).slice(0,5) : "";
     document.getElementById("cErro").hidden = true;
@@ -1484,7 +1491,8 @@
     var nome = document.getElementById("cNome").value.trim();
     if (!nome) { er.textContent = "Informe o nome."; er.hidden = false; return; }
     var dados = { nome: nome, icone: selIcone.value, ordem: parseInt(document.getElementById("cOrdem").value,10) || 0, ativo: document.getElementById("cAtivo").checked,
-      pedido_de: document.getElementById("cDe").value || null, pedido_ate: document.getElementById("cAte").value || null };
+      pedido_de: document.getElementById("cDe").value || null, pedido_ate: document.getElementById("cAte").value || null,
+      layout: document.getElementById("cLayout").value || null, aviso: document.getElementById("cAviso").value.trim() || null };
     if (dados.pedido_de && dados.pedido_ate && dados.pedido_de >= dados.pedido_ate) { er.textContent = "O horário inicial precisa ser antes do final."; er.hidden = false; return; }
     var q = editCat ? sb.from("categorias").update(dados).eq("id", editCat.id).select() : sb.from("categorias").insert(dados).select();
     q.then(function(r){

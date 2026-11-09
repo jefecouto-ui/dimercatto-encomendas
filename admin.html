@@ -239,7 +239,7 @@
       <div><label for="pSub">Subcategoria <span class="dica">opcional — ex.: Risoles</span></label><input type="text" id="pSub" maxlength="40" list="listaSubs"><datalist id="listaSubs"></datalist></div>
       <div><label for="pUnidade">Vendido por</label><select id="pUnidade"><option value="kg">Quilo (kg)</option><option value="un">Unidade</option><option value="cento">Cento</option><option value="embalagem">Embalagem</option><option value="porcao">Porção</option></select></div>
     </div>
-    <div id="pPesoBox" style="margin-top:12px" hidden><label for="pPeso">Peso de 1 unidade (g) <span class="dica">opcional — preencha para o cliente pedir em <b>unidades</b> (ex.: pão 50 g). O preço continua sendo o do kg.</span></label><input type="text" id="pPeso" inputmode="decimal" placeholder="ex.: 50" style="max-width:160px"><div class="dica" id="pPesoEx"></div></div>
+    <div id="pPesoBox" style="margin-top:12px" hidden><label for="pPeso">Peso de 1 unidade (g) <span class="dica">opcional — preencha para o cliente pedir em <b>unidades</b> (ex.: pão 50 g). O preço continua sendo o do kg.</span></label><input type="text" id="pPeso" inputmode="decimal" placeholder="ex.: 50" style="max-width:160px"> <b>gramas</b><div class="dica" id="pPesoEx"></div></div>
     <div class="grade" style="margin-top:12px">
       <div><label for="pMin">Quantidade mínima</label><input type="text" id="pMin" inputmode="decimal" value="1"></div>
       <div><label for="pInc">Aumenta de quanto em quanto</label><input type="text" id="pInc" inputmode="decimal" value="1"></div>
@@ -1374,7 +1374,7 @@
     var g = function(id){ return document.getElementById(id).value.trim(); };
     var preco = lerNum(g("pPreco")), min = lerNum(g("pMin")), inc = lerNum(g("pInc")), max = g("pMax") ? lerNum(g("pMax")) : null;
     var un = g("pUnidade"), peso = un === "kg" && g("pPeso") ? lerNum(g("pPeso")) : null;
-    if (peso != null && !(peso > 0 && peso <= 20000)) return falha("Peso de 1 unidade inválido. Use gramas, por exemplo 50.");
+    if (peso != null && !(peso >= 5 && peso <= 20000)) return falha("Peso de 1 unidade em GRAMAS: por exemplo 50 (pão francês). " + (peso > 0 && peso < 5 ? "Você digitou " + numBR(peso) + " g, que é menos que 5 gramas." : ""));
     if (peso) { if (min % 1 !== 0) min = Math.max(1, Math.round(min)); if (inc % 1 !== 0) inc = 1; if (max != null && max % 1 !== 0) max = Math.round(max); }
     if (!g("pCodigo")) return falha("Informe o código de vendas.");
     if (!g("pNome")) return falha("Informe o nome do produto.");

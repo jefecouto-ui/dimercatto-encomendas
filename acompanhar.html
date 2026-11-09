@@ -125,11 +125,12 @@
   }
   function comparacao(p){
     var o = p.original, antes = {}, ordem = [];
-    (o.itens || []).forEach(function(i){ antes[i.codigo] = i; ordem.push(i.codigo); });
-    var agora = {}; (p.itens || []).forEach(function(i){ agora[i.codigo] = i; if (ordem.indexOf(i.codigo) < 0) ordem.push(i.codigo); });
+    var ch = function(i){ return i.codigo + "|" + (i.opcao || ""); };
+    (o.itens || []).forEach(function(i){ antes[ch(i)] = i; ordem.push(ch(i)); });
+    var agora = {}; (p.itens || []).forEach(function(i){ agora[ch(i)] = i; if (ordem.indexOf(ch(i)) < 0) ordem.push(ch(i)); });
     var h = '<table><thead><tr><th>Item</th><th>Antes</th><th>Agora</th></tr></thead><tbody>';
     ordem.forEach(function(c){
-      var a = antes[c], n = agora[c], nome = (n || a).nome;
+      var a = antes[c], n = agora[c], nome = (n || a).nome + ((n || a).opcao ? " — " + (n || a).opcao : "");
       if (a && !n) { h += '<tr class="retirado mudou"><td class="n">' + esc(nome) + '</td><td class="de">' + qtdI(a) + '<br>' + reais(a.subtotal_centavos) + '</td><td class="para"><span class="tag saiu">Retirado</span></td></tr>'; return; }
       if (!a && n) { h += '<tr class="mudou"><td class="n">' + esc(nome) + ' <span class="tag novo">Novo</span></td><td class="de">—</td><td class="para">' + qtdI(n) + '<br>' + reais(n.subtotal_centavos) + '</td></tr>'; return; }
       var mudou = Number(a.quantidade) !== Number(n.quantidade) || a.subtotal_centavos !== n.subtotal_centavos;
@@ -196,7 +197,7 @@
       h += '</div>';
     } else {
       h += '<div class="painel"><h2>Itens</h2><div class="itens">';
-      (p.itens || []).forEach(function(i){ h += '<div class="linha-i"><span><b>' + esc(i.nome) + '</b><br><span class="dica">' + qtdI(i) + '</span></span><span>' + reais(i.subtotal_centavos) + '</span></div>'; });
+      (p.itens || []).forEach(function(i){ h += '<div class="linha-i"><span><b>' + esc(i.nome) + '</b>' + (i.opcao ? '<br>' + esc(i.opcao) : '') + '<br><span class="dica">' + qtdI(i) + '</span></span><span>' + reais(i.subtotal_centavos) + '</span></div>'; });
       if (p.frete_status) h += '<div class="linha-i"><span><b>Frete</b></span><span>' + (p.frete_status === "a_confirmar" ? "a confirmar" : p.frete_status === "gratis" ? "grátis" : reais(p.frete_centavos || 0)) + '</span></div>';
       h += '<div class="tot"><span>Total ' + (p.total_estimado ? 'estimado' : '') + '</span><span>' + reais(p.total_centavos) + '</span></div>';
       if (p.total_estimado) h += '<div class="dica">O valor final é confirmado após a pesagem. Se mudar, aparece aqui.</div>';

@@ -573,6 +573,7 @@
       document.getElementById("imprimirTodos").onclick = function(){ imprimirPedidos(ultimosPedidos); };
       box.querySelectorAll("[data-editped]").forEach(function(b){ b.onclick = function(){ abrirEdicao(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.editped; })[0]); }; });
       box.querySelectorAll("[data-avisar]").forEach(function(b){ b.onclick = function(){ avisarCliente(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.avisar; })[0], b); }; });
+      box.querySelectorAll("[data-exportar]").forEach(function(b){ b.onclick = function(){ exportarPedido(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.exportar; })[0]); }; });
       box.querySelectorAll("[data-imprimir]").forEach(function(b){ b.onclick = function(){ imprimirPedidos(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.imprimir; })); }; });
     });
   }
@@ -582,7 +583,7 @@
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
     if (p.modalidade === "entrega") h += '<div class="meta">' + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.cep ? ' — CEP ' + esc(p.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")) : '') + (p.frete_status === "a_confirmar" ? ' · <b style="color:var(--erro)">frete a confirmar</b>' : '') + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
-    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
+    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
@@ -598,6 +599,22 @@
   }
   /* ---------- Acompanhamento / avisar cliente ---------- */
   function linkAcompanhar(tk){ return location.origin + location.pathname.replace(/[^\/]*$/, "") + "acompanhar.html?c=" + encodeURIComponent(tk); }
+  /* Exportação para o sistema: uma linha por item "código;quantidade", quantidade com 3 casas sem vírgula (0,380 kg = 0380; 2 un = 2000), CRLF. Frete não entra. */
+  function exportarPedido(p){
+    if (!p) return;
+    var linhas = (p.pedido_itens || []).slice().sort(function(a, b){ return a.id - b.id; }).map(function(i){
+      var cod = String(i.opcao_codigo || i.codigo || "").trim();
+      var q = Math.round(Number(i.quantidade) * 1000);
+      return cod + ";" + String(q).padStart(4, "0");
+    }).filter(function(l){ return l.charAt(0) !== ";"; });
+    if (!linhas.length) { alert("Este pedido não tem itens para exportar."); return; }
+    var d = new Date(), z = function(n){ return String(n).padStart(2, "0"); };
+    var nome = String(p.cliente_nome || "CLIENTE").trim().split(/\s+/)[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "CLIENTE";
+    var arq = z(d.getDate()) + z(d.getMonth() + 1) + d.getFullYear() + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + "-" + (p.modalidade === "entrega" ? "DELIVERY" : "RETIRADA") + "-" + nome + ".txt";
+    var blob = new Blob([linhas.join("\r\n") + "\r\n"], { type: "text/plain" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = arq;
+    document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
   function freteTxt(p){ return p.frete_status === "a_confirmar" ? '<b style="color:var(--erro)">a confirmar</b>' : p.frete_status === "gratis" ? "grátis" : reais(p.frete_centavos || 0); }
   function qtdUn(u, q){ return numBR(q) + " " + unid(u); }
   function qtdI(i){ return i.unidades ? numBR(i.unidades) + " un (≈ " + numBR(i.quantidade) + " kg)" : qtdUn(i.unidade, i.quantidade); }

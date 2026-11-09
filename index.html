@@ -151,6 +151,12 @@
   .produto .desc{margin:3px 0 0;color:var(--texto-suave);font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .produto .preco{font-size:17px;font-weight:800;color:var(--vinho);margin-top:5px}
   .produto .preco small{font-size:13px;font-weight:600;color:var(--texto-suave)}
+  .total.sub{font-size:15px;opacity:.85}
+  .duas-col{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+  .frete-box{margin-top:14px;padding:12px 14px;border:1.5px solid var(--borda);border-radius:12px;background:#FFF7EF}
+  .frete-box b{font-size:16px;color:var(--vinho)}
+  .frete-erro{color:#B42318;font-weight:600;margin-top:4px}
+  .btn-link{background:none;border:0;padding:6px 0 0;color:var(--vinho);text-decoration:underline;font:inherit;font-weight:700;cursor:pointer}
   .produto .un-peso{font-size:12px;font-weight:700;color:var(--vinho);line-height:1.2;margin-top:1px}
   .kg-eq{display:block;font-size:11.5px;font-weight:600;color:var(--texto-suave)}
   .produto .nota{font-size:12.5px;color:var(--texto-suave);line-height:1.25;margin-top:2px}
@@ -419,7 +425,7 @@
     etapa: 1,
     categorias: [], produtos: [], config: {},
     carrinho: {},           // codigo -> {q: numero, obs: texto}
-    dados: { nome:"", whatsapp:"", modalidade:"", data:"", horario:"", endereco:"", bairro:"", referencia:"", pagamento:"", observacoes:"" },
+    dados: { nome:"", whatsapp:"", modalidade:"", data:"", horario:"", endereco:"", cep:"", rua:"", numero:"", compl:"", frete:null, bairro:"", referencia:"", pagamento:"", observacoes:"" },
     resultado: null,
     vendedor: null,
     guia: null, cat: null, sub: null
@@ -815,9 +821,14 @@
     h += '<div class="painel"><h2>Como prefere receber?' + OBR + '</h2>' + botoesOpcao("modalidade", mods, d.modalidade, "Como prefere receber") + '<div class="erro-campo" id="eMod" hidden></div>';
     h += '<div id="blocoEntrega"' + (d.modalidade === "entrega" ? '' : ' hidden') + '>';
     if (cfg.entrega_aviso) h += '<p class="aviso" style="margin-top:14px">' + esc(cfg.entrega_aviso) + '</p>';
-    h += '<label class="campo" for="fEnd">Endereço' + OBR + ' <span class="dica">Rua, número e complemento</span></label><input type="text" id="fEnd" autocomplete="street-address" maxlength="300" value="' + esc(d.endereco) + '"><div class="erro-campo" id="eEnd" hidden></div>';
+    if (!d.rua && !d.cep && d.endereco) d.rua = d.endereco;
+    h += '<label class="campo" for="fCep">CEP' + OBR + ' <span class="dica">O endereço se preenche sozinho</span></label><input type="text" id="fCep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" style="max-width:180px" value="' + esc(mascaraCep(d.cep)) + '"><div class="erro-campo" id="eCep" hidden></div>';
+    h += '<label class="campo" for="fRua">Rua' + OBR + '</label><input type="text" id="fRua" autocomplete="address-line1" maxlength="160" value="' + esc(d.rua) + '"><div class="erro-campo" id="eRua" hidden></div>';
+    h += '<div class="duas-col"><div><label class="campo" for="fNum">Número' + OBR + '</label><input type="text" id="fNum" inputmode="text" maxlength="20" value="' + esc(d.numero) + '"><div class="erro-campo" id="eNum" hidden></div></div>';
+    h += '<div><label class="campo" for="fComp">Complemento <span class="dica">Opcional</span></label><input type="text" id="fComp" maxlength="80" placeholder="Apto, bloco" value="' + esc(d.compl) + '"></div></div>';
     h += '<label class="campo" for="fBairro">Bairro' + OBR + '</label><input type="text" id="fBairro" maxlength="120" value="' + esc(d.bairro) + '"><div class="erro-campo" id="eBairro" hidden></div>';
     h += '<label class="campo" for="fRef">Ponto de referência <span class="dica">Opcional</span></label><input type="text" id="fRef" maxlength="200" value="' + esc(d.referencia) + '">';
+    if (freteAtivo()) h += '<div id="freteBox" class="frete-box" aria-live="polite">' + freteBoxHTML() + '</div><div class="erro-campo" id="eFrete" hidden></div>';
     h += '</div></div>';
 
     h += '<div class="painel"><h2>Para quando?' + OBR + '</h2>';
@@ -843,6 +854,73 @@
     h += '<div class="acoes"><button type="button" class="btn-principal" id="btnConferir">Continuar para conferir →</button><button type="button" class="btn-sec" data-ir="1">← Voltar ao cardápio</button></div>';
     document.getElementById("app").innerHTML = h;
     if (temFaixas() && estado.dados.data) carregarFaixas();
+    var fr = estado.dados.frete;
+    if (freteAtivo() && estado.dados.modalidade === "entrega" && soDigitos(estado.dados.cep).length === 8 && estado.dados.numero && (!fr || fr.st === "carregando" || (fr.st === "ok" && Date.now() - (fr.em || 0) > 8*3600e3))) cotarFrete();
+  }
+  /* ---------- frete por km ---------- */
+  var URL_FRETE = CFG.SUPABASE_URL + "/functions/v1/cotar-frete";
+  function freteAtivo(){ var f = estado.config.frete; return !!(f && f.ativo && estado.config.entrega_ativa); }
+  function mascaraCep(c){ c = soDigitos(c).slice(0, 8); return c.length > 5 ? c.slice(0,5) + "-" + c.slice(5) : c; }
+  function kmBR(k){ return Number(k).toLocaleString("pt-BR",{maximumFractionDigits:1}); }
+  function freteCalc(km, sub){
+    var f = estado.config.frete || {};
+    var min = +f.minimo_entrega_centavos || 0, raio = +f.raio_max_km || 0, gr = +f.gratis_acima_centavos || 0;
+    if (min > 0 && sub < min) return {ok:false, erro:"Entrega para pedidos a partir de " + reais(min) + ". Inclua mais itens ou escolha retirar na loja."};
+    if (km == null) return {ok:true, centavos:0, status:"a_confirmar"};
+    if (raio > 0 && km > raio) return {ok:false, erro:"Seu endereço fica a " + kmBR(km) + " km. Entregamos até " + kmBR(raio) + " km. Escolha retirar na loja."};
+    if (gr > 0 && sub >= gr) return {ok:true, centavos:0, status:"gratis"};
+    var fx = (f.faixas || []).slice().sort(function(a,b){ return a.ate_km - b.ate_km; }).filter(function(x){ return km <= x.ate_km; })[0];
+    if (!fx) return {ok:false, erro:"Seu endereço fica a " + kmBR(km) + " km, fora da nossa área de entrega. Escolha retirar na loja."};
+    return {ok:true, centavos:+fx.valor_centavos, status:"calculado"};
+  }
+  function freteAtual(){
+    var d = estado.dados, fr = d.frete;
+    if (d.modalidade !== "entrega" || !freteAtivo() || !fr) return null;
+    if (fr.st === "ok") return Object.assign({km:fr.km}, freteCalc(fr.km, totais().total));
+    if (fr.st === "a_confirmar") return freteCalc(null, totais().total);
+    return null;
+  }
+  function freteBoxHTML(){
+    var d = estado.dados, fr = d.frete, f = estado.config.frete || {};
+    var dica = f.gratis_acima_centavos ? '<div class="dica">Frete grátis em pedidos a partir de ' + reais(+f.gratis_acima_centavos) + '.</div>' : '';
+    if (!fr) return '<b>Frete</b><div class="dica">Informe o CEP e o número para calcular.</div>' + dica;
+    if (fr.st === "carregando") return '<b>Frete</b><div class="dica">Calculando a distância…</div>';
+    if (fr.st === "erro") return '<b>Frete</b><div class="frete-erro">' + esc(fr.msg) + '</div><button type="button" class="btn-link" id="freteCombinar">Combinar o frete com a equipe</button>';
+    var c = freteAtual();
+    if (!c.ok) return '<b>Frete</b><div class="frete-erro">' + esc(c.erro) + '</div>';
+    if (c.status === "a_confirmar") return '<b>Frete: a confirmar</b><div class="dica">' + (fr.msg ? esc(fr.msg) + ' ' : '') + 'A equipe confirma o valor do frete pelo WhatsApp.</div>';
+    return '<b>Frete: ' + (c.status === "gratis" ? 'grátis' : reais(c.centavos)) + '</b><div class="dica">Entrega a ' + kmBR(fr.km) + ' km da loja.</div>' + (c.status === "gratis" ? '' : dica);
+  }
+  function desenharFrete(){ var b = document.getElementById("freteBox"); if (b) b.innerHTML = freteBoxHTML(); var e = document.getElementById("eFrete"); if (e) e.hidden = true; }
+  var reqFrete = 0, tmFrete = null;
+  function cotarFrete(){
+    var d = estado.dados; if (!freteAtivo()) return;
+    var cep = soDigitos(d.cep);
+    if (cep.length !== 8 || !d.numero) { d.frete = null; desenharFrete(); return; }
+    var meu = ++reqFrete; d.frete = {st:"carregando"}; desenharFrete();
+    fetch(URL_FRETE, { method:"POST", headers:{ apikey: CFG.SUPABASE_KEY, "Content-Type":"application/json" }, body: JSON.stringify({ cep: cep, numero: d.numero, rua: d.rua, bairro: d.bairro }) })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (meu !== reqFrete) return;
+        if (!j.ok) d.frete = {st:"erro", msg: j.erro || "Não foi possível calcular o frete."};
+        else if (j.ativo === false) d.frete = null;
+        else if (j.a_confirmar) d.frete = {st:"a_confirmar", msg:"Não localizamos esse endereço no mapa."};
+        else d.frete = {st:"ok", km:j.km, cot:j.cotacao, cep:cep, em:Date.now()};
+        guardar(); desenharFrete();
+      })
+      .catch(function(){ if (meu !== reqFrete) return; d.frete = {st:"erro", msg:"Não foi possível calcular o frete. Verifique sua internet."}; desenharFrete(); });
+  }
+  function buscarCep(){
+    var d = estado.dados, cep = soDigitos(d.cep); if (cep.length !== 8) return;
+    fetch("https://viacep.com.br/ws/" + cep + "/json/").then(function(r){ return r.json(); }).then(function(j){
+      if (soDigitos(estado.dados.cep) !== cep) return;
+      if (j.erro) { marcarErro("eCep", "fCep", "CEP não encontrado. Confira os números."); return; }
+      var ru = document.getElementById("fRua"), ba = document.getElementById("fBairro");
+      if (j.logradouro && ru) { ru.value = j.logradouro; d.rua = j.logradouro; }
+      if (j.bairro && ba) { ba.value = j.bairro; d.bairro = j.bairro; }
+      guardar();
+      var nu = document.getElementById("fNum"); if (nu && !nu.value) nu.focus(); else cotarFrete();
+    }).catch(function(){});
   }
   function temFaixas(){ return Array.isArray(estado.config.faixas) && estado.config.faixas.length > 0; }
   var pedidoFaixas = 0;
@@ -870,7 +948,11 @@
     var d = estado.dados, g = function(id){ var e = document.getElementById(id); return e ? e.value.trim() : null; };
     if (g("fNome") != null) d.nome = g("fNome");
     if (g("fWpp") != null) d.whatsapp = g("fWpp");
-    if (g("fEnd") != null) d.endereco = g("fEnd");
+    if (g("fCep") != null) d.cep = soDigitos(g("fCep"));
+    if (g("fRua") != null) d.rua = g("fRua");
+    if (g("fNum") != null) d.numero = g("fNum");
+    if (g("fComp") != null) d.compl = g("fComp");
+    if (g("fRua") != null) d.endereco = d.rua + (d.numero ? ", " + d.numero : "") + (d.compl ? " — " + d.compl : "");
     if (g("fBairro") != null) d.bairro = g("fBairro");
     if (g("fRef") != null) d.referencia = g("fRef");
     if (g("fData") != null) d.data = g("fData");
@@ -895,8 +977,16 @@
     if (dig.length < 10 || dig.length > 13) erro("eWpp","fWpp","Confira seu WhatsApp com DDD. Ex.: (71) 98765-4321");
     if (!d.modalidade) erro("eMod",null,"Escolha se vai retirar na loja ou receber em casa.");
     if (d.modalidade === "entrega") {
-      if (d.endereco.length < 5) erro("eEnd","fEnd","Falta informar o endereço.");
+      if (soDigitos(d.cep).length !== 8) erro("eCep","fCep","Informe o CEP com 8 números.");
+      if (d.rua.length < 3) erro("eRua","fRua","Falta informar a rua.");
+      if (!d.numero) erro("eNum","fNum","Falta o número (use S/N se não houver).");
       if (d.bairro.length < 2) erro("eBairro","fBairro","Falta informar o bairro.");
+      if (freteAtivo() && soDigitos(d.cep).length === 8 && d.numero) {
+        var fr = d.frete, c = freteAtual();
+        if (!fr || fr.st === "carregando") erro("eFrete", null, "Aguarde o cálculo do frete.");
+        else if (fr.st === "erro") erro("eFrete", null, fr.msg);
+        else if (c && !c.ok) erro("eFrete", null, c.erro);
+      }
     }
     if (!d.data || d.data < amanhaISO()) erro("eData","fData", diasAntecedencia() > 1 ? "Para esse pedido, escolha uma data a partir de " + ddmm(amanhaISO()) + "." : "Escolha a data (a partir de amanhã).");
     if (!d.horario) erro("eHor", document.getElementById("fHora") ? "fHora" : null, "Escolha o horário.");
@@ -910,11 +1000,15 @@
     if (!totais().n) return irPara(1);
     var d = estado.dados, h = "";
     h += '<h1 class="titulo-etapa">Confira seu pedido</h1>';
-    h += '<div class="painel"><h2>Produtos</h2>' + resumoItensHTML(false) + '</div>';
+    var cf = freteAtual(), rh = resumoItensHTML(false);
+    if (cf && cf.ok) rh = rh.replace('<div class="total"><div>Total', '<div class="total sub"><div>Subtotal dos produtos');
+    h += '<div class="painel"><h2>Produtos</h2>' + rh;
+    if (cf && cf.ok) { var tt = totais(); h += '<div class="linha-item"><div><div class="n">Frete' + (cf.km != null ? ' <span class="q">(' + kmBR(cf.km) + ' km)</span>' : '') + '</div></div><div class="v">' + (cf.status === "a_confirmar" ? 'a confirmar' : cf.status === "gratis" ? 'grátis' : reais(cf.centavos)) + '</div></div><div class="total"><div>Total com frete' + (tt.estimado || cf.status === "a_confirmar" ? '<small>Estimado</small>' : '') + '</div><div>' + reais(tt.total + (cf.centavos || 0)) + '</div></div>'; }
+    h += '</div>';
     h += '<div class="painel"><h2>Seus dados</h2>';
     h += linha("Nome", d.nome) + linha("WhatsApp", d.whatsapp);
     h += linha("Recebimento", d.modalidade === "entrega" ? "Receber em casa" : "Retirar na loja");
-    if (d.modalidade === "entrega") { h += linha("Endereço", d.endereco) + linha("Bairro", d.bairro); if (d.referencia) h += linha("Referência", d.referencia); }
+    if (d.modalidade === "entrega") { h += linha("Endereço", d.endereco) + linha("Bairro", d.bairro) + (d.cep ? linha("CEP", mascaraCep(d.cep)) : ""); if (d.referencia) h += linha("Referência", d.referencia); }
     var dt = dataBR(d.data); h += linha("Data", dt.charAt(0).toUpperCase()+dt.slice(1));
     if (d.horario) h += linha("Horário", d.horario);
     if (d.pagamento) h += linha("Pagamento", d.pagamento);
@@ -943,12 +1037,16 @@
       if (i.observacao) L.push("   Obs.: " + i.observacao);
     });
     L.push("");
+    if (d.modalidade === "entrega" && r.frete_status) {
+      L.push("Subtotal: " + reais(r.total_centavos - (r.frete_centavos || 0)));
+      L.push("Frete" + (r.distancia_km != null ? " (" + kmBR(r.distancia_km) + " km)" : "") + ": " + (r.frete_status === "a_confirmar" ? "a confirmar" : r.frete_status === "gratis" ? "grátis" : reais(r.frete_centavos)));
+    }
     L.push("*Total " + (r.total_estimado ? "estimado" : "final") + ": " + reais(r.total_centavos) + "*");
     if (r.total_estimado) L.push("(valor final confirmado após a pesagem)");
     L.push("Recebimento: " + (d.modalidade === "entrega" ? "Entrega" : "Retirada na loja"));
     var dt = dataBR(d.data);
     L.push("Data: " + dt + (d.horario ? " — " + d.horario : ""));
-    if (d.modalidade === "entrega") L.push("Endereço: " + d.endereco + " — " + d.bairro + (d.referencia ? " (Ref.: " + d.referencia + ")" : ""));
+    if (d.modalidade === "entrega") L.push("Endereço: " + d.endereco + " — " + d.bairro + (d.cep ? " — CEP " + mascaraCep(d.cep) : "") + (d.referencia ? " (Ref.: " + d.referencia + ")" : ""));
     if (d.pagamento) L.push("Pagamento: " + d.pagamento);
     if (d.observacoes) L.push("Observações: " + d.observacoes);
     L.push("");
@@ -970,7 +1068,11 @@
     var corpo = { dados: {
       cliente_nome: d.nome, cliente_whatsapp: d.whatsapp, modalidade: d.modalidade, data_desejada: d.data,
       horario: d.horario || null, endereco: d.modalidade === "entrega" ? d.endereco : null, bairro: d.modalidade === "entrega" ? d.bairro : null,
-      referencia: d.modalidade === "entrega" ? d.referencia : null, pagamento: d.pagamento || null, observacoes: d.observacoes || null,
+      referencia: d.modalidade === "entrega" ? d.referencia : null,
+      cep: d.modalidade === "entrega" ? soDigitos(d.cep) : null,
+      cotacao_frete: d.modalidade === "entrega" && d.frete && d.frete.st === "ok" ? d.frete.cot : null,
+      frete_a_confirmar: d.modalidade === "entrega" && !!d.frete && d.frete.st === "a_confirmar",
+      pagamento: d.pagamento || null, observacoes: d.observacoes || null,
       vendedor: estado.vendedor || null,
       itens: itensCarrinho().map(function(i){ return { codigo: i.p.codigo, quantidade: i.q, observacao: i.obs || null }; })
     }};
@@ -1047,6 +1149,7 @@
       estado.dados[t.dataset.grupo] = t.dataset.valor; guardar();
       document.querySelectorAll('[data-grupo="' + t.dataset.grupo + '"]').forEach(function(b){ b.setAttribute("aria-pressed", String(b === t)); });
       if (t.dataset.grupo === "modalidade") document.getElementById("blocoEntrega").hidden = t.dataset.valor !== "entrega";
+      if (t.dataset.grupo === "modalidade" && t.dataset.valor === "entrega" && !estado.dados.frete) { lerFormulario(); cotarFrete(); }
       if (t.dataset.grupo === "data" && temFaixas()) carregarFaixas();
       var eg = { horario:"eHor", modalidade:"eMod", data:"eData", pagamento:"ePag" }[t.dataset.grupo]; if (eg && document.getElementById(eg)) document.getElementById(eg).hidden = true;
       return;
@@ -1058,6 +1161,7 @@
     if (t.id === "sacolaFechar") { fecharSacola(); return; }
     if (t.id === "sacolaMais") { fecharSacola(); if (estado.cat == null && estado.guia == null) { var cc = document.getElementById("cardapio"); if (cc) cc.scrollIntoView({behavior:"smooth"}); } return; }
     if (t.id === "sacolaContinuar") { fecharSacola(); irPara(2); return; }
+    if (t.id === "freteCombinar") { estado.dados.frete = {st:"a_confirmar", msg:""}; guardar(); desenharFrete(); return; }
     if (t.id === "btnConferir") { if (validarDados()) irPara(3); return; }
     if (t.id === "btnEnviar") { enviar(); return; }
     if (t.id === "btnCopiar") { copiar(); return; }
@@ -1068,6 +1172,10 @@
   document.addEventListener("input", function(ev){
     if (ev.target.id === "fBusca") { filtrarBusca(ev.target.value); return; }
     if (ev.target.matches("input, textarea")) { ev.target.classList.remove("invalido"); ev.target.removeAttribute("aria-invalid"); }
+    var idf = ev.target.id;
+    if (idf === "fCep") { var v = mascaraCep(ev.target.value); if (v !== ev.target.value) ev.target.value = v; var ec = document.getElementById("eCep"); if (ec) ec.hidden = true;
+      var novo = soDigitos(v); if (novo !== estado.dados.cep) { estado.dados.cep = novo; estado.dados.frete = null; desenharFrete(); if (novo.length === 8) buscarCep(); } }
+    if (idf === "fNum" || idf === "fRua") { lerFormulario(); clearTimeout(tmFrete); tmFrete = setTimeout(cotarFrete, 900); }
   });
   function digitarQtd(inp){
     var codigo = inp.dataset.qtdin, p = produtoPorCodigo(codigo); if (!p) return;

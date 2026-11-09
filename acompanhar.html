@@ -135,6 +135,7 @@
       var mudou = Number(a.quantidade) !== Number(n.quantidade) || a.subtotal_centavos !== n.subtotal_centavos;
       h += '<tr class="' + (mudou ? 'mudou' : '') + '"><td class="n">' + esc(nome) + '</td><td class="de">' + qtdI(a) + '<br>' + reais(a.subtotal_centavos) + '</td><td class="para">' + (mudou ? qtdI(n) + '<br>' + reais(n.subtotal_centavos) : '<span class="de">sem mudança</span>') + '</td></tr>';
     });
+    if (p.frete_status) h += '<tr><td class="n">Frete</td><td class="de">—</td><td class="para">' + (p.frete_status === "a_confirmar" ? "a confirmar" : p.frete_status === "gratis" ? "grátis" : reais(p.frete_centavos || 0)) + '</td></tr>';
     h += '<tr class="total"><td>Total</td><td class="de">' + reais(o.total_centavos) + (o.total_estimado ? '<br><small>estimado</small>' : '') + '</td><td class="para">' + reais(p.total_centavos) + '<br><small>' + (p.total_estimado ? 'estimado' : 'valor final') + '</small></td></tr>';
     return h + '</tbody></table>';
   }
@@ -196,6 +197,7 @@
     } else {
       h += '<div class="painel"><h2>Itens</h2><div class="itens">';
       (p.itens || []).forEach(function(i){ h += '<div class="linha-i"><span><b>' + esc(i.nome) + '</b><br><span class="dica">' + qtdI(i) + '</span></span><span>' + reais(i.subtotal_centavos) + '</span></div>'; });
+      if (p.frete_status) h += '<div class="linha-i"><span><b>Frete</b></span><span>' + (p.frete_status === "a_confirmar" ? "a confirmar" : p.frete_status === "gratis" ? "grátis" : reais(p.frete_centavos || 0)) + '</span></div>';
       h += '<div class="tot"><span>Total ' + (p.total_estimado ? 'estimado' : '') + '</span><span>' + reais(p.total_centavos) + '</span></div>';
       if (p.total_estimado) h += '<div class="dica">O valor final é confirmado após a pesagem. Se mudar, aparece aqui.</div>';
       h += '</div></div>';

@@ -280,6 +280,8 @@
       <div><label for="ePEnd">Endereço</label><input type="text" id="ePEnd" maxlength="300"></div>
       <div><label for="ePBairro">Bairro</label><input type="text" id="ePBairro" maxlength="120"></div>
       <div><label for="ePRef">Referência</label><input type="text" id="ePRef" maxlength="200"></div>
+      <div><label for="ePCep">CEP</label><input type="text" id="ePCep" inputmode="numeric" maxlength="9"></div>
+      <div><label for="ePFrete">Frete (R$) <span class="dica" id="ePFreteInfo"></span></label><input type="text" id="ePFrete" inputmode="decimal" placeholder="0,00"></div>
     </div>
     <h2 style="margin-top:18px">Itens</h2>
     <div class="tabela"><table><thead><tr><th>Produto</th><th style="width:130px">Quantidade</th><th>Observação do item</th><th class="num">Subtotal</th><th></th></tr></thead><tbody id="ePItens"></tbody></table></div>
@@ -561,12 +563,13 @@
     h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + '</div></div>';
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
-    if (p.modalidade === "entrega") h += '<div class="meta">' + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
+    if (p.modalidade === "entrega") h += '<div class="meta">' + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.cep ? ' — CEP ' + esc(p.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")) : '') + (p.frete_status === "a_confirmar" ? ' · <b style="color:var(--erro)">frete a confirmar</b>' : '') + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
     h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
     (p.pedido_itens || []).forEach(function(i){ h += '<tr><td>' + esc(i.codigo) + '</td><td>' + esc(i.nome) + (i.observacao ? '<div class="meta">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td><td class="num">' + esc(qtdI(i)) + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>'; });
+    if (p.modalidade === "entrega" && p.frete_status) h += '<tr><td></td><td><b>Frete</b>' + (p.distancia_km != null ? ' (' + numBR(p.distancia_km) + ' km)' : '') + '</td><td></td><td class="num">' + freteTxt(p) + '</td></tr>';
     h += '</tbody></table></div>';
     if (p.pagamento) h += '<p class="meta">Pagamento: ' + esc(p.pagamento) + '</p>';
     if (p.observacoes) h += '<p class="meta">Observações: ' + esc(p.observacoes) + '</p>';
@@ -577,6 +580,7 @@
   }
   /* ---------- Acompanhamento / avisar cliente ---------- */
   function linkAcompanhar(tk){ return location.origin + location.pathname.replace(/[^\/]*$/, "") + "acompanhar.html?c=" + encodeURIComponent(tk); }
+  function freteTxt(p){ return p.frete_status === "a_confirmar" ? '<b style="color:var(--erro)">a confirmar</b>' : p.frete_status === "gratis" ? "grátis" : reais(p.frete_centavos || 0); }
   function qtdUn(u, q){ return numBR(q) + " " + unid(u); }
   function qtdI(i){ return i.unidades ? numBR(i.unidades) + " un (≈ " + numBR(i.quantidade) + " kg)" : qtdUn(i.unidade, i.quantidade); }
   function avisarCliente(p, btn){
@@ -626,6 +630,8 @@
     v("ePNome", p.cliente_nome); v("ePWpp", p.cliente_whatsapp); v("ePData", p.data_desejada); v("ePHora", p.horario);
     v("ePMod", p.modalidade); v("ePPag", p.pagamento); v("ePEnd", p.endereco); v("ePBairro", p.bairro); v("ePRef", p.referencia);
     v("ePObsCli", p.observacoes); v("ePObsCoz", p.obs_cozinha); v("ePMotivo", "");
+    v("ePCep", p.cep || ""); v("ePFrete", p.modalidade === "entrega" ? ((p.frete_centavos || 0)/100).toFixed(2).replace(".", ",") : "");
+    document.getElementById("ePFreteInfo").textContent = p.frete_status === "a_confirmar" ? "a confirmar" : (p.distancia_km != null ? numBR(p.distancia_km) + " km" : "");
     document.getElementById("ePFinal").checked = !p.total_estimado && (p.pedido_itens || []).some(function(i){ var pr = prodPorCodigo(i.codigo); return pr && pr.valor_estimado; });
     itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), uns:i.unidades ? Number(i.unidades) : null, obs:i.observacao || ""}; });
     document.getElementById("ePNovo").innerHTML = '<option value="">— escolha o produto —</option>' + S.categorias.concat([{id:null, nome:"Outros"}]).map(function(c){
@@ -639,8 +645,10 @@
   }
   function prodPorCodigo(c){ for (var i=0;i<S.produtos.length;i++) if (S.produtos[i].codigo === c) return S.produtos[i]; return null; }
   function mostrarEntregaEdit(){ document.getElementById("ePEntrega").hidden = document.getElementById("ePMod").value !== "entrega"; }
-  document.getElementById("ePMod").onchange = mostrarEntregaEdit;
-  function totalEdit(){ return itensEdit.reduce(function(a,i){ return a + (i.qtd > 0 ? Math.round(i.qtd * i.preco) : 0); }, 0); }
+  document.getElementById("ePMod").onchange = function(){ mostrarEntregaEdit(); document.getElementById("ePTotal").textContent = reais(totalEdit()); };
+  document.getElementById("ePFrete").oninput = function(){ document.getElementById("ePTotal").textContent = reais(totalEdit()); };
+  function freteEdit(){ if (document.getElementById("ePMod").value !== "entrega") return 0; var n = lerNum(document.getElementById("ePFrete").value); return n > 0 ? Math.round(n * 100) : 0; }
+  function totalEdit(){ return itensEdit.reduce(function(a,i){ return a + (i.qtd > 0 ? Math.round(i.qtd * i.preco) : 0); }, 0) + freteEdit(); }
   function desenharItensEdit(){
     var tb = document.getElementById("ePItens");
     tb.innerHTML = itensEdit.length ? itensEdit.map(function(i, k){
@@ -679,7 +687,8 @@
     if (mod === "entrega" && (!g("ePEnd") || !g("ePBairro"))) return falha("Para entrega, informe endereço e bairro.");
     var dados = { cliente_nome:g("ePNome"), cliente_whatsapp:g("ePWpp"), data_desejada:g("ePData"), horario:g("ePHora"), modalidade:mod, pagamento:g("ePPag"),
       endereco:g("ePEnd"), bairro:g("ePBairro"), referencia:g("ePRef"), observacoes:g("ePObsCli"), obs_cozinha:g("ePObsCoz"), motivo:g("ePMotivo"),
-      valor_final: document.getElementById("ePFinal").checked,
+      valor_final: document.getElementById("ePFinal").checked, cep: soDig(g("ePCep")),
+      frete_centavos: mod === "entrega" && g("ePFrete") !== "" ? freteEdit() : null,
       itens: itensEdit.map(function(i){ return {codigo:i.codigo, quantidade:i.qtd, unidades:i.uns || null, observacao:i.obs}; }) };
     var b1 = document.getElementById("ePSalvar"), b2 = document.getElementById("ePSalvarImprimir"); b1.disabled = b2.disabled = true;
     var id = pedEdit.id;
@@ -723,6 +732,7 @@
       h += '<tr><td class="ck"><span class="caixa"></span></td><td>' + esc(i.codigo) + '</td><td><b>' + esc(i.nome) + '</b>' + (i.observacao ? '<div class="obs-item">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td>';
       h += '<td class="num"><b>' + esc(qtdI(i)) + '</b></td><td class="num">' + (i.preco_centavos != null ? reais(i.preco_centavos) + (i.unidades ? '/kg' : '') : '—') + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>';
     });
+    if (p.modalidade === "entrega" && p.frete_status) h += '<tr><td></td><td></td><td><b>Frete</b>' + (p.distancia_km != null ? ' (' + numBR(p.distancia_km) + ' km)' : '') + '</td><td></td><td></td><td class="num">' + freteTxt(p) + '</td></tr>';
     h += '<tr class="tot"><td colspan="5" class="num">TOTAL ' + (p.total_estimado ? 'ESTIMADO (confirmar após pesagem)' : '') + '</td><td class="num">' + reais(p.total_centavos) + '</td></tr>';
     if (p.total_estimado) h += '<tr><td colspan="5" class="num">Total final após pesagem</td><td class="num">R$ ____________</td></tr>';
     h += '</tbody></table></div></div>';
@@ -1450,7 +1460,8 @@
   var listasCfg = {};
   function abaConfig(){
     var c = S.config;
-    listasCfg = { datas: (c.datas || []).slice().sort(), horarios: (c.horarios || []).slice(), pagamentos: (c.pagamentos || []).slice(), faixas: JSON.parse(JSON.stringify(c.faixas || [])) };
+    listasCfg = { datas: (c.datas || []).slice().sort(), horarios: (c.horarios || []).slice(), pagamentos: (c.pagamentos || []).slice(), faixas: JSON.parse(JSON.stringify(c.faixas || [])), frete: JSON.parse(JSON.stringify(c.frete || {ativo:false, faixas:[]})) };
+    if (!Array.isArray(listasCfg.frete.faixas)) listasCfg.frete.faixas = [];
     var h = '<h1>Configurações</h1>';
     h += '<div class="card"><h2>Backup dos dados</h2><p class="dica" style="margin-top:0">Baixa uma cópia completa (pedidos, itens, histórico, produtos, categorias, configurações, equipe e vendedores) num arquivo que fica no seu computador. Durante a campanha, baixe pelo menos uma vez por dia e guarde numa pasta segura (o arquivo tem nome e telefone dos clientes).</p><div class="barra-acoes"><button class="btn" type="button" id="btnBackup">⬇ Baixar backup completo</button><span class="dica" id="backupInfo"></span></div><p class="dica" id="backupAuto" style="margin-bottom:0">Consultando backups automáticos…</p></div>';
     h += '<form id="formCfg" novalidate>';
@@ -1472,12 +1483,23 @@
     h += '<div class="card"><h2>Retirada e entrega</h2><label for="cfgRet">Endereço para retirada</label><input type="text" id="cfgRet" value="' + esc(c.retirada_endereco || "") + '">';
     h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgEnt"' + (c.entrega_ativa ? " checked" : "") + '> Oferecer entrega</label>';
     h += '<label for="cfgEntAviso" style="margin-top:12px">Aviso sobre a entrega</label><input type="text" id="cfgEntAviso" value="' + esc(c.entrega_aviso || "") + '"></div>';
+    var fr = listasCfg.frete, rs = function(v){ return v ? (v/100).toFixed(2).replace(".", ",") : ""; };
+    h += '<div class="card"><h2>Frete por quilometragem</h2><p class="dica" style="margin-top:0">O cliente informa CEP e número; o sistema calcula a distância pela rota de carro a partir da loja e aplica a faixa. Vale só com "Oferecer entrega" marcado.</p>';
+    h += '<label class="check"><input type="checkbox" id="cfgFrAtivo"' + (fr.ativo ? " checked" : "") + '> Cobrar frete por km</label>';
+    h += '<div class="barra-acoes" style="margin-top:12px"><div><label for="cfgFrCep">CEP da loja</label><input type="text" id="cfgFrCep" inputmode="numeric" maxlength="9" style="max-width:140px" value="' + esc(fr.origem && fr.origem.cep || "") + '"></div><div><label for="cfgFrNum">Número</label><input type="text" id="cfgFrNum" maxlength="20" style="max-width:100px" value="' + esc(fr.origem && fr.origem.numero || "") + '"></div><button class="btn sec" type="button" id="cfgFrLoc">📍 Localizar a loja</button></div>';
+    h += '<div id="cfgFrOrig" class="dica">' + (fr.origem && fr.origem.lat ? '✓ Ponto de partida: ' + esc(fr.origem.endereco || "") + ' <a href="https://www.openstreetmap.org/?mlat=' + fr.origem.lat + '&mlon=' + fr.origem.lng + '#map=17/' + fr.origem.lat + '/' + fr.origem.lng + '" target="_blank" rel="noopener">ver no mapa</a>' : 'Ponto de partida ainda não definido.') + '</div>';
+    h += '<div class="tabela" style="margin-top:12px"><table><thead><tr><th>Até (km)</th><th>Valor do frete (R$)</th><th></th></tr></thead><tbody id="frFaixas"></tbody></table></div><button class="btn sec" type="button" id="addFrFaixa" style="margin-top:10px">+ Adicionar faixa de km</button>';
+    h += '<div class="grade" style="margin-top:12px"><div><label for="cfgFrRaio">Raio máximo (km) <span class="dica">acima disso não entrega</span></label><input type="text" id="cfgFrRaio" inputmode="decimal" value="' + esc(fr.raio_max_km != null ? String(fr.raio_max_km).replace(".", ",") : "") + '"></div>';
+    h += '<div><label for="cfgFrGratis">Frete grátis a partir de (R$) <span class="dica">vazio = nunca</span></label><input type="text" id="cfgFrGratis" inputmode="decimal" value="' + rs(fr.gratis_acima_centavos) + '"></div>';
+    h += '<div><label for="cfgFrMin">Pedido mínimo para entrega (R$) <span class="dica">vazio = sem mínimo</span></label><input type="text" id="cfgFrMin" inputmode="decimal" value="' + rs(fr.minimo_entrega_centavos) + '"></div></div></div>';
     h += '<div id="cfgMsg"></div><button class="btn" type="submit">Salvar configurações</button></form>';
     h += '<div class="card" style="margin-top:20px"><h2>Equipe com acesso ao painel</h2><div id="equipeLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="eqEmail">E-mail</label><input type="email" id="eqEmail"></div><div class="cresce"><label for="eqNome">Nome</label><input type="text" id="eqNome"></div><div><label for="eqPapel">Acesso</label><select id="eqPapel"><option value="atendente">Atendente</option><option value="admin">Administrador</option></select></div><button class="btn sec" type="button" id="eqAdd">Adicionar</button></div><p class="dica">Só administradores incluem ou removem pessoas. Depois de incluída, a pessoa entra em "Primeiro acesso? Crie sua senha" com o mesmo e-mail. E-mails fora da equipe não conseguem criar senha.</p></div>';
     h += '<div class="card" style="margin-top:20px"><h2>Vendedores</h2><p class="dica" style="margin-top:0">O link do vendedor é o da loja com <strong>?v=código</strong>. Só códigos cadastrados e ativos são gravados no pedido.</p><div id="vendLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" id="vendForm" style="margin-top:10px"><div class="cresce"><label for="vdCod">Código (ex.: ana)</label><input type="text" id="vdCod" maxlength="30" autocapitalize="off"></div><div class="cresce"><label for="vdNome">Nome</label><input type="text" id="vdNome" maxlength="80"></div><button class="btn sec" type="button" id="vdAdd">Adicionar</button></div></div>';
     main.innerHTML = h;
     ["datas","horarios","pagamentos"].forEach(desenharChips);
-    desenharFaixas();
+    desenharFaixas(); desenharFrFaixas();
+    document.getElementById("addFrFaixa").onclick = function(){ listasCfg.frete.faixas.push({ate_km:"", valor:""}); desenharFrFaixas(); };
+    document.getElementById("cfgFrLoc").onclick = localizarLoja;
     document.getElementById("addFaixa").onclick = function(){ listasCfg.faixas.push({rotulo:"", limite:null, datas:[]}); desenharFaixas(); var ins = document.querySelectorAll('[data-fx="rotulo"]'); if (ins.length) ins[ins.length-1].focus(); };
     main.querySelectorAll("[data-add]").forEach(function(b){ b.onclick = function(){
       var k = b.dataset.add, inp = document.getElementById({datas:"addData",horarios:"addHorario",pagamentos:"addPagamento"}[k]);
@@ -1515,6 +1537,28 @@
     }; });
     tb.querySelectorAll("[data-rmfx]").forEach(function(b){ b.onclick = function(){ listasCfg.faixas.splice(+b.dataset.rmfx, 1); desenharFaixas(); }; });
   }
+  function desenharFrFaixas(){
+    var tb = document.getElementById("frFaixas"); if (!tb) return;
+    var L = listasCfg.frete.faixas;
+    tb.innerHTML = L.length ? L.map(function(f, i){
+      var km = f.ate_km === "" || f.ate_km == null ? "" : String(f.ate_km).replace(".", ","), v = f.valor != null ? f.valor : (f.valor_centavos != null ? (f.valor_centavos/100).toFixed(2).replace(".", ",") : "");
+      return '<tr><td><input type="text" inputmode="decimal" data-frf="ate_km" data-i="' + i + '" placeholder="ex.: 3" value="' + esc(km) + '"></td><td><input type="text" inputmode="decimal" data-frf="valor" data-i="' + i + '" placeholder="ex.: 8,00" value="' + esc(v) + '"></td><td><button class="btn perigo peq" type="button" data-rmfrf="' + i + '">Remover</button></td></tr>';
+    }).join("") : '<tr><td colspan="3" class="dica">Nenhuma faixa. Ex.: até 3 km R$ 8,00; até 6 km R$ 12,00.</td></tr>';
+    tb.querySelectorAll("[data-frf]").forEach(function(inp){ inp.oninput = function(){ L[+inp.dataset.i][inp.dataset.frf] = inp.value; }; });
+    tb.querySelectorAll("[data-rmfrf]").forEach(function(b){ b.onclick = function(){ L.splice(+b.dataset.rmfrf, 1); desenharFrFaixas(); }; });
+  }
+  function localizarLoja(){
+    var cep = soDig(document.getElementById("cfgFrCep").value), num = document.getElementById("cfgFrNum").value.trim(), box = document.getElementById("cfgFrOrig");
+    if (cep.length !== 8) { box.innerHTML = '<span style="color:var(--erro)">Informe o CEP da loja com 8 números.</span>'; return; }
+    box.textContent = "Localizando…";
+    fetch(CFG.SUPABASE_URL + "/functions/v1/cotar-frete", { method:"POST", headers:{ apikey: CFG.SUPABASE_KEY, "Content-Type":"application/json" }, body: JSON.stringify({ acao:"origem", cep: cep, numero: num }) })
+      .then(function(r){ return r.json(); }).then(function(j){
+        if (!j.ok) { box.innerHTML = '<span style="color:var(--erro)">' + esc(j.erro || "Não encontrado") + '</span>'; return; }
+        var e = j.endereco, txt = e.rua + (num ? ", " + num : "") + " — " + e.bairro + ", " + e.cidade + "/" + e.uf;
+        listasCfg.frete.origem = { cep: cep, numero: num, lat: j.lat, lng: j.lng, endereco: txt, precisao: j.precisao };
+        box.innerHTML = '✓ Ponto de partida: ' + esc(txt) + ' <a href="https://www.openstreetmap.org/?mlat=' + j.lat + '&mlon=' + j.lng + '#map=17/' + j.lat + '/' + j.lng + '" target="_blank" rel="noopener">conferir no mapa</a>' + (j.precisao !== "numero" ? ' <b>(posição aproximada: ' + esc(j.precisao) + ')</b>' : '') + ' — clique em Salvar configurações.';
+      }).catch(function(){ box.innerHTML = '<span style="color:var(--erro)">Não foi possível localizar agora.</span>'; });
+  }
   function desenharChips(k){
     var box = document.getElementById("chips-" + k);
     box.innerHTML = listasCfg[k].length ? listasCfg[k].map(function(v, i){ return '<span class="chip">' + esc(k === "datas" ? dataBR(v) : v) + '<button type="button" aria-label="Remover" data-rem="' + i + '">×</button></span>'; }).join("") : '<span class="dica">Nenhum cadastrado.</span>';
@@ -1532,6 +1576,20 @@
       faixasOk.push({rotulo: rot, limite: f.limite || null, datas: datas.sort()});
     });
     if (erroFx) { msg.innerHTML = '<div class="msg erro">' + esc(erroFx) + '</div>'; return; }
+    var fr = listasCfg.frete, frOk = { ativo: document.getElementById("cfgFrAtivo").checked, origem: fr.origem || null, faixas: [] }, erroFr = "";
+    fr.faixas.forEach(function(x){
+      var km = lerNum(x.ate_km), v = x.valor != null ? lerNum(x.valor) : (x.valor_centavos != null ? x.valor_centavos/100 : NaN);
+      if (String(x.ate_km == null ? "" : x.ate_km).trim() === "" && (x.valor == null || String(x.valor).trim() === "")) return;
+      if (!(km > 0) || !(v >= 0)) { erroFr = "Faixa de frete inválida: confira os km e o valor."; return; }
+      frOk.faixas.push({ ate_km: km, valor_centavos: Math.round(v * 100) });
+    });
+    frOk.faixas.sort(function(a,b){ return a.ate_km - b.ate_km; });
+    var rr = g("cfgFrRaio") ? lerNum(g("cfgFrRaio")) : null, gg = g("cfgFrGratis") ? lerNum(g("cfgFrGratis")) : null, mm = g("cfgFrMin") ? lerNum(g("cfgFrMin")) : null;
+    if ((rr != null && !(rr > 0)) || (gg != null && !(gg >= 0)) || (mm != null && !(mm >= 0))) erroFr = "Confira raio, frete grátis e pedido mínimo (use números, ex.: 12 ou 150,00).";
+    frOk.raio_max_km = rr; frOk.gratis_acima_centavos = gg != null ? Math.round(gg * 100) : null; frOk.minimo_entrega_centavos = mm != null ? Math.round(mm * 100) : null;
+    if (frOk.ativo && !(frOk.origem && frOk.origem.lat)) erroFr = "Para cobrar frete por km, clique em \"📍 Localizar a loja\" antes de salvar.";
+    if (frOk.ativo && !frOk.faixas.length) erroFr = "Para cobrar frete por km, cadastre pelo menos uma faixa.";
+    if (erroFr) { msg.innerHTML = '<div class="msg erro">' + esc(erroFr) + '</div>'; return; }
     var wpp = soDig(g("cfgWpp"));
     if (wpp.length < 12 || wpp.length > 13 || wpp.indexOf("55") !== 0) { msg.innerHTML = '<div class="msg erro">WhatsApp inválido. Use 55 + DDD + número, ex.: 5571987654321.</div>'; return; }
     var antG = parseInt(g("cfgAntec"), 10);
@@ -1541,12 +1599,13 @@
       ["tema", g("cfgTema")], ["ocultar_sem_foto", document.getElementById("cfgSemFoto").checked], ["dia_titulo", g("cfgDiaTit")], ["dia_subtitulo", g("cfgDiaSub")], ["dia_texto", g("cfgDiaTxt")],
       ["campanha_titulo", g("cfgTit")], ["campanha_subtitulo", g("cfgSub")], ["prefixo_pedido", g("cfgPref").toUpperCase() || "ENC"],
       ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["faixas", faixasOk], ["pagamentos", listasCfg.pagamentos],
-      ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")]
+      ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")], ["frete", frOk]
     ].map(function(x){ return {chave:x[0], valor:x[1]}; });
     sb.from("configuracoes").upsert(linhas).select().then(function(r){
       if (r.error) { msg.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
       (r.data || []).forEach(function(c){ S.config[c.chave] = c.valor; });
       listasCfg.faixas = JSON.parse(JSON.stringify(S.config.faixas || [])); desenharFaixas();
+      listasCfg.frete = JSON.parse(JSON.stringify(S.config.frete || {ativo:false, faixas:[]})); desenharFrFaixas();
       msg.innerHTML = '<div class="msg ok">Configurações salvas. A loja já está usando os novos dados.</div>';
     });
   }

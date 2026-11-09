@@ -151,6 +151,7 @@
   .produto .desc{margin:3px 0 0;color:var(--texto-suave);font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .produto .preco{font-size:17px;font-weight:800;color:var(--vinho);margin-top:5px}
   .produto .preco small{font-size:13px;font-weight:600;color:var(--texto-suave)}
+  .dia-tag.fechado{background:#6B5A50}
   .dia-tag{display:inline-block;margin-top:4px;font-size:12px;font-weight:700;color:#fff;background:var(--vinho);border-radius:999px;padding:2px 9px}
   .btn-opc-sel{background:#2E7D32 !important;color:#fff !important;border-color:#2E7D32 !important;font-size:14px}
   .opc-linha{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1.5px solid var(--borda);border-radius:12px;margin-bottom:10px;background:#fff}
@@ -532,10 +533,19 @@
     itensCarrinho().forEach(function(i){ if (i.p.dias_semana && i.p.dias_semana.length) r = r === null ? i.p.dias_semana.slice() : r.filter(function(d){ return i.p.dias_semana.indexOf(d) >= 0; }); });
     return r;
   }
-  function passouHorario(iso){ // pedido para hoje depois do horário limite de algum item
+  function janela(p){
+    var c = estado.categorias.filter(function(x){ return x.id === p.categoria_id; })[0] || {};
+    var de = p.pedido_de || c.pedido_de, ate = p.pedido_ate || c.pedido_ate;
+    return { de: de ? String(de).slice(0,5) : null, ate: ate ? String(ate).slice(0,5) : null };
+  }
+  function hhmm(){ var a = new Date(); return String(a.getHours()).padStart(2,"0") + ":" + String(a.getMinutes()).padStart(2,"0"); }
+  function foraJanelaHoje(p){ var j = janela(p), hm = hhmm(); return (j.de && hm < j.de) || (j.ate && hm > j.ate); }
+  function janelaTxt(p){ var j = janela(p), f = function(x){ return x.replace(":", "h").replace(/h00$/, "h"); };
+    return j.de && j.ate ? "das " + f(j.de) + " às " + f(j.ate) : j.ate ? "até " + f(j.ate) : j.de ? "a partir das " + f(j.de) : ""; }
+  function passouHorario(iso){ // pedido para hoje fora do horário de algum item
     if (iso !== isoMais(0)) return null;
-    var agora = new Date(), hm = String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0"), item = null;
-    itensCarrinho().forEach(function(i){ if (i.p.pedido_ate && hm > String(i.p.pedido_ate).slice(0,5)) item = i.p; });
+    var item = null;
+    itensCarrinho().forEach(function(i){ if (foraJanelaHoje(i.p)) item = i.p; });
     return item;
   }
   function proximaDataValida(){
@@ -552,8 +562,8 @@
     if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); }
     recuperar();
     Promise.all([
-      api("categorias?select=id,nome,icone,ordem&ativo=eq.true&order=ordem.asc,nome.asc"),
-      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria,esgotado,antecedencia_dias,peso_unidade_g,opcoes,dias_semana,pedido_ate&ativo=eq.true&order=ordem.asc,nome.asc"),
+      api("categorias?select=id,nome,icone,ordem,pedido_de,pedido_ate&ativo=eq.true&order=ordem.asc,nome.asc"),
+      api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria,esgotado,antecedencia_dias,peso_unidade_g,opcoes,dias_semana,pedido_ate,pedido_de&ativo=eq.true&order=ordem.asc,nome.asc"),
       api("configuracoes?select=chave,valor")
     ]).then(function(r){
       estado.categorias = r[0];
@@ -732,7 +742,10 @@
     var notas = [];
     if (p.minimo > 0 && !((p.unidade !== "kg" || porUn(p)) && p.minimo === 1)) notas.push("mín. " + qtdProd(p, p.minimo));
     if (p.valor_estimado || porUn(p)) notas.push("valor final na pesagem");
-    if (p.dias_semana && p.dias_semana.length) h += '<div class="dia-tag">' + (p.dias_semana.length === 1 && p.dias_semana[0] === diaHojeIdx() ? 'Hoje' : 'Para ' + esc(diasTxt(p))) + (p.pedido_ate ? ' · pedidos até ' + esc(String(p.pedido_ate).slice(0,5).replace(":", "h")) : '') + '</div>';
+    if (p.dias_semana && p.dias_semana.length) {
+      var ehHoje = p.dias_semana.indexOf(diaHojeIdx()) >= 0, jt = janelaTxt(p);
+      h += '<div class="dia-tag' + (ehHoje && foraJanelaHoje(p) ? ' fechado' : '') + '">' + (ehHoje ? (foraJanelaHoje(p) ? 'Hoje: pedidos ' + esc(jt) : 'Hoje · ' + (jt ? 'pedidos ' + esc(jt) : 'disponível')) : 'Para ' + esc(diasTxt(p)) + (jt ? ' · ' + esc(jt) : '')) + '</div>';
+    } else if (janelaTxt(p)) h += '<div class="dia-tag">Pedidos para hoje ' + esc(janelaTxt(p)) + '</div>';
     if (notas.length) h += '<div class="nota">' + esc(notas.join(" · ")) + '</div>';
     h += '</div><div class="ctrl" data-codigo="' + esc(p.codigo) + '">' + controle(p, it) + '</div></article>';
     return h;
@@ -1074,7 +1087,7 @@
     if (!d.data || d.data < amanhaISO()) erro("eData","fData", diasAntecedencia() > 1 ? "Para esse pedido, escolha uma data a partir de " + ddmm(amanhaISO()) + "." : diasAntecedencia() === 0 ? "Escolha a data." : "Escolha a data (a partir de amanhã).");
     else if (dpv && !dpv.length) erro("eData","fData","Sua sacola tem itens de dias diferentes da semana. Deixe só os de um dia.");
     else if (dpv && dpv.indexOf(new Date(d.data + "T12:00:00").getDay()) < 0) erro("eData","fData","Essa data é " + NOMES_DIA[new Date(d.data + "T12:00:00").getDay()] + ". Seus itens são de " + dpv.map(function(x){ return NOMES_DIA[x]; }).join(", ") + (proximaDataValida() ? ": próxima data possível " + ddmm(proximaDataValida()) + "." : "."));
-    else if (lim) erro("eData","fData","Os pedidos de " + lim.nome + " para hoje vão até " + String(lim.pedido_ate).slice(0,5).replace(":", "h") + ". Escolha outra data.");
+    else if (lim) erro("eData","fData", lim.nome + " está disponível hoje " + janelaTxt(lim) + ". Escolha outra data.");
     if (!d.horario) erro("eHor", document.getElementById("fHora") ? "fHora" : null, "Escolha o horário.");
     if (Array.isArray(cfg.pagamentos) && cfg.pagamentos.length && !d.pagamento) erro("ePag",null,"Escolha a forma de pagamento.");
     if (primeiro) { primeiro.scrollIntoView({behavior:"smooth", block:"center"}); if (primeiro.focus) primeiro.focus({preventScroll:true}); return false; }

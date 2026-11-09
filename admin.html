@@ -246,7 +246,8 @@
       <div><label for="pMax">Máximo <span class="dica">opcional</span></label><input type="text" id="pMax" inputmode="decimal"></div>
       <div><label for="pOrdem">Ordem na lista</label><input type="number" id="pOrdem" value="0"></div>
       <div><label for="pAntec">Antecedência (dias) <span class="dica">opcional — vazio usa a regra geral; 0 = pode pedir para hoje</span></label><input type="number" id="pAntec" min="0" max="60" placeholder="geral"></div>
-      <div><label for="pAte">Pedidos para hoje até <span class="dica">opcional, ex.: 11:30</span></label><input type="time" id="pAte"></div>
+      <div><label for="pDe">Pedidos para hoje: das <span class="dica">opcional — vazio usa o da categoria</span></label><input type="time" id="pDe"></div>
+      <div><label for="pAte">até <span class="dica">opcional — vazio usa o da categoria</span></label><input type="time" id="pAte"></div>
     </div>
     <div style="margin-top:14px"><label>Dias da semana <span class="dica">deixe tudo desmarcado = todos os dias. Ex.: Marmita de segunda → marque só Seg</span></label>
       <div id="pDias" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div></div>
@@ -320,6 +321,11 @@
       <div><label for="cOrdem">Ordem</label><input type="number" id="cOrdem" value="0"></div>
     </div>
     <div style="margin-top:8px" id="cPrevia"></div>
+    <div class="grade" style="margin-top:12px">
+      <div><label for="cDe">Pedidos para hoje: das <span class="dica">opcional</span></label><input type="time" id="cDe"></div>
+      <div><label for="cAte">até <span class="dica">opcional</span></label><input type="time" id="cAte"></div>
+    </div>
+    <p class="dica" style="margin:4px 0 0">Vale para todos os produtos da categoria (ex.: Almoço 11:30 às 15:00). Fora desse horário o cliente só consegue pedir para outro dia.</p>
     <label class="check" style="margin-top:12px"><input type="checkbox" id="cAtivo" checked> Visível na loja</label>
     <div id="cErro" class="msg erro" hidden></div>
     <div class="rodape">
@@ -1250,7 +1256,7 @@
     grupos.forEach(function(g){
       if (!g.itens.length && (!g.cat || b)) return;
       h += '<div class="cab-setor"><span class="icone-cat">' + DM_svg(g.cat ? g.cat.icone : "talheres", 22) + '</span>' + esc(g.cat ? g.cat.nome : "Sem categoria");
-      if (g.cat) h += (g.cat.ativo ? '' : ' <span class="tag off">oculta</span>') + ' <button class="btn sec peq" type="button" data-editcat="' + g.cat.id + '">Editar categoria</button>';
+      if (g.cat) h += (g.cat.ativo ? '' : ' <span class="tag off">oculta</span>') + (g.cat.pedido_de || g.cat.pedido_ate ? ' <span class="tag">⏰ ' + (g.cat.pedido_de ? String(g.cat.pedido_de).slice(0,5) : '') + '–' + (g.cat.pedido_ate ? String(g.cat.pedido_ate).slice(0,5) : '') + '</span>' : '') + ' <button class="btn sec peq" type="button" data-togcat="' + g.cat.id + '">' + (g.cat.ativo ? 'Tirar da loja' : 'Colocar na loja') + '</button> <button class="btn sec peq" type="button" data-editcat="' + g.cat.id + '">Editar categoria / horário</button>';
       h += '</div>';
       if (!g.itens.length) { h += '<p class="dica">Nenhum produto nesta categoria.</p>'; return; }
       g.itens.sort(function(a, b2){ return (a.ordem || 0) - (b2.ordem || 0) || a.nome.localeCompare(b2.nome, "pt-BR"); });
@@ -1281,6 +1287,13 @@
     box.querySelectorAll("[data-ordenaaz]").forEach(function(x){ x.onclick = function(){ if (!confirm("Ordenar todos os produtos desta categoria de A a Z?")) return; salvarOrdem(itensDaCat(+x.dataset.ordenaaz).sort(function(a, b2){ return a.nome.localeCompare(b2.nome, "pt-BR"); })); }; });
     box.querySelectorAll("[data-ordenapreco]").forEach(function(x){ x.onclick = function(){ if (!confirm("Ordenar os produtos desta categoria do menor para o maior preço?")) return; salvarOrdem(itensDaCat(+x.dataset.ordenapreco).sort(function(a, b2){ return a.preco_centavos - b2.preco_centavos; })); }; });
     box.querySelectorAll("[data-editcat]").forEach(function(x){ x.onclick = function(){ abrirCategoria(catPorId(+x.dataset.editcat)); }; });
+    box.querySelectorAll("[data-togcat]").forEach(function(x){ x.onclick = function(){
+      var c = catPorId(+x.dataset.togcat); if (!c) return; x.disabled = true;
+      sb.from("categorias").update({ ativo: !c.ativo }).eq("id", c.id).select().then(function(r){
+        x.disabled = false; if (r.error || !r.data.length) { alert(erroTxt(r.error || "Sem permissão.")); return; }
+        S.categorias[S.categorias.indexOf(c)] = r.data[0]; desenharProdutos();
+      });
+    }; });
     box.querySelectorAll("[data-esg]").forEach(function(x){ x.onclick = function(){
       var p = S.produtos.filter(function(q){ return q.id === +x.dataset.esg; })[0]; x.disabled = true;
       sb.from("produtos").update({esgotado: !p.esgotado}).eq("id", p.id).select().then(function(r){ if (r.error) { alert(erroTxt(r.error)); x.disabled = false; return; } p.esgotado = r.data[0].esgotado; desenharProdutos(); });
@@ -1367,6 +1380,7 @@
     document.getElementById("pEsgotado").checked = p ? !!p.esgotado : false;
     v("pAntec", p && p.antecedencia_dias != null ? p.antecedencia_dias : "");
     v("pAte", p && p.pedido_ate ? String(p.pedido_ate).slice(0,5) : "");
+    v("pDe", p && p.pedido_de ? String(p.pedido_de).slice(0,5) : "");
     var DS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"], ds = p && p.dias_semana ? p.dias_semana : [];
     document.getElementById("pDias").innerHTML = [1,2,3,4,5,6,0].map(function(d){ return '<label class="check" style="min-height:auto"><input type="checkbox" data-dia="' + d + '"' + (ds.indexOf(d) >= 0 ? " checked" : "") + '> ' + DS[d] + '</label>'; }).join("");
     v("pOpcTit", p && p.opcoes ? p.opcoes.titulo || "" : "");
@@ -1418,7 +1432,7 @@
       valor_estimado: document.getElementById("pEstimado").checked || !!peso, peso_unidade_g: peso || null, ativo: document.getElementById("pAtivo").checked,
       destaque: document.getElementById("pDestaque").checked, subcategoria: (document.getElementById("pSub").value.trim() || null), selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null),
       esgotado: document.getElementById("pEsgotado").checked, antecedencia_dias: ant, ean: ean || null,
-      dias_semana: dias.length && dias.length < 7 ? dias.sort() : null, pedido_ate: g("pAte") || null,
+      dias_semana: dias.length && dias.length < 7 ? dias.sort() : null, pedido_ate: g("pAte") || null, pedido_de: g("pDe") || null,
       opcoes: opItens.length ? { titulo: g("pOpcTit") || "Escolha uma opção", itens: opItens } : null
     };
     var btn = document.getElementById("pSalvar"); btn.disabled = true;
@@ -1453,6 +1467,8 @@
     selIcone.value = c ? c.icone : "talheres";
     document.getElementById("cOrdem").value = c ? c.ordem : (S.categorias.length + 1);
     document.getElementById("cAtivo").checked = c ? c.ativo : true;
+    document.getElementById("cDe").value = c && c.pedido_de ? String(c.pedido_de).slice(0,5) : "";
+    document.getElementById("cAte").value = c && c.pedido_ate ? String(c.pedido_ate).slice(0,5) : "";
     document.getElementById("cErro").hidden = true;
     previaIcone(); dlgC.showModal(); document.getElementById("cNome").focus();
   }
@@ -1462,7 +1478,9 @@
     var er = document.getElementById("cErro"); er.hidden = true;
     var nome = document.getElementById("cNome").value.trim();
     if (!nome) { er.textContent = "Informe o nome."; er.hidden = false; return; }
-    var dados = { nome: nome, icone: selIcone.value, ordem: parseInt(document.getElementById("cOrdem").value,10) || 0, ativo: document.getElementById("cAtivo").checked };
+    var dados = { nome: nome, icone: selIcone.value, ordem: parseInt(document.getElementById("cOrdem").value,10) || 0, ativo: document.getElementById("cAtivo").checked,
+      pedido_de: document.getElementById("cDe").value || null, pedido_ate: document.getElementById("cAte").value || null };
+    if (dados.pedido_de && dados.pedido_ate && dados.pedido_de >= dados.pedido_ate) { er.textContent = "O horário inicial precisa ser antes do final."; er.hidden = false; return; }
     var q = editCat ? sb.from("categorias").update(dados).eq("id", editCat.id).select() : sb.from("categorias").insert(dados).select();
     q.then(function(r){
       if (r.error || !r.data.length) { er.textContent = erroTxt(r.error || "Sem permissão."); er.hidden = false; return; }

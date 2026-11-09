@@ -253,7 +253,8 @@
       <div id="pDias" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div></div>
     <div style="margin-top:14px"><label for="pOpcTit">Escolha obrigatória do cliente <span class="dica">opcional — ex.: pratos do dia ou sabores. O cliente escolhe uma opção por unidade.</span></label>
       <input type="text" id="pOpcTit" maxlength="60" placeholder="Título, ex.: Escolha o prato" style="margin-top:6px">
-      <textarea id="pOpcItens" rows="4" placeholder="Uma opção por linha" style="margin-top:6px"></textarea></div>
+      <textarea id="pOpcItens" rows="4" placeholder="Uma opção por linha. Para pôr o código: Nome | código  (ex.: Canja de galinha | 254830)" style="margin-top:6px"></textarea>
+      <div class="dica">Uma opção por linha. O código do ERP vai depois de uma barra: <b>Canja de galinha | 254830</b>. Ele sai no pedido, no WhatsApp e na produção.</div></div>
     <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
       <label class="check"><input type="checkbox" id="pEstimado"> Valor estimado (confirmado após a pesagem)</label>
       <label class="check"><input type="checkbox" id="pDestaque"> Destaque do Natal (aparece em "Destaques" no topo)</label>
@@ -580,7 +581,7 @@
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
-    (p.pedido_itens || []).forEach(function(i){ h += '<tr><td>' + esc(i.codigo) + '</td><td>' + esc(i.nome) + (i.opcao ? '<div><b>' + esc(i.opcao) + '</b></div>' : '') + (i.observacao ? '<div class="meta">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td><td class="num">' + esc(qtdI(i)) + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>'; });
+    (p.pedido_itens || []).forEach(function(i){ h += '<tr><td>' + esc(i.codigo) + '</td><td>' + esc(i.nome) + (i.opcao ? '<div><b>' + esc(i.opcao) + '</b>' + (i.opcao_codigo ? ' <span class="tag">cód. ' + esc(i.opcao_codigo) + '</span>' : '') + '</div>' : '') + (i.observacao ? '<div class="meta">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td><td class="num">' + esc(qtdI(i)) + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>'; });
     if (p.modalidade === "entrega" && p.frete_status) h += '<tr><td></td><td><b>Frete</b>' + (p.distancia_km != null ? ' (' + numBR(p.distancia_km) + ' km)' : '') + '</td><td></td><td class="num">' + freteTxt(p) + '</td></tr>';
     h += '</tbody></table></div>';
     if (p.pagamento) h += '<p class="meta">Pagamento: ' + esc(p.pagamento) + '</p>';
@@ -645,7 +646,7 @@
     v("ePCep", p.cep || ""); v("ePFrete", p.modalidade === "entrega" ? ((p.frete_centavos || 0)/100).toFixed(2).replace(".", ",") : "");
     document.getElementById("ePFreteInfo").textContent = p.frete_status === "a_confirmar" ? "a confirmar" : (p.distancia_km != null ? numBR(p.distancia_km) + " km" : "");
     document.getElementById("ePFinal").checked = !p.total_estimado && (p.pedido_itens || []).some(function(i){ var pr = prodPorCodigo(i.codigo); return pr && pr.valor_estimado; });
-    itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), uns:i.unidades ? Number(i.unidades) : null, op:i.opcao || null, obs:i.observacao || ""}; });
+    itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), uns:i.unidades ? Number(i.unidades) : null, op:i.opcao || null, opc:i.opcao_codigo || null, obs:i.observacao || ""}; });
     document.getElementById("ePNovo").innerHTML = '<option value="">— escolha o produto —</option>' + S.categorias.concat([{id:null, nome:"Outros"}]).map(function(c){
       var ps = S.produtos.filter(function(x){ return c.id === null ? !catPorId(x.categoria_id) : x.categoria_id === c.id; });
       if (!ps.length) return "";
@@ -701,7 +702,7 @@
       endereco:g("ePEnd"), bairro:g("ePBairro"), referencia:g("ePRef"), observacoes:g("ePObsCli"), obs_cozinha:g("ePObsCoz"), motivo:g("ePMotivo"),
       valor_final: document.getElementById("ePFinal").checked, cep: soDig(g("ePCep")),
       frete_centavos: mod === "entrega" && g("ePFrete") !== "" ? freteEdit() : null,
-      itens: itensEdit.map(function(i){ return {codigo:i.codigo, quantidade:i.qtd, unidades:i.uns || null, opcao:i.op || null, observacao:i.obs}; }) };
+      itens: itensEdit.map(function(i){ return {codigo:i.codigo, quantidade:i.qtd, unidades:i.uns || null, opcao:i.op || null, opcao_codigo:i.opc || null, observacao:i.obs}; }) };
     var b1 = document.getElementById("ePSalvar"), b2 = document.getElementById("ePSalvarImprimir"); b1.disabled = b2.disabled = true;
     var id = pedEdit.id;
     sb.rpc("editar_pedido", {p_pedido_id: id, dados: dados}).then(function(r){
@@ -741,7 +742,7 @@
     h += '</div><div class="col-dir">';
     h += '<div class="secao">Itens</div><table><thead><tr><th class="ck">✓</th><th>Código</th><th>Produto</th><th class="num">Quantidade</th><th class="num">Preço un.</th><th class="num">Subtotal</th></tr></thead><tbody>';
     (p.pedido_itens || []).forEach(function(i){
-      h += '<tr><td class="ck"><span class="caixa"></span></td><td>' + esc(i.codigo) + '</td><td><b>' + esc(i.nome) + '</b>' + (i.opcao ? '<div><b>→ ' + esc(i.opcao) + '</b></div>' : '') + (i.observacao ? '<div class="obs-item">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td>';
+      h += '<tr><td class="ck"><span class="caixa"></span></td><td>' + esc(i.codigo) + '</td><td><b>' + esc(i.nome) + '</b>' + (i.opcao ? '<div><b>→ ' + esc(i.opcao) + (i.opcao_codigo ? ' (cód. ' + esc(i.opcao_codigo) + ')' : '') + '</b></div>' : '') + (i.observacao ? '<div class="obs-item">Obs.: ' + esc(i.observacao) + '</div>' : '') + '</td>';
       h += '<td class="num"><b>' + esc(qtdI(i)) + '</b></td><td class="num">' + (i.preco_centavos != null ? reais(i.preco_centavos) + (i.unidades ? '/kg' : '') : '—') + '</td><td class="num">' + reais(i.subtotal_centavos) + '</td></tr>';
     });
     if (p.modalidade === "entrega" && p.frete_status) h += '<tr><td></td><td></td><td><b>Frete</b>' + (p.distancia_km != null ? ' (' + numBR(p.distancia_km) + ' km)' : '') + '</td><td></td><td></td><td class="num">' + freteTxt(p) + '</td></tr>';
@@ -838,7 +839,7 @@
       var conf = STATUS_PRODUCAO.indexOf(p.status) >= 0;
       (p.pedido_itens || []).forEach(function(i){
         var k = i.codigo + "|" + i.unidade + "|" + (i.opcao || "");
-        if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.codigo, nome:i.opcao ? i.opcao + " (" + i.nome.replace(/ Di Mercatto/i, "") + ")" : i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, uTot:0, uPrev:0, pedidos:[], obs:[], porDia:{}}; }
+        if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.opcao_codigo || i.codigo, nome:i.opcao ? i.opcao + " (" + i.nome.replace(/ Di Mercatto/i, "") + ")" : i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, uTot:0, uPrev:0, pedidos:[], obs:[], porDia:{}}; }
         var m = mapa[k], q = Number(i.quantidade);
         if (conf) {
           m.total += q; m.uTot += Number(i.unidades) || 0; m.pedidos.push(p.numero); if (i.observacao) m.obs.push(p.numero + ": " + i.observacao);
@@ -869,7 +870,7 @@
   }
   function carregarProducao(){
     var de = prDe, ate = prAte || prDe, umDia = de === ate;
-    sb.from("pedidos").select("numero,status,data_desejada,horario,pedido_itens(codigo,nome,unidade,quantidade,unidades,opcao,observacao,produto_id)").gte("data_desejada", de).lte("data_desejada", ate).neq("status","cancelado").then(function(r){
+    sb.from("pedidos").select("numero,status,data_desejada,horario,pedido_itens(codigo,nome,unidade,quantidade,unidades,opcao,opcao_codigo,observacao,produto_id)").gte("data_desejada", de).lte("data_desejada", ate).neq("status","cancelado").then(function(r){
       var box = document.getElementById("prConteudo"); if (!box) return;
       if (de !== prDe || ate !== (prAte || prDe)) return; // resposta antiga
       if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
@@ -1384,7 +1385,7 @@
     var DS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"], ds = p && p.dias_semana ? p.dias_semana : [];
     document.getElementById("pDias").innerHTML = [1,2,3,4,5,6,0].map(function(d){ return '<label class="check" style="min-height:auto"><input type="checkbox" data-dia="' + d + '"' + (ds.indexOf(d) >= 0 ? " checked" : "") + '> ' + DS[d] + '</label>'; }).join("");
     v("pOpcTit", p && p.opcoes ? p.opcoes.titulo || "" : "");
-    v("pOpcItens", p && p.opcoes && p.opcoes.itens ? p.opcoes.itens.join("\n") : "");
+    v("pOpcItens", p && p.opcoes && p.opcoes.itens ? p.opcoes.itens.map(function(x){ var c = p.opcoes.codigos && p.opcoes.codigos[x]; return x + (c ? " | " + c : ""); }).join("\n") : "");
     document.getElementById("pExcluir").hidden = !p;
     document.getElementById("pErro").hidden = true;
     dlgP.showModal();
@@ -1421,7 +1422,11 @@
     if (ant != null && !(ant >= 0 && ant <= 60)) return falha("Antecedência: use de 0 a 60 dias, ou deixe vazio.");
     if (max != null && !(max >= min)) return falha("O máximo precisa ser maior ou igual ao mínimo.");
     var dias = [].slice.call(document.querySelectorAll("#pDias [data-dia]:checked")).map(function(x){ return +x.dataset.dia; });
-    var opItens = document.getElementById("pOpcItens").value.split("\n").map(function(x){ return x.trim(); }).filter(function(x, i, a){ return x && a.indexOf(x) === i; });
+    var opCod = {}, opItens = [];
+    document.getElementById("pOpcItens").value.split("\n").forEach(function(l){
+      var partes = l.split("|"), nm = partes[0].trim(), cd = (partes[1] || "").trim();
+      if (!nm || opItens.indexOf(nm) >= 0) return; opItens.push(nm); if (cd) opCod[nm] = cd.slice(0, 30);
+    });
     if (opItens.some(function(x){ return x.length > 200; })) return falha("Cada opção pode ter até 200 letras.");
     var ean = g("pEan").replace(/\D/g, "");
     if (ean && !eanValido(ean)) return falha("Código de barras inválido: confira os números (8, 12, 13 ou 14 dígitos).");
@@ -1433,7 +1438,7 @@
       destaque: document.getElementById("pDestaque").checked, subcategoria: (document.getElementById("pSub").value.trim() || null), selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null),
       esgotado: document.getElementById("pEsgotado").checked, antecedencia_dias: ant, ean: ean || null,
       dias_semana: dias.length && dias.length < 7 ? dias.sort() : null, pedido_ate: g("pAte") || null, pedido_de: g("pDe") || null,
-      opcoes: opItens.length ? { titulo: g("pOpcTit") || "Escolha uma opção", itens: opItens } : null
+      opcoes: opItens.length ? { titulo: g("pOpcTit") || "Escolha uma opção", itens: opItens, codigos: opCod } : null
     };
     var btn = document.getElementById("pSalvar"); btn.disabled = true;
     var q = editando ? sb.from("produtos").update(dados).eq("id", editando.id).select() : sb.from("produtos").insert(dados).select();

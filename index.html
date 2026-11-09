@@ -1140,7 +1140,7 @@
     L.push("*ITENS*");
     r.itens.forEach(function(i){
       var q = Number(i.quantidade);
-      L.push("- [" + i.codigo + "] " + i.nome + (i.opcao ? " — *" + i.opcao + "*" : "") + " — " + qtdItem(i) + " — " + reais(i.preco_centavos) + (i.unidades ? "/kg" : "") + " — " + reais(i.subtotal_centavos));
+      L.push("- [" + i.codigo + "] " + i.nome + (i.opcao ? " — *" + i.opcao + (i.opcao_codigo ? " (cód. " + i.opcao_codigo + ")" : "") + "*" : "") + " — " + qtdItem(i) + " — " + reais(i.preco_centavos) + (i.unidades ? "/kg" : "") + " — " + reais(i.subtotal_centavos));
       if (i.observacao) L.push("   Obs.: " + i.observacao);
     });
     L.push("");

@@ -581,6 +581,7 @@
       document.getElementById("imprimirTodos").onclick = function(){ imprimirPedidos(ultimosPedidos); };
       box.querySelectorAll("[data-editped]").forEach(function(b){ b.onclick = function(){ abrirEdicao(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.editped; })[0]); }; });
       box.querySelectorAll("[data-avisar]").forEach(function(b){ b.onclick = function(){ avisarCliente(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.avisar; })[0], b); }; });
+      box.querySelectorAll("[data-adiant]").forEach(function(b){ b.onclick = function(){ marcarAdiant(+b.dataset.adiant, b.dataset.pago === "1", b); }; });
       box.querySelectorAll("[data-assumir]").forEach(function(b){ b.onclick = function(){ assumirPedido(+b.dataset.assumir, b.dataset.liberar === "1", b); }; });
       box.querySelectorAll("[data-exportar]").forEach(function(b){ b.onclick = function(){ exportarPedido(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.exportar; })[0]); }; });
       box.querySelectorAll("[data-imprimir]").forEach(function(b){ b.onclick = function(){ imprimirPedidos(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.imprimir; })); }; });
@@ -590,9 +591,9 @@
     var h = '<div class="pedido"><div class="topo"><div><span class="num">' + esc(p.numero) + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>' + (p.alterado_em ? ' <span class="tag" title="Alterado em ' + esc(dataHora(p.alterado_em)) + '">✎ alterado</span>' : '') + (p.versao > 1 ? (p.cliente_ok_versao === p.versao ? ' <span class="tag st-concluido">✓ cliente concordou</span>' : ' <span class="tag st-aguardando">aguardando OK do cliente</span>') : '');
     h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + '</div></div>';
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
-    h += blocoAtendente(p);
+    h += blocoAtendente(p) + blocoAdiant(p);
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
-    if (p.modalidade === "entrega") h += '<div class="meta">' + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.cep ? ' — CEP ' + esc(p.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")) : '') + (p.frete_status === "a_confirmar" ? ' · <b style="color:var(--erro)">frete a confirmar</b>' : '') + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
+    if (p.endereco) h += '<div class="meta">' + (p.modalidade === "entrega" ? '' : '🏠 ') + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.cep ? ' — CEP ' + esc(p.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")) : '') + (p.frete_status === "a_confirmar" ? ' · <b style="color:var(--erro)">frete a confirmar</b>' : '') + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
     h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
@@ -652,6 +653,23 @@
       var el = document.querySelector('.atend [data-assumir="' + id + '"]'); el = el && el.closest(".atend"); if (!el) return;
       var tmp = document.createElement("div"); tmp.innerHTML = blocoAtendente(p); var novo = tmp.firstChild; el.replaceWith(novo);
       novo.querySelectorAll("[data-assumir]").forEach(function(b){ b.onclick = function(){ assumirPedido(id, b.dataset.liberar === "1", b); }; });
+    });
+  }
+  /* Adiantamento (R$ 50 em todo pedido) */
+  function blocoAdiant(p){
+    var v = Math.min(p.adiantamento_centavos != null ? p.adiantamento_centavos : 5000, p.total_centavos || 0);
+    if (p.adiantamento_pago) return '<div class="atend meu adi"><span>💰 Adiantamento de <b>' + reais(v) + '</b> pago' + (p.adiantamento_pago_em ? ' <small>em ' + new Date(p.adiantamento_pago_em).toLocaleString("pt-BR", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"}) + '</small>' : '') + ' · restante ' + reais(Math.max(0, (p.total_centavos || 0) - v)) + '</span><button class="btn sec peq" type="button" data-adiant="' + p.id + '" data-pago="0">Desfazer</button></div>';
+    return '<div class="atend livre adi"><span>💰 Adiantamento de <b>' + reais(v) + '</b> <b style="color:#B42318">pendente</b></span><button class="btn peq" type="button" data-adiant="' + p.id + '" data-pago="1">✓ Marcar como pago</button></div>';
+  }
+  function marcarAdiant(id, pago, btn){
+    if (!pago && !confirm("Desmarcar o adiantamento como pago?")) return;
+    btn.disabled = true;
+    sb.rpc("marcar_adiantamento", { p_pedido_id: id, p_pago: pago }).then(function(r){
+      if (r.error) { btn.disabled = false; alert(erroTxt(r.error)); return; }
+      var p = ultimosPedidos.filter(function(x){ return x.id === id; })[0]; if (!p) return;
+      Object.assign(p, r.data);
+      var el = btn.closest(".adi"), tmp = document.createElement("div"); tmp.innerHTML = blocoAdiant(p); var novo = tmp.firstChild; el.replaceWith(novo);
+      var nb = novo.querySelector("[data-adiant]"); nb.onclick = function(){ marcarAdiant(id, nb.dataset.pago === "1", nb); };
     });
   }
   /* Exportação para o sistema: uma linha por item "código;quantidade", quantidade com 3 casas sem vírgula (0,380 kg = 0380; 2 un = 2000), CRLF. Frete não entra. */
@@ -734,7 +752,7 @@
     dlgE.showModal();
   }
   function prodPorCodigo(c){ for (var i=0;i<S.produtos.length;i++) if (S.produtos[i].codigo === c) return S.produtos[i]; return null; }
-  function mostrarEntregaEdit(){ document.getElementById("ePEntrega").hidden = document.getElementById("ePMod").value !== "entrega"; }
+  function mostrarEntregaEdit(){ document.getElementById("ePEntrega").hidden = false; var fr = document.getElementById("ePFrete"); if (fr) fr.closest("div").hidden = document.getElementById("ePMod").value !== "entrega"; }
   document.getElementById("ePMod").onchange = function(){ mostrarEntregaEdit(); document.getElementById("ePTotal").textContent = reais(totalEdit()); };
   document.getElementById("ePFrete").oninput = function(){ document.getElementById("ePTotal").textContent = reais(totalEdit()); };
   function freteEdit(){ if (document.getElementById("ePMod").value !== "entrega") return 0; var n = lerNum(document.getElementById("ePFrete").value); return n > 0 ? Math.round(n * 100) : 0; }
@@ -810,7 +828,9 @@
     h += '<div class="colunas"><div class="col-esq">';
     h += '<div class="secao">Cliente</div><div class="campos duas">';
     h += c("Nome", p.cliente_nome, "c2") + c("WhatsApp", p.cliente_whatsapp) + c("Vendedor", p.vendedor) + c("Atendente", p.atendente_nome);
-    if (entrega) h += c("Endereço", p.endereco, "c2") + c("Bairro", p.bairro) + c("Referência", p.referencia);
+    h += c("Endereço", (p.endereco || "") + (p.cep ? " — CEP " + String(p.cep).replace(/^(\d{5})(\d{3})$/, "$1-$2") : ""), "c2") + c("Bairro", p.bairro) + c("Referência", p.referencia);
+    var adi = Math.min(p.adiantamento_centavos != null ? p.adiantamento_centavos : 5000, p.total_centavos || 0);
+    h += c("Adiantamento", reais(adi) + (p.adiantamento_pago ? " — PAGO ✓" : " — PENDENTE")) + c("Restante a pagar", reais(Math.max(0, (p.total_centavos || 0) - (p.adiantamento_pago ? adi : 0))));
     h += c("Forma de pagamento", p.pagamento || "A combinar") + c("Pedido feito em", dataHora(p.criado_em));
     h += '</div>';
     if (p.obs_cozinha) h += '<div class="secao" style="background:#000;color:#fff">⚠ Observação para a cozinha</div><div class="campos duas"><div class="campo c2" style="min-height:40px;border-width:2px"><b style="font-size:12.5pt">' + esc(p.obs_cozinha) + '</b></div></div>';

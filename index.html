@@ -177,6 +177,8 @@
   .opc-linha.marcada{border-color:var(--vinho);background:#FFF3EC}
   .opc-n{font-size:16px;font-weight:600;line-height:1.3;flex:1}
   .opc-linha .ctrl{min-width:150px}
+  .aviso-adiant{background:#FFF4D6;border:1.5px solid #E9C46A;color:#5C4400;font-weight:600}
+  .sub-end{font-size:17px;margin:18px 0 2px}
   .total.sub{font-size:15px;opacity:.85}
   .duas-col{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
   .frete-box{margin-top:14px;padding:12px 14px;border:1.5px solid var(--borda);border-radius:12px;background:#FFF7EF}
@@ -945,8 +947,8 @@
     var mods = [{valor:"retirada", texto:"Retirar na loja", sub: cfg.retirada_endereco || "Di Mercatto"}];
     if (cfg.entrega_ativa) mods.push({valor:"entrega", texto:"Receber em casa", sub:"Entrega"});
     h += '<div class="painel"><h2>Como prefere receber?' + OBR + '</h2>' + botoesOpcao("modalidade", mods, d.modalidade, "Como prefere receber") + '<div class="erro-campo" id="eMod" hidden></div>';
-    h += '<div id="blocoEntrega"' + (d.modalidade === "entrega" ? '' : ' hidden') + '>';
-    if (cfg.entrega_aviso) h += '<p class="aviso" style="margin-top:14px">' + esc(cfg.entrega_aviso) + '</p>';
+    h += '<div id="blocoEntrega"><h3 class="sub-end">Seu endereço' + OBR + '</h3>';
+    if (cfg.entrega_aviso) h += '<p class="aviso" id="avisoEntrega" style="margin-top:6px"' + (d.modalidade === "entrega" ? '' : ' hidden') + '>' + esc(cfg.entrega_aviso) + '</p>';
     if (!d.rua && !d.cep && d.endereco) d.rua = d.endereco;
     h += '<label class="campo" for="fCep">CEP' + OBR + ' <span class="dica">O endereço se preenche sozinho</span></label><input type="text" id="fCep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" style="max-width:180px" value="' + esc(mascaraCep(d.cep)) + '"><div class="erro-campo" id="eCep" hidden></div>';
     h += '<label class="campo" for="fRua">Rua' + OBR + '</label><input type="text" id="fRua" autocomplete="address-line1" maxlength="160" value="' + esc(d.rua) + '"><div class="erro-campo" id="eRua" hidden></div>';
@@ -954,7 +956,7 @@
     h += '<div><label class="campo" for="fComp">Complemento <span class="dica">Opcional</span></label><input type="text" id="fComp" maxlength="80" placeholder="Apto, bloco" value="' + esc(d.compl) + '"></div></div>';
     h += '<label class="campo" for="fBairro">Bairro' + OBR + '</label><input type="text" id="fBairro" maxlength="120" value="' + esc(d.bairro) + '"><div class="erro-campo" id="eBairro" hidden></div>';
     h += '<label class="campo" for="fRef">Ponto de referência <span class="dica">Opcional</span></label><input type="text" id="fRef" maxlength="200" value="' + esc(d.referencia) + '">';
-    if (freteAtivo()) h += '<div id="freteBox" class="frete-box" aria-live="polite">' + freteBoxHTML() + '</div><div class="erro-campo" id="eFrete" hidden></div>';
+    if (freteAtivo()) h += '<div id="freteWrap"' + (d.modalidade === "entrega" ? '' : ' hidden') + '><div id="freteBox" class="frete-box" aria-live="polite">' + freteBoxHTML() + '</div><div class="erro-campo" id="eFrete" hidden></div></div>';
     h += '</div></div>';
 
     h += '<div class="painel"><h2>Para quando?' + OBR + '</h2>';
@@ -1106,11 +1108,11 @@
     var dig = soDigitos(d.whatsapp);
     if (dig.length < 10 || dig.length > 13) erro("eWpp","fWpp","Confira seu WhatsApp com DDD. Ex.: (71) 98765-4321");
     if (!d.modalidade) erro("eMod",null,"Escolha se vai retirar na loja ou receber em casa.");
+    if (soDigitos(d.cep).length !== 8) erro("eCep","fCep","Informe o CEP com 8 números.");
+    if (d.rua.length < 3) erro("eRua","fRua","Falta informar a rua.");
+    if (!d.numero) erro("eNum","fNum","Falta o número (use S/N se não houver).");
+    if (d.bairro.length < 2) erro("eBairro","fBairro","Falta informar o bairro.");
     if (d.modalidade === "entrega") {
-      if (soDigitos(d.cep).length !== 8) erro("eCep","fCep","Informe o CEP com 8 números.");
-      if (d.rua.length < 3) erro("eRua","fRua","Falta informar a rua.");
-      if (!d.numero) erro("eNum","fNum","Falta o número (use S/N se não houver).");
-      if (d.bairro.length < 2) erro("eBairro","fBairro","Falta informar o bairro.");
       if (freteAtivo() && soDigitos(d.cep).length === 8 && d.numero) {
         var fr = d.frete, c = freteAtual();
         if (!fr || fr.st === "carregando") erro("eFrete", null, "Aguarde o cálculo do frete.");
@@ -1131,6 +1133,8 @@
   }
 
   /* ---------- etapa 3: conferir ---------- */
+  var ADIANTAMENTO = 5000; // R$ 50,00 em todo pedido
+  function adiantTxt(){ return "Para confirmar o pedido, é necessário um adiantamento de " + reais(ADIANTAMENTO) + ". Nossa equipe envia as instruções de pagamento pelo WhatsApp."; }
   function telaConferir(){
     if (!totais().n) return irPara(1);
     var d = estado.dados, h = "";
@@ -1143,12 +1147,13 @@
     h += '<div class="painel"><h2>Seus dados</h2>';
     h += linha("Nome", d.nome) + linha("WhatsApp", d.whatsapp);
     h += linha("Recebimento", d.modalidade === "entrega" ? "Receber em casa" : "Retirar na loja");
-    if (d.modalidade === "entrega") { h += linha("Endereço", d.endereco) + linha("Bairro", d.bairro) + (d.cep ? linha("CEP", mascaraCep(d.cep)) : ""); if (d.referencia) h += linha("Referência", d.referencia); }
+    if (true) { h += linha("Endereço", d.endereco) + linha("Bairro", d.bairro) + (d.cep ? linha("CEP", mascaraCep(d.cep)) : ""); if (d.referencia) h += linha("Referência", d.referencia); }
     var dt = dataBR(d.data); h += linha("Data", dt.charAt(0).toUpperCase()+dt.slice(1));
     if (d.horario) h += linha("Horário", d.horario);
     if (d.pagamento) h += linha("Pagamento", d.pagamento);
     if (d.observacoes) h += linha("Observações", d.observacoes);
     h += '<div class="acoes" style="margin:14px 0 0"><button type="button" class="btn-sec" data-ir="2">← Corrigir meus dados</button></div></div>';
+    h += '<p class="aviso aviso-adiant">💰 ' + esc(adiantTxt()) + '</p>';
     h += '<label class="confirmo"><input type="checkbox" id="fConfirmo"> <span>Confirmo que revisei os produtos, quantidades e informações ' + (temaDia() ? 'do meu pedido' : 'da minha encomenda') + '.</span></label>';
     h += '<div class="erro-campo" id="eConf" hidden></div><div id="erroEnvio"></div>';
     h += '<p class="aviso" style="margin-top:16px">Ao continuar, vamos abrir o WhatsApp com o seu pedido já escrito. <strong>É só apertar ENVIAR.</strong></p>';
@@ -1177,11 +1182,12 @@
       L.push("Frete" + (r.distancia_km != null ? " (" + kmBR(r.distancia_km) + " km)" : "") + ": " + (r.frete_status === "a_confirmar" ? "a confirmar" : r.frete_status === "gratis" ? "grátis" : reais(r.frete_centavos)));
     }
     L.push("*Total " + (r.total_estimado ? "estimado" : "final") + ": " + reais(r.total_centavos) + "*");
+    L.push("Adiantamento para confirmar: " + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + " — restante: " + reais(Math.max(0, r.total_centavos - ADIANTAMENTO)));
     if (r.total_estimado) L.push("(valor final confirmado após a pesagem)");
     L.push("Recebimento: " + (d.modalidade === "entrega" ? "Entrega" : "Retirada na loja"));
     var dt = dataBR(d.data);
     L.push("Data: " + dt + (d.horario ? " — " + d.horario : ""));
-    if (d.modalidade === "entrega") L.push("Endereço: " + d.endereco + " — " + d.bairro + (d.cep ? " — CEP " + mascaraCep(d.cep) : "") + (d.referencia ? " (Ref.: " + d.referencia + ")" : ""));
+ L.push("Endereço: " + d.endereco + " — " + d.bairro + (d.cep ? " — CEP " + mascaraCep(d.cep) : "") + (d.referencia ? " (Ref.: " + d.referencia + ")" : ""));
     if (d.pagamento) L.push("Pagamento: " + d.pagamento);
     if (d.observacoes) L.push("Observações: " + d.observacoes);
     L.push("");
@@ -1202,9 +1208,9 @@
     var d = estado.dados;
     var corpo = { dados: {
       cliente_nome: d.nome, cliente_whatsapp: d.whatsapp, modalidade: d.modalidade, data_desejada: d.data,
-      horario: d.horario || null, endereco: d.modalidade === "entrega" ? d.endereco : null, bairro: d.modalidade === "entrega" ? d.bairro : null,
-      referencia: d.modalidade === "entrega" ? d.referencia : null,
-      cep: d.modalidade === "entrega" ? soDigitos(d.cep) : null,
+      horario: d.horario || null, endereco: d.endereco, bairro: d.bairro,
+      referencia: d.referencia || null,
+      cep: soDigitos(d.cep) || null,
       cotacao_frete: d.modalidade === "entrega" && d.frete && d.frete.st === "ok" ? d.frete.cot : null,
       frete_a_confirmar: d.modalidade === "entrega" && !!d.frete && d.frete.st === "a_confirmar",
       pagamento: d.pagamento || null, observacoes: d.observacoes || null,
@@ -1240,7 +1246,7 @@
     h += '<div class="painel"><p style="margin:0 0 4px">Número do seu pedido:</p><div class="ok-num">' + esc(r.numero) + '</div>';
     h += '<div class="passo-final"><span class="b">1</span><div>Toque no botão verde abaixo. O WhatsApp vai abrir com o pedido já escrito.</div></div>';
     h += '<div class="passo-final"><span class="b">2</span><div>No WhatsApp, <strong>aperte ENVIAR</strong>.</div></div>';
-    h += '<div class="passo-final"><span class="b">3</span><div>Aguarde a confirmação da nossa equipe pelo WhatsApp.</div></div>';
+    h += '<div class="passo-final"><span class="b">3</span><div>Faça o <strong>adiantamento de ' + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + '</strong> conforme a nossa equipe orientar pelo WhatsApp. O pedido é confirmado depois do adiantamento.</div></div>';
     h += '</div>';
     h += '<div class="acoes"><a class="btn-principal btn-wpp" href="' + esc(url) + '" target="_blank" rel="noopener">' + iconeWpp() + ' Abrir o WhatsApp com meu pedido</a>';
     h += '<button type="button" class="btn-sec" id="btnCopiar">Copiar o texto do pedido</button><div id="copiado" class="aviso" hidden>Texto copiado! Cole no WhatsApp da Di Mercatto e envie.</div></div>';
@@ -1285,7 +1291,7 @@
       lerFormulario();
       estado.dados[t.dataset.grupo] = t.dataset.valor; guardar();
       document.querySelectorAll('[data-grupo="' + t.dataset.grupo + '"]').forEach(function(b){ b.setAttribute("aria-pressed", String(b === t)); });
-      if (t.dataset.grupo === "modalidade") document.getElementById("blocoEntrega").hidden = t.dataset.valor !== "entrega";
+      if (t.dataset.grupo === "modalidade") { var ent = t.dataset.valor === "entrega"; ["avisoEntrega","freteWrap"].forEach(function(x){ var el = document.getElementById(x); if (el) el.hidden = !ent; }); }
       if (t.dataset.grupo === "modalidade" && t.dataset.valor === "entrega" && !estado.dados.frete) { lerFormulario(); cotarFrete(); }
       if (t.dataset.grupo === "data" && temFaixas()) carregarFaixas();
       var eg = { horario:"eHor", modalidade:"eMod", data:"eData", pagamento:"ePag" }[t.dataset.grupo]; if (eg && document.getElementById(eg)) document.getElementById(eg).hidden = true;

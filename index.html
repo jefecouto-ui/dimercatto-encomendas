@@ -177,6 +177,9 @@
   .opc-linha.marcada{border-color:var(--vinho);background:#FFF3EC}
   .opc-n{font-size:16px;font-weight:600;line-height:1.3;flex:1}
   .opc-linha .ctrl{min-width:150px}
+  .pix-box{margin:14px 0;padding:14px 16px;border:2px solid #32BCAD;border-radius:14px;background:#F0FBF9}
+  .pix-tit{font-size:16px;margin-bottom:6px}
+  .pix-chave{font-size:18px;margin-bottom:10px;word-break:break-all}
   .aviso-adiant{background:#FFF4D6;border:1.5px solid #E9C46A;color:#5C4400;font-weight:600}
   .sub-end{font-size:17px;margin:18px 0 2px}
   .total.sub{font-size:15px;opacity:.85}
@@ -1134,7 +1137,13 @@
 
   /* ---------- etapa 3: conferir ---------- */
   var ADIANTAMENTO = 5000; // R$ 50,00 em todo pedido
-  function adiantTxt(){ return "Para confirmar o pedido, é necessário um adiantamento de " + reais(ADIANTAMENTO) + ". Nossa equipe envia as instruções de pagamento pelo WhatsApp."; }
+  function pixChave(){ return String(estado.config.pix_chave || "").trim(); }
+  function pixFmt(k){ var d = soDigitos(k); return d.length === 14 && k.replace(/\D/g, "") === k ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : k; }
+  function adiantTxt(){ return "Para confirmar o pedido, é necessário um adiantamento de " + reais(ADIANTAMENTO) + (pixChave() ? " pelo Pix (CNPJ " + pixFmt(pixChave()) + " — Di Mercatto). Envie o comprovante no WhatsApp." : ". Nossa equipe envia as instruções de pagamento pelo WhatsApp."); }
+  function blocoPix(valor){
+    if (!pixChave()) return "";
+    return '<div class="pix-box"><div class="pix-tit">Pix para o adiantamento de <b>' + reais(valor) + '</b></div><div class="pix-chave">Chave (CNPJ): <b id="pixTxt">' + esc(pixFmt(pixChave())) + '</b></div><button type="button" class="btn-sec" id="btnPix">Copiar chave Pix</button><div class="aviso" id="pixOk" hidden>Chave copiada! Cole no app do seu banco.</div></div>';
+  }
   function telaConferir(){
     if (!totais().n) return irPara(1);
     var d = estado.dados, h = "";
@@ -1183,6 +1192,7 @@
     }
     L.push("*Total " + (r.total_estimado ? "estimado" : "final") + ": " + reais(r.total_centavos) + "*");
     L.push("Adiantamento para confirmar: " + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + " — restante: " + reais(Math.max(0, r.total_centavos - ADIANTAMENTO)));
+    if (pixChave()) L.push("Pix (CNPJ): " + pixChave() + " — vou enviar o comprovante aqui.");
     if (r.total_estimado) L.push("(valor final confirmado após a pesagem)");
     L.push("Recebimento: " + (d.modalidade === "entrega" ? "Entrega" : "Retirada na loja"));
     var dt = dataBR(d.data);
@@ -1246,8 +1256,9 @@
     h += '<div class="painel"><p style="margin:0 0 4px">Número do seu pedido:</p><div class="ok-num">' + esc(r.numero) + '</div>';
     h += '<div class="passo-final"><span class="b">1</span><div>Toque no botão verde abaixo. O WhatsApp vai abrir com o pedido já escrito.</div></div>';
     h += '<div class="passo-final"><span class="b">2</span><div>No WhatsApp, <strong>aperte ENVIAR</strong>.</div></div>';
-    h += '<div class="passo-final"><span class="b">3</span><div>Faça o <strong>adiantamento de ' + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + '</strong> conforme a nossa equipe orientar pelo WhatsApp. O pedido é confirmado depois do adiantamento.</div></div>';
+    h += '<div class="passo-final"><span class="b">3</span><div>Faça o <strong>adiantamento de ' + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + '</strong>' + (pixChave() ? ' pelo Pix abaixo e <strong>envie o comprovante</strong> no WhatsApp' : ' conforme a nossa equipe orientar pelo WhatsApp') + '. O pedido é confirmado depois do adiantamento.</div></div>';
     h += '</div>';
+    h += blocoPix(Math.min(ADIANTAMENTO, r.total_centavos));
     h += '<div class="acoes"><a class="btn-principal btn-wpp" href="' + esc(url) + '" target="_blank" rel="noopener">' + iconeWpp() + ' Abrir o WhatsApp com meu pedido</a>';
     h += '<button type="button" class="btn-sec" id="btnCopiar">Copiar o texto do pedido</button><div id="copiado" class="aviso" hidden>Texto copiado! Cole no WhatsApp da Di Mercatto e envie.</div></div>';
     h += '<p class="aviso">Seu pedido só é confirmado depois que você enviar a mensagem e nossa equipe responder.</p>';
@@ -1308,6 +1319,8 @@
     if (t.id === "btnConferir") { if (validarDados()) irPara(3); return; }
     if (t.id === "btnEnviar") { enviar(); return; }
     if (t.id === "btnCopiar") { copiar(); return; }
+    if (t.id === "btnPix") { var k = pixChave(), ok = function(){ var e = document.getElementById("pixOk"); if (e) e.hidden = false; };
+      if (navigator.clipboard) navigator.clipboard.writeText(k).then(ok, function(){ prompt("Copie a chave Pix:", k); }); else prompt("Copie a chave Pix:", k); return; }
     if (t.id === "btnNovo") { estado.resultado = null; try { sessionStorage.removeItem("dm_ultimo_pedido"); } catch(e){} enviando = false; irPara(1); return; }
   });
   document.getElementById("sacolaFundo").addEventListener("click", fecharSacola);

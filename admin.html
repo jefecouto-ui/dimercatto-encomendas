@@ -940,7 +940,7 @@
         if (!mapa[k]) { var prod = S.produtos.filter(function(x){ return x.codigo === i.codigo; })[0]; mapa[k] = {codigo:i.opcao_codigo || i.codigo, nome:i.opcao ? i.opcao + " (" + i.nome.replace(/ Di Mercatto/i, "") + ")" : i.nome, unidade:i.unidade, cat: prod ? prod.categoria_id : null, total:0, prev:0, uTot:0, uPrev:0, pedidos:[], obs:[], porDia:{}}; }
         var m = mapa[k], q = Number(i.quantidade);
         if (conf) {
-          m.total += q; m.uTot += Number(i.unidades) || 0; m.pedidos.push(p.numero + " (" + String(p.cliente_nome || "").split(" ")[0] + ")"); if (i.observacao) m.obs.push(p.numero + " (" + String(p.cliente_nome || "").split(" ")[0] + "): " + i.observacao);
+          m.total += q; m.uTot += Number(i.unidades) || 0; var nm2 = String(p.cliente_nome || "").trim().split(/\s+/).slice(0, 2).join(" "); m.pedidos.push(p.numero + " (" + nm2 + ")"); if (i.observacao) m.obs.push(p.numero + " (" + nm2 + "): " + i.observacao);
           m.porDia[p.data_desejada] = (m.porDia[p.data_desejada] || 0) + q; diasVistos[p.data_desejada] = 1;
         } else { m.prev += q; m.uPrev += Number(i.unidades) || 0; }
       });

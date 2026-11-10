@@ -975,7 +975,7 @@
     h += '<div class="painel"><h2>Seu pedido</h2>' + resumoItensHTML(true) + '<div class="acoes" style="margin:14px 0 0"><button type="button" class="btn-sec" data-ir="1">← Alterar produtos</button></div></div>';
 
     h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>';
-    h += '<label class="campo" for="fNome">Seu nome' + OBR + '</label><input type="text" id="fNome" autocomplete="name" maxlength="120" value="' + esc(d.nome) + '"><div class="erro-campo" id="eNome" hidden></div>';
+    h += '<label class="campo" for="fNome">Seu nome e sobrenome' + OBR + ' <span class="dica">Ex.: Maria Souza</span></label><input type="text" id="fNome" autocomplete="name" maxlength="120" value="' + esc(d.nome) + '"><div class="erro-campo" id="eNome" hidden></div>';
     h += '<label class="campo" for="fWpp">Seu WhatsApp' + OBR + ' <span class="dica">Com DDD. Ex.: (71) 98765-4321</span></label><input type="tel" id="fWpp" inputmode="tel" autocomplete="tel" maxlength="20" value="' + esc(d.whatsapp) + '"><div class="erro-campo" id="eWpp" hidden></div>';
     h += '</div>';
 
@@ -1139,7 +1139,9 @@
     document.querySelectorAll(".invalido").forEach(function(e){ e.classList.remove("invalido"); e.removeAttribute("aria-invalid"); });
     var d = estado.dados, cfg = estado.config, primeiro = null;
     function erro(a,b,m){ var e = marcarErro(a,b,m); if (!primeiro) primeiro = document.getElementById(b) || e; }
-    if (d.nome.length < 2) erro("eNome","fNome","Falta informar seu nome.");
+    var partesNome = d.nome.trim().split(/\s+/).filter(function(x){ return x.length >= 2; });
+    if (d.nome.trim().length < 2) erro("eNome","fNome","Falta informar seu nome.");
+    else if (partesNome.length < 2) erro("eNome","fNome","Informe nome e sobrenome. Ex.: Maria Souza");
     var dig = soDigitos(d.whatsapp);
     if (dig.length < 10 || dig.length > 13) erro("eWpp","fWpp","Confira seu WhatsApp com DDD. Ex.: (71) 98765-4321");
     if (!d.modalidade) erro("eMod",null,"Escolha se vai retirar na loja ou receber em casa.");

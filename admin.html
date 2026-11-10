@@ -683,7 +683,7 @@
     if (!linhas.length) { alert("Este pedido não tem itens para exportar."); return; }
     var d = new Date(), z = function(n){ return String(n).padStart(2, "0"); };
     var nome = String(p.cliente_nome || "CLIENTE").trim().split(/\s+/)[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "CLIENTE";
-    var arq = z(d.getDate()) + z(d.getMonth() + 1) + d.getFullYear() + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + "-" + (p.modalidade === "entrega" ? "DELIVERY" : "RETIRADA") + "-" + nome + ".txt";
+    var arq = z(d.getDate()) + z(d.getMonth() + 1) + d.getFullYear() + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + "-" + "DELIVERY" + "-" + nome + ".txt";
     var blob = new Blob([linhas.join("\r\n") + "\r\n"], { type: "text/plain" });
     var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = arq;
     document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);

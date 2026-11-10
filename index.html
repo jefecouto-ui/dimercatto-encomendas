@@ -532,6 +532,14 @@
     });
     dlg.showModal();
   }
+  /* mostra qualquer erro na tela (para o cliente mandar print) */
+  function mostrarErroTela(msg){
+    var el = document.getElementById("erroTela");
+    if (!el) { el = document.createElement("div"); el.id = "erroTela"; el.setAttribute("role", "alert"); el.style.cssText = "position:fixed;left:12px;right:12px;top:12px;z-index:9999;background:#B42318;color:#fff;padding:12px 14px;border-radius:12px;font:600 14px/1.35 system-ui;box-shadow:0 6px 20px rgba(0,0,0,.3)"; el.onclick = function(){ el.remove(); }; document.body.appendChild(el); }
+    el.textContent = "Algo deu errado. Toque em Ajuda e envie este print para a loja. (" + String(msg).slice(0, 160) + ")";
+  }
+  window.addEventListener("error", function(e){ mostrarErroTela((e && e.message) || "erro"); });
+  window.addEventListener("unhandledrejection", function(e){ mostrarErroTela((e && e.reason && e.reason.message) || "erro"); });
   function api(caminho, opcoes){
     opcoes = opcoes || {};
     var h = { apikey: CFG.SUPABASE_KEY, "Content-Type":"application/json" };

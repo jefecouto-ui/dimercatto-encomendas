@@ -180,6 +180,11 @@
   .pix-box{margin:14px 0;padding:14px 16px;border:2px solid #32BCAD;border-radius:14px;background:#F0FBF9}
   .pix-tit{font-size:16px;margin-bottom:6px}
   .pix-chave{font-size:18px;margin-bottom:10px;word-break:break-all}
+  .dlg-sacola{border:0;border-radius:18px;padding:22px;max-width:420px;width:calc(100% - 32px)}
+  .dlg-sacola h2{margin:0 0 6px;font-size:20px;color:var(--vinho)}
+  .dlg-sacola p{margin:0 0 16px;font-size:16px}
+  .dlg-sacola .dlg-acoes{display:flex;flex-direction:column;gap:10px}
+  .dlg-sacola::backdrop{background:rgba(0,0,0,.45)}
   .aviso-adiant{background:#FFF4D6;border:1.5px solid #E9C46A;color:#5C4400;font-weight:600}
   .sub-end{font-size:17px;margin:18px 0 2px}
   .total.sub{font-size:15px;opacity:.85}
@@ -509,6 +514,24 @@
       if (s && s.vendedor) estado.vendedor = s.vendedor;
     } catch(e){}
   }
+  /* sacola guardada de outra visita: continuar ou começar novo */
+  function perguntarSacolaGuardada(){
+    var its = itensCarrinho(); if (!its.length) return;
+    try { if (sessionStorage.getItem("dm_sacola_ok")) return; sessionStorage.setItem("dm_sacola_ok", "1"); } catch(e){}
+    var t = totais(), dlg = document.createElement("dialog"); dlg.className = "dlg-sacola";
+    dlg.innerHTML = '<h2>Você tem um pedido não finalizado</h2><p>' + its.length + (its.length === 1 ? ' item' : ' itens') + ' na sacola · ' + reais(t.total) + '</p>' +
+      '<div class="dlg-acoes"><button type="button" class="btn-principal" data-sacola="continuar">Continuar este pedido</button><button type="button" class="btn-sec" data-sacola="novo">Começar um pedido novo</button></div>';
+    document.body.appendChild(dlg);
+    dlg.addEventListener("click", function(ev){
+      var b = ev.target.closest("[data-sacola]"); if (!b) return;
+      if (b.dataset.sacola === "novo") {
+        estado.carrinho = {}; var d = estado.dados; d.data = ""; d.horario = ""; d.observacoes = ""; d.frete = null;
+        guardar(); irPara(1, true); atualizarBarra();
+      }
+      dlg.close(); dlg.remove();
+    });
+    dlg.showModal();
+  }
   function api(caminho, opcoes){
     opcoes = opcoes || {};
     var h = { apikey: CFG.SUPABASE_KEY, "Content-Type":"application/json" };
@@ -585,8 +608,8 @@
   /* ---------- carregar dados ---------- */
   function carregar(){
     var p = new URLSearchParams(location.search);
-    if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); }
     recuperar();
+    if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); guardar(); }
     Promise.all([
       api("categorias?select=id,nome,icone,ordem,pedido_de,pedido_ate,layout,aviso&ativo=eq.true&order=ordem.asc,nome.asc"),
       api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria,esgotado,antecedencia_dias,peso_unidade_g,opcoes,dias_semana,pedido_ate,pedido_de&ativo=eq.true&order=ordem.asc,nome.asc"),
@@ -614,6 +637,7 @@
       else if (estado.config.campanha_titulo) document.title = "Encomendas — " + estado.config.campanha_titulo;
       var mh = location.hash.match(/^#categoria-(\d+)$/); if (mh) estado.cat = +mh[1];
       irPara(1, true);
+      perguntarSacolaGuardada();
     }).catch(function(){
       document.getElementById("app").innerHTML = '<div class="msg-erro">Não conseguimos carregar o cardápio agora. Verifique sua internet e tente novamente.</div><div class="acoes"><button class="btn-principal" onclick="location.reload()">Tentar de novo</button></div>';
     });

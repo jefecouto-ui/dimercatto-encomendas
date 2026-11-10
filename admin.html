@@ -173,6 +173,10 @@
   .atend.meu{background:#EAF6EC;border-color:#9FD0A8}
   .atend.livre{background:#FFF8E6;border-color:#EBCB7A}
   .atend small{color:#666;font-weight:400}
+  .nomes-atend{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  .nomes-atend .btn{min-height:52px;font-size:17px}
+  #dlgAtend{max-width:520px;width:calc(100% - 32px);padding:22px;border:0;border-radius:16px}
+  #dlgAtend h2{font-size:20px;margin:0 0 14px}
 </style>
 </head>
 <body>
@@ -605,23 +609,49 @@
   }
   /* ---------- Acompanhamento / avisar cliente ---------- */
   function linkAcompanhar(tk){ return location.origin + location.pathname.replace(/[^\/]*$/, "") + "acompanhar.html?c=" + encodeURIComponent(tk); }
-  /* Quem está atendendo o pedido */
+  /* Quem está atendendo o pedido (o vendedor escolhe o próprio nome: os computadores são compartilhados) */
   function blocoAtendente(p){
-    var eu = (S.usuario && S.usuario.email || "").toLowerCase(), meu = p.atendente_email && p.atendente_email.toLowerCase() === eu;
     var hora = p.atendente_em ? new Date(p.atendente_em).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) : "";
-    if (!p.atendente_email) return '<div class="atend livre"><span>Ninguém atendendo</span><button class="btn peq" type="button" data-assumir="' + p.id + '">🙋 Assumir pedido</button></div>';
-    return '<div class="atend' + (meu ? ' meu' : '') + '"><span>👤 Atendendo: <b>' + esc(meu ? "você" : (p.atendente_nome || p.atendente_email)) + '</b>' + (hora ? ' <small>desde ' + hora + '</small>' : '') + '</span>' +
-      (meu ? '<button class="btn sec peq" type="button" data-assumir="' + p.id + '" data-liberar="1">Liberar</button>' : '<button class="btn sec peq" type="button" data-assumir="' + p.id + '" data-outro="' + esc(p.atendente_nome || p.atendente_email) + '">Assumir no lugar</button>') + '</div>';
+    if (!p.atendente_nome) return '<div class="atend livre"><span>Ninguém atendendo</span><button class="btn peq" type="button" data-assumir="' + p.id + '">🙋 Assumir pedido</button></div>';
+    return '<div class="atend meu"><span>👤 Atendendo: <b>' + esc(p.atendente_nome) + '</b>' + (hora ? ' <small>desde ' + hora + '</small>' : '') + '</span><span>' +
+      '<button class="btn sec peq" type="button" data-assumir="' + p.id + '">Trocar</button> <button class="btn sec peq" type="button" data-assumir="' + p.id + '" data-liberar="1">Liberar</button></span></div>';
+  }
+  var nomesAtend = null;
+  function carregarNomesAtend(){
+    if (nomesAtend) return Promise.resolve(nomesAtend);
+    return Promise.all([
+      sb.from("vendedores").select("nome").eq("ativo", true).order("nome"),
+      sb.from("equipe").select("nome,email")
+    ]).then(function(r){
+      var L = [];
+      (r[0].data || []).forEach(function(v){ if (v.nome && L.indexOf(v.nome) < 0) L.push(v.nome); });
+      (r[1].data || []).forEach(function(e){ var n = (e.nome || "").trim() || String(e.email || "").split("@")[0]; if (n && L.indexOf(n) < 0) L.push(n); });
+      nomesAtend = L; return L;
+    });
   }
   function assumirPedido(id, liberar, btn){
-    if (btn.dataset.outro && !confirm("Este pedido está com " + btn.dataset.outro + ". Quer assumir no lugar?")) return;
-    btn.disabled = true;
-    sb.rpc("assumir_pedido", { p_pedido_id: id, p_liberar: liberar }).then(function(r){
-      if (r.error) { btn.disabled = false; alert(erroTxt(r.error)); return; }
-      var p = ultimosPedidos.filter(function(x){ return x.id === id; })[0];
-      if (p) Object.assign(p, r.data);
-      var card = btn.closest(".atend"); if (card && p) { var tmp = document.createElement("div"); tmp.innerHTML = blocoAtendente(p); card.replaceWith(tmp.firstChild);
-        var nb = document.querySelector('[data-assumir="' + id + '"]'); if (nb) nb.onclick = function(){ assumirPedido(id, nb.dataset.liberar === "1", nb); }; }
+    if (liberar) return gravarAtendente(id, true, null);
+    carregarNomesAtend().then(function(L){
+      var dlg = document.getElementById("dlgAtend");
+      if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "dlgAtend"; document.body.appendChild(dlg); }
+      var p = ultimosPedidos.filter(function(x){ return x.id === id; })[0] || {};
+      dlg.innerHTML = '<h2 style="margin-top:0">Quem vai atender o ' + esc(p.numero || "pedido") + '?</h2>' +
+        (L.length ? '<div class="nomes-atend">' + L.map(function(n){ return '<button type="button" class="btn sec" data-nome="' + esc(n) + '">' + esc(n) + '</button>'; }).join("") + '</div>'
+                  : '<p class="dica">Nenhum vendedor cadastrado. Cadastre em Configurações → Vendedores.</p>') +
+        '<div class="barra-acoes" style="margin-top:14px"><button type="button" class="btn sec" data-fechar>Cancelar</button></div>';
+      dlg.querySelectorAll("[data-nome]").forEach(function(b){ b.onclick = function(){ dlg.close(); gravarAtendente(id, false, b.dataset.nome); }; });
+      dlg.querySelector("[data-fechar]").onclick = function(){ dlg.close(); };
+      dlg.showModal();
+    });
+  }
+  function gravarAtendente(id, liberar, nome){
+    sb.rpc("assumir_pedido", { p_pedido_id: id, p_liberar: liberar, p_nome: nome }).then(function(r){
+      if (r.error) { alert(erroTxt(r.error)); return; }
+      var p = ultimosPedidos.filter(function(x){ return x.id === id; })[0]; if (!p) return;
+      Object.assign(p, r.data);
+      var el = document.querySelector('.atend [data-assumir="' + id + '"]'); el = el && el.closest(".atend"); if (!el) return;
+      var tmp = document.createElement("div"); tmp.innerHTML = blocoAtendente(p); var novo = tmp.firstChild; el.replaceWith(novo);
+      novo.querySelectorAll("[data-assumir]").forEach(function(b){ b.onclick = function(){ assumirPedido(id, b.dataset.liberar === "1", b); }; });
     });
   }
   /* Exportação para o sistema: uma linha por item "código;quantidade", quantidade com 3 casas sem vírgula (0,380 kg = 0380; 2 un = 2000), CRLF. Frete não entra. */

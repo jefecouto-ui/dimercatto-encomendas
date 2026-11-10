@@ -178,6 +178,9 @@
   #dlgAtend{max-width:520px;width:calc(100% - 32px);padding:22px;border:0;border-radius:16px}
   #dlgAtend h2{font-size:20px;margin:0 0 14px}
   .cli-nome{font-weight:800;font-size:18px;margin:0 6px 0 4px}
+  #dlgGerente{max-width:420px;width:calc(100% - 32px);padding:22px;border:0;border-radius:16px}
+  #dlgGerente h2{font-size:19px;margin:0 0 8px}
+  #dlgGerente input{width:100%}
 </style>
 </head>
 <body>
@@ -584,6 +587,11 @@
       box.querySelectorAll("[data-avisar]").forEach(function(b){ b.onclick = function(){ avisarCliente(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.avisar; })[0], b); }; });
       box.querySelectorAll("[data-adiant]").forEach(function(b){ b.onclick = function(){ marcarAdiant(+b.dataset.adiant, b.dataset.pago === "1", b); }; });
       box.querySelectorAll("[data-assumir]").forEach(function(b){ b.onclick = function(){ assumirPedido(+b.dataset.assumir, b.dataset.liberar === "1", b); }; });
+      box.querySelectorAll("[data-excluir]").forEach(function(b){ b.onclick = function(){
+        var pp = ultimosPedidos.filter(function(x){ return x.id === +b.dataset.excluir; })[0];
+        if (!confirm("Excluir de vez o pedido " + (pp ? pp.numero + " de " + pp.cliente_nome : "") + "? Não tem como desfazer.")) return;
+        acaoGerente(+b.dataset.excluir, "excluir");
+      }; });
       box.querySelectorAll("[data-exportar]").forEach(function(b){ b.onclick = function(){ exportarPedido(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.exportar; })[0]); }; });
       box.querySelectorAll("[data-imprimir]").forEach(function(b){ b.onclick = function(){ imprimirPedidos(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.imprimir; })); }; });
     });
@@ -595,7 +603,7 @@
     h += blocoAtendente(p) + blocoAdiant(p);
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
     if (p.endereco) h += '<div class="meta">' + (p.modalidade === "entrega" ? '' : '🏠 ') + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.cep ? ' — CEP ' + esc(p.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")) : '') + (p.frete_status === "a_confirmar" ? ' · <b style="color:var(--erro)">frete a confirmar</b>' : '') + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
-    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
+    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button> <button class="btn perigo" type="button" data-excluir="' + p.id + '">🗑 Excluir</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
@@ -864,7 +872,57 @@
     setTimeout(function(){ window.print(); }, 50);
   }
 
+  function ehGerente(){ return S.papel === "admin" || S.papel === "gerente"; }
+  function precisaGerente(p, st){
+    if (!p || ehGerente()) return false;
+    if (st === "cancelado" && p.status !== "cancelado") return "Cancelar pedido é só com autorização do gerente.";
+    if (p.status === "aguardando" && ["confirmado","preparacao","pronto","saiu","concluido"].indexOf(st) >= 0 && !p.adiantamento_pago)
+      return "O Pix do adiantamento ainda não foi marcado como pago. Para confirmar mesmo assim, o gerente precisa autorizar.";
+    return false;
+  }
+  /* autorização do gerente: entra com o login dele numa sessão separada só para esta ação */
+  function pedirGerente(motivo, titulo){
+    return new Promise(function(ok, falhou){
+      var dlg = document.getElementById("dlgGerente");
+      if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "dlgGerente"; document.body.appendChild(dlg); }
+      dlg.innerHTML = '<h2>🔒 ' + esc(titulo || "Autorização do gerente") + '</h2><p class="dica" style="margin:0 0 12px">' + esc(motivo) + '</p>' +
+        '<label for="gEmail">E-mail do gerente</label><input type="email" id="gEmail" autocomplete="off">' +
+        '<label for="gSenha" style="margin-top:10px">Senha do gerente</label><input type="password" id="gSenha" autocomplete="new-password">' +
+        '<div class="msg erro" id="gErro" hidden style="margin-top:10px"></div>' +
+        '<div class="barra-acoes" style="margin-top:14px"><button type="button" class="btn sec" id="gCancelar">Cancelar</button><button type="button" class="btn" id="gOk">Autorizar</button></div>';
+      var fim = function(){ dlg.close(); };
+      dlg.querySelector("#gCancelar").onclick = function(){ fim(); falhou(null); };
+      dlg.querySelector("#gOk").onclick = function(){
+        var em = dlg.querySelector("#gEmail").value.trim(), se = dlg.querySelector("#gSenha").value, er = dlg.querySelector("#gErro"), bt = dlg.querySelector("#gOk");
+        if (!em || !se) { er.textContent = "Informe e-mail e senha do gerente."; er.hidden = false; return; }
+        bt.disabled = true; bt.textContent = "Verificando…";
+        var sb2 = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: "dm-gerente-temp" } });
+        sb2.auth.signInWithPassword({ email: em, password: se }).then(function(r){
+          bt.disabled = false; bt.textContent = "Autorizar";
+          if (r.error) { er.textContent = "E-mail ou senha do gerente incorretos."; er.hidden = false; return; }
+          fim(); ok(sb2);
+        });
+      };
+      dlg.showModal(); dlg.querySelector("#gEmail").focus();
+    });
+  }
+  function acaoGerente(id, acao, st){
+    var p = ultimosPedidos.filter(function(x){ return x.id === id; })[0] || {};
+    var executar = function(cli){
+      return cli.rpc("gerente_acao", { p_pedido_id: id, p_acao: acao, p_status: st || null }).then(function(r){
+        if (cli !== sb) cli.auth.signOut();
+        if (r.error) { alert(erroTxt(r.error)); carregarPedidos(); return; }
+        carregarPedidos();
+      });
+    };
+    if (ehGerente()) return executar(sb);
+    var motivo = acao === "excluir" ? "Excluir o pedido " + (p.numero || "") + " apaga ele de vez." : precisaGerente(p, st);
+    return pedirGerente(motivo, acao === "excluir" ? "Excluir pedido — autorização do gerente" : "Autorização do gerente").then(executar, function(){ carregarPedidos(); });
+  }
   function mudarStatus(id, st, sel){
+    var pp = ultimosPedidos.filter(function(x){ return x.id === id; })[0];
+    if (precisaGerente(pp, st)) { sel.disabled = true; acaoGerente(id, "status", st); return; }
+    if (st === "cancelado" && ehGerente() && !confirm("Cancelar o pedido " + (pp ? pp.numero : "") + "?")) { carregarPedidos(); return; }
     sel.disabled = true;
     sb.from("pedidos").update({status: st}).eq("id", id).select("id").then(function(r){
       if (r.error || !r.data || !r.data.length) { alert("Não foi possível mudar a situação: " + erroTxt(r.error || "sem permissão")); sel.disabled = false; return; }
@@ -1634,7 +1692,7 @@
     h += '<div><label for="cfgFrGratis">Frete grátis a partir de (R$) <span class="dica">vazio = nunca</span></label><input type="text" id="cfgFrGratis" inputmode="decimal" value="' + rs(fr.gratis_acima_centavos) + '"></div>';
     h += '<div><label for="cfgFrMin">Pedido mínimo para entrega (R$) <span class="dica">vazio = sem mínimo</span></label><input type="text" id="cfgFrMin" inputmode="decimal" value="' + rs(fr.minimo_entrega_centavos) + '"></div></div></div>';
     h += '<div id="cfgMsg"></div><button class="btn" type="submit">Salvar configurações</button></form>';
-    h += '<div class="card" style="margin-top:20px"><h2>Equipe com acesso ao painel</h2><div id="equipeLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="eqEmail">E-mail</label><input type="email" id="eqEmail"></div><div class="cresce"><label for="eqNome">Nome</label><input type="text" id="eqNome"></div><div><label for="eqPapel">Acesso</label><select id="eqPapel"><option value="atendente">Atendente</option><option value="admin">Administrador</option></select></div><button class="btn sec" type="button" id="eqAdd">Adicionar</button></div><p class="dica">Só administradores incluem ou removem pessoas. Depois de incluída, a pessoa entra em "Primeiro acesso? Crie sua senha" com o mesmo e-mail. E-mails fora da equipe não conseguem criar senha.</p></div>';
+    h += '<div class="card" style="margin-top:20px"><h2>Equipe com acesso ao painel</h2><div id="equipeLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="eqEmail">E-mail</label><input type="email" id="eqEmail"></div><div class="cresce"><label for="eqNome">Nome</label><input type="text" id="eqNome"></div><div><label for="eqPapel">Acesso</label><select id="eqPapel"><option value="atendente">Atendente / vendedor</option><option value="gerente">Gerente (autoriza, cancela e exclui pedidos)</option><option value="admin">Administrador</option></select></div><button class="btn sec" type="button" id="eqAdd">Adicionar</button></div><p class="dica">Só administradores incluem ou removem pessoas. Depois de incluída, a pessoa entra em "Primeiro acesso? Crie sua senha" com o mesmo e-mail. E-mails fora da equipe não conseguem criar senha.</p></div>';
     h += '<div class="card" style="margin-top:20px"><h2>Vendedores</h2><p class="dica" style="margin-top:0">O link do vendedor é o da loja com <strong>?v=código</strong>. Só códigos cadastrados e ativos são gravados no pedido.</p><div id="vendLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" id="vendForm" style="margin-top:10px"><div class="cresce"><label for="vdCod">Código (ex.: ana)</label><input type="text" id="vdCod" maxlength="30" autocapitalize="off"></div><div class="cresce"><label for="vdNome">Nome</label><input type="text" id="vdNome" maxlength="80"></div><button class="btn sec" type="button" id="vdAdd">Adicionar</button></div></div>';
     main.innerHTML = h;
     ["datas","horarios","pagamentos"].forEach(desenharChips);
@@ -1757,7 +1815,7 @@
       var admin = S.papel === "admin";
       box.innerHTML = '<div class="tabela"><table><tbody>' + r.data.map(function(e){
         var eu = e.email.toLowerCase() === (S.usuario.email||"").toLowerCase();
-        return '<tr><td><strong>' + esc(e.nome || "") + '</strong></td><td>' + esc(e.email) + '</td><td>' + (e.papel === "admin" ? "Administrador" : "Atendente") + '</td><td class="num">' + (eu ? '<span class="dica">você</span>' : (admin ? '<button class="btn perigo peq" type="button" data-remeq="' + esc(e.email) + '">Remover</button>' : '')) + '</td></tr>';
+        return '<tr><td><strong>' + esc(e.nome || "") + '</strong></td><td>' + esc(e.email) + '</td><td>' + (e.papel === "admin" ? "Administrador" : e.papel === "gerente" ? "Gerente" : "Atendente") + '</td><td class="num">' + (eu ? '<span class="dica">você</span>' : (admin ? '<button class="btn perigo peq" type="button" data-remeq="' + esc(e.email) + '">Remover</button>' : '')) + '</td></tr>';
       }).join("") + '</tbody></table></div>';
       box.querySelectorAll("[data-remeq]").forEach(function(b){ b.onclick = function(){
         if (!confirm("Remover o acesso de " + b.dataset.remeq + "?")) return;

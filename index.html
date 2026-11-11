@@ -166,6 +166,8 @@
   .compo li:last-child{border-bottom:0}
   .compo li::before{content:"✓";color:var(--verde);font-weight:900;flex:none}
   .compo .qt{margin-left:auto;padding-left:8px;font-weight:800;white-space:nowrap;color:var(--vinho)}
+  .qtd.zero button[disabled]{opacity:.35;cursor:default}
+  .qtd.zero .valor{color:var(--texto-suave)}
   .aviso-cat{margin-top:10px;padding:11px 14px;border-radius:12px;background:#FFF4D6;border:1.5px solid #E9C46A;color:#5C4400;font-size:15px;font-weight:600;line-height:1.35}
   .lista-prod{background:#fff;border:1.5px solid var(--borda);border-radius:16px;overflow:hidden;margin-top:10px}
   .lista-prod .linha{display:grid;grid-template-columns:minmax(0,1fr) 178px;gap:10px;align-items:center;padding:11px 12px 11px 14px;border:0;border-bottom:1px dashed var(--borda);border-radius:0;box-shadow:none;background:transparent}
@@ -741,7 +743,7 @@
     h += '<div class="script">' + esc(cfg.campanha_titulo || "Encomendas Di Mercatto") + '</div>';
     if (cfg.campanha_subtitulo) h += '<h1>' + esc(cfg.campanha_subtitulo) + '</h1>';
     if (cfg.campanha_texto) h += '<p class="txt">' + esc(cfg.campanha_texto) + '</p>';
-    h += '<div class="botoes"><a class="b1" href="#cardapio" data-irpara="cardapio">Ver o cardápio</a>' + (cats.length > 1 ? '<button type="button" class="b2" data-guia="0">Montar minha ceia</button>' : '') + '</div>';
+    h += '<div class="botoes"><a class="b1" href="#cardapio" data-irpara="cardapio">Ver o cardápio</a>' + '' + '</div>';
     h += '</div></section>';
     }
     h += '<div class="confianca"><div>Feito na nossa<br>cozinha</div><div>' + (cfg.entrega_ativa ? 'Retirada ou<br>entrega' : 'Retirada<br>na loja') + '</div><div>Pedido em<br>3 passos</div></div>';
@@ -764,7 +766,7 @@
     h += '<div class="tit-sec" id="cardapio"><h2>Escolha por categoria</h2></div><div class="cat-tiles">';
     cats.forEach(function(c){ var n = estado.produtos.filter(function(p){ return p.categoria_id === c.id; }).length; h += '<button type="button" class="cat-tile t' + corCat(c.id) + '" data-abrircat="' + c.id + '">' + DM_svg(c.icone, 30) + '<div><b>' + esc(c.nome) + '</b><br><span>' + n + (n === 1 ? ' opção' : ' opções') + ' →</span></div></button>'; });
     h += '</div>';
-    if (cats.length > 1 && !temaDia()) h += '<div class="ceia-banner"><small>NÃO SABE POR ONDE COMEÇAR?</small><h3>Monte sua ceia em ' + cats.length + ' passos</h3><p>' + esc(cats.map(function(c){ return c.nome; }).join(", ")) + '.</p><button type="button" data-guia="0">Começar →</button></div>';
+    if (false) h += '<div class="ceia-banner"><small>NÃO SABE POR ONDE COMEÇAR?</small><h3>Monte sua ceia em ' + cats.length + ' passos</h3><p>' + esc(cats.map(function(c){ return c.nome; }).join(", ")) + '.</p><button type="button" data-guia="0">Começar →</button></div>';
     if (semCat.length) { h += '<div class="tit-sec"><h2>Outros</h2></div><div class="grade-prod">'; semCat.forEach(function(p){ h += cartao(p); }); h += '</div>'; }
     h += '</div>';
     h += '<div class="fim-marca"><div style="color:var(--dourado)">✦</div><q>Tudo em um só lugar, desde 2005.</q><div class="dica">Di Mercatto · Graça, Salvador</div></div>';
@@ -862,7 +864,7 @@
     if (p.esgotado) return '<button type="button" class="btn-esg" disabled>Esgotado</button>';
     if (p.dias_semana && p.dias_semana.length && foraJanelaHoje(p) && !(it && it.op)) { var jj = janela(p), agoraHm = hhmm(); return '<button type="button" class="btn-esg" disabled>' + (jj.de && agoraHm < jj.de ? 'Abre às ' + jj.de.replace(":", "h").replace(/h00$/, "h") : 'Encerrado hoje') + '</button>'; }
     if (temOpcoes(p) && !(it && it.op)) { var nq = qtdNoCarrinho(p.codigo); return nq ? '<button type="button" class="btn-add btn-opc-sel" data-escolher="' + esc(p.codigo) + '">' + nq + ' no pedido · alterar</button>' : '<button type="button" class="btn-add" data-escolher="' + esc(p.codigo) + '" aria-label="Escolher ' + esc(p.nome) + '">+ Escolher</button>'; }
-    if (!it || !it.q) return '<button type="button" class="btn-add" data-acao="add" aria-label="Adicionar ' + esc(p.nome) + '">+ Adicionar</button>';
+    if (!it || !it.q) return '<div class="qtd zero"><button type="button" data-acao="menos" disabled aria-label="Diminuir ' + esc(p.nome) + '">−</button><div class="valor">0' + (porUn(p) ? ' un' : (p.unidade === "kg" ? ' kg' : '')) + '</div><button type="button" data-acao="mais" aria-label="Adicionar ' + esc(p.nome) + '">+</button></div>';
     return '<div class="qtd">' +
       '<button type="button" data-acao="menos" aria-label="Diminuir ' + esc(p.nome) + '">−</button>' +
       (p.unidade === "kg" && !porUn(p)
@@ -876,6 +878,7 @@
     if (p.esgotado) return;
     var it = estado.carrinho[codigo] || {q:0, obs:""};
     if (acao === "add") it.q = p.minimo;
+    else if (acao === "mais" && !it.q) it.q = p.minimo;
     else if (acao === "mais") { var nq = arred(it.q + p.incremento); if (p.maximo == null || nq <= p.maximo) it.q = nq; }
     else if (acao === "menos") { var mq = arred(it.q - p.incremento); it.q = mq < p.minimo ? 0 : mq; }
     if (it.q > 0) estado.carrinho[codigo] = it; else delete estado.carrinho[codigo];

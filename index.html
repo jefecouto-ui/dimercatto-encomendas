@@ -812,8 +812,9 @@
     h += '<div class="layout"><div class="col-produtos">';
     h += '<div class="guia-passo">PASSO ' + (i + 1) + ' DE ' + cats.length + '</div><div class="guia-tit">Escolha: ' + esc(c.nome.toLowerCase()) + '</div><p class="dica" style="margin:0 0 14px">Pode escolher mais de um, ou pular esta etapa.</p>';
     var psGuia = estado.produtos.filter(function(p){ return p.categoria_id === c.id; });
-    h += '<div class="' + classeGrade(psGuia) + '">';
-    psGuia.forEach(function(p){ h += cartao(p); });
+    var guiaLista = c.layout === "lista" && !psGuia.every(ehKit);
+    h += '<div class="' + (guiaLista ? 'lista-prod' : classeGrade(psGuia)) + '">';
+    psGuia.forEach(function(p){ h += guiaLista ? linhaLista(p) : cartao(p); });
     h += '</div><div class="guia-nav">';
     h += '<button type="button" class="voltar" data-guia="' + (i === 0 ? 'sair' : i - 1) + '">← ' + (i === 0 ? 'Cardápio' : 'Voltar') + '</button>';
     if (i < cats.length - 1) h += '<button type="button" class="prox" data-guia="' + (i + 1) + '">Próximo: ' + esc(cats[i + 1].nome.toLowerCase()) + ' →</button>';
@@ -824,7 +825,7 @@
   function linhaLista(p){ // visualização em lista (cardápio de papel)
     var it = estado.carrinho[p.codigo];
     var h = '<article class="produto linha' + (it && it.q ? ' no-pedido' : '') + (p.esgotado ? ' esgotado' : '') + '" id="p-' + esc(p.codigo) + '" data-cod="' + esc(p.codigo) + '">';
-    h += '<div class="l-info"><h3>' + esc(p.nome) + '</h3>' + (p.descricao ? '<p class="desc">' + esc(p.descricao) + '</p>' : '') + '<div class="l-preco">' + reais(p.preco_centavos) + '<small>' + (p.unidade === "kg" ? ' o kg' : ' ' + precoUnTxt(p.unidade)) + '</small>' + (porUn(p) ? '<span class="l-un">mínimo ' + numBR(p.minimo) + ' unidades</span>' : '') + '</div></div>';
+    h += '<div class="l-info"><h3>' + esc(p.nome) + '</h3>' + (p.descricao ? '<p class="desc">' + esc(p.descricao) + '</p>' : '') + '<div class="l-preco">' + reais(p.preco_centavos) + '<small>' + (p.unidade === "kg" ? ' o kg' : ' ' + precoUnTxt(p.unidade)) + '</small>' + (porUn(p) && p.minimo > 1 ? '<span class="l-un">mínimo ' + numBR(p.minimo) + ' unidades</span>' : '') + '</div></div>';
     h += '<div class="ctrl" data-codigo="' + esc(p.codigo) + '">' + controle(p, it) + '</div>';
     return h + '</article>';
   }

@@ -1011,27 +1011,35 @@
     h += '<h1 class="titulo-etapa">Seus dados</h1>';
     h += '<div class="painel"><h2>Seu pedido</h2>' + resumoItensHTML(true) + '<div class="acoes" style="margin:14px 0 0"><button type="button" class="btn-sec" data-ir="1">← Alterar produtos</button></div></div>';
 
-    h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>';
-    h += '<label class="campo" for="fNome">Seu nome e sobrenome' + OBR + ' <span class="dica">Ex.: Maria Souza</span></label><input type="text" id="fNome" autocomplete="name" maxlength="120" value="' + esc(d.nome) + '"><div class="erro-campo" id="eNome" hidden></div>';
-    h += '<label class="campo" for="fWpp">Seu WhatsApp' + OBR + ' <span class="dica">Com DDD. Ex.: (71) 98765-4321</span></label><input type="tel" id="fWpp" inputmode="tel" autocomplete="tel" maxlength="20" value="' + esc(d.whatsapp) + '"><div class="erro-campo" id="eWpp" hidden></div>';
-    h += '</div>';
-
-    var mods = [{valor:"retirada", texto:"Retirar na loja", sub: cfg.retirada_endereco || "Di Mercatto"}];
-    if (cfg.entrega_ativa) mods.push({valor:"entrega", texto:"Receber em casa", sub:"Entrega"});
-    h += '<div class="painel"><h2>Como prefere receber?' + OBR + '</h2>' + botoesOpcao("modalidade", mods, d.modalidade, "Como prefere receber") + '<div class="erro-campo" id="eMod" hidden></div>';
-    h += '<div id="blocoEntrega"><h3 class="sub-end">Seu endereço' + OBR + '</h3>';
-    if (cfg.entrega_aviso) h += '<p class="aviso" id="avisoEntrega" style="margin-top:6px"' + (d.modalidade === "entrega" ? '' : ' hidden') + '>' + esc(cfg.entrega_aviso) + '</p>';
+    var soRetirada = !cfg.entrega_ativa;
+    if (soRetirada) d.modalidade = "retirada";
     if (!d.rua && !d.cep && d.endereco) d.rua = d.endereco;
-    h += '<label class="campo" for="fCep">CEP' + OBR + ' <span class="dica">O endereço se preenche sozinho</span></label><input type="text" id="fCep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" style="max-width:180px" value="' + esc(mascaraCep(d.cep)) + '"><div class="erro-campo" id="eCep" hidden></div>';
-    h += '<label class="campo" for="fRua">Rua' + OBR + '</label><input type="text" id="fRua" autocomplete="address-line1" maxlength="160" value="' + esc(d.rua) + '"><div class="erro-campo" id="eRua" hidden></div>';
-    h += '<div class="duas-col"><div><label class="campo" for="fNum">Número' + OBR + '</label><input type="text" id="fNum" inputmode="text" maxlength="20" value="' + esc(d.numero) + '"><div class="erro-campo" id="eNum" hidden></div></div>';
-    h += '<div><label class="campo" for="fComp">Complemento <span class="dica">Opcional</span></label><input type="text" id="fComp" maxlength="80" placeholder="Apto, bloco" value="' + esc(d.compl) + '"></div></div>';
-    h += '<label class="campo" for="fBairro">Bairro' + OBR + '</label><input type="text" id="fBairro" maxlength="120" value="' + esc(d.bairro) + '"><div class="erro-campo" id="eBairro" hidden></div>';
-    h += '<label class="campo" for="fRef">Ponto de referência <span class="dica">Opcional</span></label><input type="text" id="fRef" maxlength="200" value="' + esc(d.referencia) + '">';
-    if (freteAtivo()) h += '<div id="freteWrap"' + (d.modalidade === "entrega" ? '' : ' hidden') + '><div id="freteBox" class="frete-box" aria-live="polite">' + freteBoxHTML() + '</div><div class="erro-campo" id="eFrete" hidden></div></div>';
-    h += '</div></div>';
+    var nomeH = '<label class="campo" for="fNome">' + (soRetirada ? 'Nome e sobrenome' : 'Seu nome e sobrenome') + OBR + ' <span class="dica">Ex.: Maria Souza</span></label><input type="text" id="fNome" autocomplete="name" maxlength="120" value="' + esc(d.nome) + '"><div class="erro-campo" id="eNome" hidden></div>';
+    var wppH = '<label class="campo" for="fWpp">' + (soRetirada ? 'WhatsApp' : 'Seu WhatsApp') + OBR + ' <span class="dica">Com DDD. Ex.: (71) 98765-4321</span></label><input type="tel" id="fWpp" inputmode="tel" autocomplete="tel" maxlength="20" value="' + esc(d.whatsapp) + '"><div class="erro-campo" id="eWpp" hidden></div>';
+    var endH = '<label class="campo" for="fCep">CEP' + OBR + ' <span class="dica">O endereço se preenche sozinho</span></label><input type="text" id="fCep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" style="max-width:180px" value="' + esc(mascaraCep(d.cep)) + '"><div class="erro-campo" id="eCep" hidden></div>';
+    endH += '<label class="campo" for="fRua">Rua' + OBR + '</label><input type="text" id="fRua" autocomplete="address-line1" maxlength="160" value="' + esc(d.rua) + '"><div class="erro-campo" id="eRua" hidden></div>';
+    endH += '<div class="duas-col"><div><label class="campo" for="fNum">Número' + OBR + '</label><input type="text" id="fNum" inputmode="text" maxlength="20" value="' + esc(d.numero) + '"><div class="erro-campo" id="eNum" hidden></div></div>';
+    endH += '<div><label class="campo" for="fComp">Complemento <span class="dica">Opcional</span></label><input type="text" id="fComp" maxlength="80" placeholder="Apto, bloco" value="' + esc(d.compl) + '"></div></div>';
+    endH += '<label class="campo" for="fBairro">Bairro' + OBR + '</label><input type="text" id="fBairro" maxlength="120" value="' + esc(d.bairro) + '"><div class="erro-campo" id="eBairro" hidden></div>';
+    endH += '<label class="campo" for="fRef">Ponto de referência <span class="dica">Opcional</span></label><input type="text" id="fRef" maxlength="200" value="' + esc(d.referencia) + '">';
 
-    h += '<div class="painel"><h2>Para quando?' + OBR + '</h2>';
+    if (soRetirada) {
+      h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>';
+      h += nomeH + '<h3 class="sub-end">Endereço' + OBR + '</h3>' + endH + wppH;
+      h += '<p class="aviso" style="margin-top:14px">📍 Pedido para <strong>retirar na loja</strong>' + (cfg.retirada_endereco ? ': ' + esc(cfg.retirada_endereco) : ' Di Mercatto') + '.</p>';
+      h += '</div>';
+    } else {
+      h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>' + nomeH + wppH + '</div>';
+      var mods = [{valor:"retirada", texto:"Retirar na loja", sub: cfg.retirada_endereco || "Di Mercatto"}, {valor:"entrega", texto:"Receber em casa", sub:"Entrega"}];
+      h += '<div class="painel"><h2>Como prefere receber?' + OBR + '</h2>' + botoesOpcao("modalidade", mods, d.modalidade, "Como prefere receber") + '<div class="erro-campo" id="eMod" hidden></div>';
+      h += '<div id="blocoEntrega"><h3 class="sub-end">Seu endereço' + OBR + '</h3>';
+      if (cfg.entrega_aviso) h += '<p class="aviso" id="avisoEntrega" style="margin-top:6px"' + (d.modalidade === "entrega" ? '' : ' hidden') + '>' + esc(cfg.entrega_aviso) + '</p>';
+      h += endH;
+      if (freteAtivo()) h += '<div id="freteWrap"' + (d.modalidade === "entrega" ? '' : ' hidden') + '><div id="freteBox" class="frete-box" aria-live="polite">' + freteBoxHTML() + '</div><div class="erro-campo" id="eFrete" hidden></div></div>';
+      h += '</div></div>';
+    }
+
+    h += '<div class="painel"><h2>' + (!cfg.entrega_ativa ? 'Data da retirada' : 'Para quando?') + OBR + '</h2>';
     if (diasAntecedencia() > 1) h += '<p class="aviso" style="margin:0 0 12px">Alguns itens precisam de mais tempo de preparo: datas a partir de <strong>' + ddmm(amanhaISO()) + '</strong>.</p>';
     var dpm = diasPermitidos();
     if (dpm && !dpm.length) h += '<p class="aviso" style="margin:0 0 12px;border-color:#B42318">Sua sacola tem itens de <strong>dias diferentes da semana</strong>. Faça um pedido para cada dia.</p>';
@@ -1257,7 +1265,7 @@
     h += linha("Nome", d.nome) + linha("WhatsApp", d.whatsapp);
     h += linha("Recebimento", d.modalidade === "entrega" ? "Receber em casa" : "Retirar na loja");
     if (true) { h += linha("Endereço", d.endereco) + linha("Bairro", d.bairro) + (d.cep ? linha("CEP", mascaraCep(d.cep)) : ""); if (d.referencia) h += linha("Referência", d.referencia); }
-    var dt = dataBR(d.data); h += linha("Data", dt.charAt(0).toUpperCase()+dt.slice(1));
+    var dt = dataBR(d.data); h += linha(d.modalidade === "retirada" ? "Data da retirada" : "Data", dt.charAt(0).toUpperCase()+dt.slice(1));
     if (d.horario) h += linha("Horário", d.horario);
     if (d.pagamento) h += linha("Pagamento", d.pagamento);
     if (d.observacoes) h += linha("Observações", d.observacoes);

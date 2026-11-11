@@ -1681,7 +1681,9 @@
     h += '<div class="card"><h2>Retirada e entrega</h2><label for="cfgRet">Endereço para retirada</label><input type="text" id="cfgRet" value="' + esc(c.retirada_endereco || "") + '">';
     h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgEnt"' + (c.entrega_ativa ? " checked" : "") + '> Oferecer entrega</label>';
     h += '<label for="cfgEntAviso" style="margin-top:12px">Aviso sobre a entrega</label><input type="text" id="cfgEntAviso" value="' + esc(c.entrega_aviso || "") + '">';
-    h += '<label for="cfgPix" style="margin-top:12px">Chave Pix para o adiantamento de R$ 50 <span class="dica">aparece para o cliente no fim do pedido e no WhatsApp</span></label><input type="text" id="cfgPix" maxlength="80" value="' + esc(c.pix_chave || "") + '"></div>';
+    h += '<label for="cfgPix" style="margin-top:12px">Chave Pix para o adiantamento de R$ 50 <span class="dica">aparece para o cliente no fim do pedido e no WhatsApp</span></label><input type="text" id="cfgPix" maxlength="80" value="' + esc(c.pix_chave || "") + '">';
+    h += '<label for="cfgPrazoConf" style="margin-top:12px">Prazo de confirmação prometido ao cliente <span class="dica">aparece no fim do pedido e no acompanhamento. Ex.: "em até 30 minutos, no horário de funcionamento da loja"</span></label><input type="text" id="cfgPrazoConf" maxlength="120" value="' + esc(c.prazo_confirmacao || "") + '" placeholder="em até 30 minutos, no horário de funcionamento da loja">';
+    h += '<label for="cfgVarPes" style="margin-top:12px">Variação esperada na pesagem (%) <span class="dica">a loja avisa "pode variar cerca de R$ X" nos produtos com valor estimado. Padrão: 10</span></label><input type="number" id="cfgVarPes" min="1" max="50" step="1" style="max-width:120px" value="' + esc(c.variacao_pesagem_pct != null ? c.variacao_pesagem_pct : "") + '" placeholder="10"></div>';
     var fr = listasCfg.frete, rs = function(v){ return v ? (v/100).toFixed(2).replace(".", ",") : ""; };
     h += '<div class="card"><h2>Frete por quilometragem</h2><p class="dica" style="margin-top:0">O cliente informa CEP e número; o sistema calcula a distância pela rota de carro a partir da loja e aplica a faixa. Vale só com "Oferecer entrega" marcado.</p>';
     h += '<label class="check"><input type="checkbox" id="cfgFrAtivo"' + (fr.ativo ? " checked" : "") + '> Cobrar frete por km</label>';
@@ -1798,7 +1800,7 @@
       ["tema", g("cfgTema")], ["ocultar_sem_foto", document.getElementById("cfgSemFoto").checked], ["dia_titulo", g("cfgDiaTit")], ["dia_subtitulo", g("cfgDiaSub")], ["dia_texto", g("cfgDiaTxt")],
       ["campanha_titulo", g("cfgTit")], ["campanha_subtitulo", g("cfgSub")], ["prefixo_pedido", g("cfgPref").toUpperCase() || "ENC"],
       ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["faixas", faixasOk], ["pagamentos", listasCfg.pagamentos],
-      ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")], ["pix_chave", g("cfgPix")], ["frete", frOk]
+      ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")], ["pix_chave", g("cfgPix")], ["prazo_confirmacao", g("cfgPrazoConf")], ["variacao_pesagem_pct", Number(g("cfgVarPes")) > 0 ? Number(g("cfgVarPes")) : 10], ["frete", frOk]
     ].map(function(x){ return {chave:x[0], valor:x[1]}; });
     sb.from("configuracoes").upsert(linhas).select().then(function(r){
       if (r.error) { msg.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }

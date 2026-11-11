@@ -113,6 +113,8 @@
   .confianca{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--vinho);color:#FFEDDC;margin:0 -16px;font-size:13px;font-weight:700;text-align:center}
   .confianca div{padding:11px 6px;border-right:1px solid rgba(255,255,255,.18)}
   .confianca div:last-child{border-right:0}
+  .confianca.uma{grid-template-columns:1fr;font-size:16px;letter-spacing:.3px}
+  .confianca.uma div{padding:13px 10px}
   .tit-sec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:26px 0 12px}
   .tit-sec h2,section.categoria .tit-sec h2{display:block;margin:0;font-family:"Playfair Display",Georgia,serif;font-size:26px;font-weight:700;color:var(--texto)}
   .tit-sec span{font-size:14px;color:var(--texto-suave);font-weight:600}
@@ -746,7 +748,7 @@
     h += '<div class="botoes"><a class="b1" href="#cardapio" data-irpara="cardapio">Ver o cardápio</a>' + '' + '</div>';
     h += '</div></section>';
     }
-    h += '<div class="confianca"><div>Feito na nossa<br>cozinha</div><div>' + (cfg.entrega_ativa ? 'Retirada ou<br>entrega' : 'Retirada<br>na loja') + '</div><div>Pedido em<br>3 passos</div></div>';
+    h += '<div class="confianca uma"><div>Pedido em 3 passos</div></div>';
     h += '<div class="layout"><div class="col-produtos">';
     h += '<div class="busca busca-fixa"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="fBusca" placeholder="' + (temaDia() ? 'Buscar produto' : 'Buscar produto (ex.: pernil)') + '" aria-label="Buscar produto" autocomplete="off"></div>';
     h += '<div id="resultadoBusca" hidden></div><div id="blocoInicio">';
@@ -967,7 +969,7 @@
     var lat = document.getElementById("lateral");
     if (lat && mostrar) {
       var hl = '<h2>Seu pedido</h2>';
-      if (!t.n) hl += '<p class="vazio">Toque em <strong>Adicionar</strong> nos produtos que deseja.</p>';
+      if (!t.n) hl += '<p class="vazio">Toque em <strong>+</strong> nos produtos que deseja.</p>';
       else {
         itensCarrinho().forEach(function(i){ hl += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div><div class="q">' + esc(qtdProd(i.p, i.q)) + '</div></div><div class="v">' + reais(subtotal(i.p, i.q)) + '</div></div>'; });
         hl += '<div class="total"><div>Total' + (t.estimado ? '<small>Estimado</small>' : '') + '</div><div>' + reais(t.total) + '</div></div>';

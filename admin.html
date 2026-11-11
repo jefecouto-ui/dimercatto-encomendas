@@ -267,6 +267,8 @@
       <input type="text" id="pOpcTit" maxlength="60" placeholder="Título, ex.: Escolha o prato" style="margin-top:6px">
       <textarea id="pOpcItens" rows="4" placeholder="Uma opção por linha. Para pôr o código: Nome | código  (ex.: Canja de galinha | 254830)" style="margin-top:6px"></textarea>
       <div class="dica">Uma opção por linha. O código do ERP vai depois de uma barra: <b>Canja de galinha | 254830</b>. Ele sai no pedido, no WhatsApp e na produção.</div></div>
+    <div style="margin-top:14px"><label for="pComp">O que vem no kit / cesta <span class="dica">opcional — só para kits. Aparece para o cliente em lista, e o kit vai para "Kits de Ceia" no topo da loja se for Destaque.</span></label>
+      <textarea id="pComp" rows="5" placeholder="Um item por linha: Nome | quantidade  (ex.: Arroz natalino | 1 kg)" style="margin-top:6px"></textarea></div>
     <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
       <label class="check"><input type="checkbox" id="pEstimado"> Valor estimado (confirmado após a pesagem)</label>
       <label class="check"><input type="checkbox" id="pDestaque"> Destaque do Natal (aparece em "Destaques" no topo)</label>
@@ -1541,6 +1543,7 @@
     var DS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"], ds = p && p.dias_semana ? p.dias_semana : [];
     document.getElementById("pDias").innerHTML = [1,2,3,4,5,6,0].map(function(d){ return '<label class="check" style="min-height:auto"><input type="checkbox" data-dia="' + d + '"' + (ds.indexOf(d) >= 0 ? " checked" : "") + '> ' + DS[d] + '</label>'; }).join("");
     v("pOpcTit", p && p.opcoes ? p.opcoes.titulo || "" : "");
+    v("pComp", p && Array.isArray(p.composicao) ? p.composicao.map(function(x){ return String(x).replace(" — ", " | "); }).join("\n") : "");
     v("pOpcItens", p && p.opcoes && p.opcoes.itens ? p.opcoes.itens.map(function(x){ var c = p.opcoes.codigos && p.opcoes.codigos[x]; return x + (c ? " | " + c : ""); }).join("\n") : "");
     document.getElementById("pExcluir").hidden = !p;
     document.getElementById("pErro").hidden = true;
@@ -1584,6 +1587,8 @@
       if (!nm || opItens.indexOf(nm) >= 0) return; opItens.push(nm); if (cd) opCod[nm] = cd.slice(0, 30);
     });
     if (opItens.some(function(x){ return x.length > 200; })) return falha("Cada opção pode ter até 200 letras.");
+    var comp = document.getElementById("pComp").value.split("\n").map(function(l){ var pt = l.split("|"), nm = pt[0].trim(), qt = (pt[1] || "").trim(); return nm ? (qt ? nm + " — " + qt : nm) : ""; }).filter(Boolean);
+    if (comp.some(function(x){ return x.length > 120; })) return falha("Cada item do kit pode ter até 120 letras.");
     var ean = g("pEan").replace(/\D/g, "");
     if (ean && !eanValido(ean)) return falha("Código de barras inválido: confira os números (8, 12, 13 ou 14 dígitos).");
     var dados = {
@@ -1594,7 +1599,8 @@
       destaque: document.getElementById("pDestaque").checked, subcategoria: (document.getElementById("pSub").value.trim() || null), selo: (document.getElementById("pSelo").value.trim().toUpperCase() || null),
       esgotado: document.getElementById("pEsgotado").checked, antecedencia_dias: ant, ean: ean || null,
       dias_semana: dias.length && dias.length < 7 ? dias.sort() : null, pedido_ate: g("pAte") || null, pedido_de: g("pDe") || null,
-      opcoes: opItens.length ? { titulo: g("pOpcTit") || "Escolha uma opção", itens: opItens, codigos: opCod } : null
+      opcoes: opItens.length ? { titulo: g("pOpcTit") || "Escolha uma opção", itens: opItens, codigos: opCod } : null,
+      composicao: comp.length ? comp : null
     };
     var btn = document.getElementById("pSalvar"); btn.disabled = true;
     var q = editando ? sb.from("produtos").update(dados).eq("id", editando.id).select() : sb.from("produtos").insert(dados).select();

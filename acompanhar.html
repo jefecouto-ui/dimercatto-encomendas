@@ -86,7 +86,7 @@
 <script>
 (function(){
   "use strict";
-  var CFG = window.DM_CONFIG, token = new URLSearchParams(location.search).get("c") || "", wpp = "", ultimo = null, prazoConf = "em até 30 minutos, no horário de funcionamento da loja";
+  var CFG = window.DM_CONFIG, token = new URLSearchParams(location.search).get("c") || "", wpp = "", ultimo = null, prazoConf = "em até 30 minutos, no horário de funcionamento da loja", comAdiant = true;
   function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function reais(c){ return (c/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
   function numBR(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
@@ -104,7 +104,7 @@
   function etapas(p){
     var ent = p.modalidade === "entrega";
     var lista = [
-      {s:["aguardando"], t:"Pedido recebido", d:"Aguardando a confirmação da equipe — depois do adiantamento, confirmamos pelo WhatsApp " + prazoConf},
+      {s:["aguardando"], t:"Pedido recebido", d:"Aguardando a confirmação da equipe — " + (comAdiant ? "depois do adiantamento, confirmamos" : "confirmamos") + " pelo WhatsApp " + prazoConf},
       {s:["confirmado"], t:"Confirmado"},
       {s:["preparacao"], t:"Em preparação", d:"Nossa cozinha está preparando seu pedido"},
       ent ? {s:["saiu"], t:"Saiu para entrega"} : {s:["pronto"], t:"Pronto para retirada", d:"Pode vir buscar na loja"},
@@ -226,7 +226,7 @@
       desenhar(p);
     }).catch(function(){ if (!ultimo) document.getElementById("app").innerHTML = '<div class="painel">Não conseguimos carregar agora. Verifique sua internet e tente de novo.</div>'; });
   }
-  api("configuracoes?select=chave,valor&chave=in.(whatsapp,prazo_confirmacao)").then(function(r){ r.forEach(function(c){ if (c.chave === "whatsapp") wpp = c.valor; if (c.chave === "prazo_confirmacao" && String(c.valor || "").trim()) prazoConf = String(c.valor).trim(); }); document.getElementById("ajuda").href = linkWpp("Olá! Preciso de ajuda com meu pedido."); }).catch(function(){}).then(carregar);
+  api("configuracoes?select=chave,valor&chave=in.(whatsapp,prazo_confirmacao,adiantamento_ativo)").then(function(r){ r.forEach(function(c){ if (c.chave === "whatsapp") wpp = c.valor; if (c.chave === "adiantamento_ativo") comAdiant = c.valor !== false; if (c.chave === "prazo_confirmacao" && String(c.valor || "").trim()) prazoConf = String(c.valor).trim(); }); document.getElementById("ajuda").href = linkWpp("Olá! Preciso de ajuda com meu pedido."); }).catch(function(){}).then(carregar);
   setInterval(function(){ if (!document.hidden) carregar(); }, 60000);
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) carregar(); });
 })();

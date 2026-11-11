@@ -668,6 +668,7 @@
   }
   /* Adiantamento (R$ 50 em todo pedido) */
   function blocoAdiant(p){
+    if (p.adiantamento_centavos === 0) return '';
     var v = Math.min(p.adiantamento_centavos != null ? p.adiantamento_centavos : 5000, p.total_centavos || 0);
     if (p.adiantamento_pago) return '<div class="atend meu adi"><span>💰 Adiantamento de <b>' + reais(v) + '</b> pago' + (p.adiantamento_pago_em ? ' <small>em ' + new Date(p.adiantamento_pago_em).toLocaleString("pt-BR", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"}) + '</small>' : '') + ' · restante ' + reais(Math.max(0, (p.total_centavos || 0) - v)) + '</span><button class="btn sec peq" type="button" data-adiant="' + p.id + '" data-pago="0">Desfazer</button></div>';
     return '<div class="atend livre adi"><span>💰 Adiantamento de <b>' + reais(v) + '</b> <b style="color:#B42318">pendente</b></span><button class="btn peq" type="button" data-adiant="' + p.id + '" data-pago="1">✓ Marcar como pago</button></div>';
@@ -841,7 +842,7 @@
     h += c("Nome", p.cliente_nome, "c2") + c("WhatsApp", p.cliente_whatsapp) + c("Vendedor", p.vendedor) + c("Atendente", p.atendente_nome);
     h += c("Endereço", (p.endereco || "") + (p.cep ? " — CEP " + String(p.cep).replace(/^(\d{5})(\d{3})$/, "$1-$2") : ""), "c2") + c("Bairro", p.bairro) + c("Referência", p.referencia);
     var adi = Math.min(p.adiantamento_centavos != null ? p.adiantamento_centavos : 5000, p.total_centavos || 0);
-    h += c("Adiantamento", reais(adi) + (p.adiantamento_pago ? " — PAGO ✓" : " — PENDENTE")) + c("Restante a pagar", reais(Math.max(0, (p.total_centavos || 0) - (p.adiantamento_pago ? adi : 0))));
+    if (p.adiantamento_centavos !== 0) h += c("Adiantamento", reais(adi) + (p.adiantamento_pago ? " — PAGO ✓" : " — PENDENTE")) + c("Restante a pagar", reais(Math.max(0, (p.total_centavos || 0) - (p.adiantamento_pago ? adi : 0))));
     h += c("Forma de pagamento", p.pagamento || "A combinar") + c("Pedido feito em", dataHora(p.criado_em));
     h += '</div>';
     if (p.obs_cozinha) h += '<div class="secao" style="background:#000;color:#fff">⚠ Observação para a cozinha</div><div class="campos duas"><div class="campo c2" style="min-height:40px;border-width:2px"><b style="font-size:12.5pt">' + esc(p.obs_cozinha) + '</b></div></div>';
@@ -878,7 +879,7 @@
   function precisaGerente(p, st){
     if (!p || ehGerente()) return false;
     if (st === "cancelado" && p.status !== "cancelado") return "Cancelar pedido é só com autorização do gerente.";
-    if (p.status === "aguardando" && ["confirmado","preparacao","pronto","saiu","concluido"].indexOf(st) >= 0 && !p.adiantamento_pago)
+    if (p.status === "aguardando" && ["confirmado","preparacao","pronto","saiu","concluido"].indexOf(st) >= 0 && p.adiantamento_centavos !== 0 && !p.adiantamento_pago)
       return "O Pix do adiantamento ainda não foi marcado como pago. Para confirmar mesmo assim, o gerente precisa autorizar.";
     return false;
   }
@@ -1687,6 +1688,7 @@
     h += '<div class="card"><h2>Retirada e entrega</h2><label for="cfgRet">Endereço para retirada</label><input type="text" id="cfgRet" value="' + esc(c.retirada_endereco || "") + '">';
     h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgEnt"' + (c.entrega_ativa ? " checked" : "") + '> Oferecer entrega</label>';
     h += '<label for="cfgEntAviso" style="margin-top:12px">Aviso sobre a entrega</label><input type="text" id="cfgEntAviso" value="' + esc(c.entrega_aviso || "") + '">';
+    h += '<label class="check" style="margin-top:12px"><input type="checkbox" id="cfgAdiant"' + (c.adiantamento_ativo !== false ? " checked" : "") + '> Pedir adiantamento de R$ 50 pelo Pix <span class="dica">desligado: o cliente não vê Pix nem adiantamento, e o pedido pode ser confirmado sem gerente</span></label>';
     h += '<label for="cfgPix" style="margin-top:12px">Chave Pix para o adiantamento de R$ 50 <span class="dica">aparece para o cliente no fim do pedido e no WhatsApp</span></label><input type="text" id="cfgPix" maxlength="80" value="' + esc(c.pix_chave || "") + '">';
     h += '<label for="cfgPrazoConf" style="margin-top:12px">Prazo de confirmação prometido ao cliente <span class="dica">aparece no fim do pedido e no acompanhamento. Ex.: "em até 30 minutos, no horário de funcionamento da loja"</span></label><input type="text" id="cfgPrazoConf" maxlength="120" value="' + esc(c.prazo_confirmacao || "") + '" placeholder="em até 30 minutos, no horário de funcionamento da loja">';
     h += '<label for="cfgVarPes" style="margin-top:12px">Variação esperada na pesagem (%) <span class="dica">a loja avisa "pode variar cerca de R$ X" nos produtos com valor estimado. Padrão: 10</span></label><input type="number" id="cfgVarPes" min="1" max="50" step="1" style="max-width:120px" value="' + esc(c.variacao_pesagem_pct != null ? c.variacao_pesagem_pct : "") + '" placeholder="10"></div>';
@@ -1806,7 +1808,7 @@
       ["tema", g("cfgTema")], ["ocultar_sem_foto", document.getElementById("cfgSemFoto").checked], ["dia_titulo", g("cfgDiaTit")], ["dia_subtitulo", g("cfgDiaSub")], ["dia_texto", g("cfgDiaTxt")],
       ["campanha_titulo", g("cfgTit")], ["campanha_subtitulo", g("cfgSub")], ["prefixo_pedido", g("cfgPref").toUpperCase() || "ENC"],
       ["prazo_aviso", g("cfgPrazo")], ["prazo_data", g("cfgPrazoData")], ["campanha_texto", g("cfgTexto")], ["datas", listasCfg.datas], ["horarios", listasCfg.horarios], ["faixas", faixasOk], ["pagamentos", listasCfg.pagamentos],
-      ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")], ["pix_chave", g("cfgPix")], ["prazo_confirmacao", g("cfgPrazoConf")], ["variacao_pesagem_pct", Number(g("cfgVarPes")) > 0 ? Number(g("cfgVarPes")) : 10], ["frete", frOk]
+      ["retirada_endereco", g("cfgRet")], ["entrega_ativa", document.getElementById("cfgEnt").checked], ["entrega_aviso", g("cfgEntAviso")], ["pix_chave", g("cfgPix")], ["adiantamento_ativo", document.getElementById("cfgAdiant").checked], ["prazo_confirmacao", g("cfgPrazoConf")], ["variacao_pesagem_pct", Number(g("cfgVarPes")) > 0 ? Number(g("cfgVarPes")) : 10], ["frete", frOk]
     ].map(function(x){ return {chave:x[0], valor:x[1]}; });
     sb.from("configuracoes").upsert(linhas).select().then(function(r){
       if (r.error) { msg.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }

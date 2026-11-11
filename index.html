@@ -1216,7 +1216,8 @@
   }
 
   /* ---------- etapa 3: conferir ---------- */
-  var ADIANTAMENTO = 5000; // R$ 50,00 em todo pedido
+  var ADIANTAMENTO = 5000; // R$ 50,00 em todo pedido (desligável: config adiantamento_ativo)
+  function temAdiant(){ return estado.config.adiantamento_ativo !== false; }
   function pixChave(){ return String(estado.config.pix_chave || "").trim(); }
   function pixFmt(k){ var d = soDigitos(k); return d.length === 14 && k.replace(/\D/g, "") === k ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : k; }
   function adiantTxt(){ return "Para confirmar o pedido, é necessário um adiantamento de " + reais(ADIANTAMENTO) + (pixChave() ? " pelo Pix. Na próxima tela você recebe o código Pix pronto, já com o valor: é só copiar e pagar no app do seu banco." : ". Nossa equipe envia as instruções de pagamento pelo WhatsApp."); }
@@ -1271,10 +1272,10 @@
     if (d.pagamento) h += linha("Pagamento", d.pagamento);
     if (d.observacoes) h += linha("Observações", d.observacoes);
     h += '<div class="acoes" style="margin:14px 0 0"><button type="button" class="btn-sec" data-ir="2">← Corrigir meus dados</button></div></div>';
-    h += '<p class="aviso aviso-adiant">💰 ' + esc(adiantTxt()) + '</p>';
+    if (temAdiant()) h += '<p class="aviso aviso-adiant">💰 ' + esc(adiantTxt()) + '</p>';
     h += '<label class="confirmo"><input type="checkbox" id="fConfirmo"> <span>Confirmo que revisei os produtos, quantidades e informações ' + (temaDia() ? 'do meu pedido' : 'da minha encomenda') + '.</span></label>';
     h += '<div class="erro-campo" id="eConf" hidden></div><div id="erroEnvio"></div>';
-    h += '<p class="aviso" style="margin-top:16px">Ao continuar, vamos abrir o WhatsApp com o seu pedido já escrito. <strong>É só apertar ENVIAR.</strong> Depois do adiantamento, confirmamos pelo WhatsApp ' + esc(prazoConfTxt()) + '.</p>';
+    h += '<p class="aviso" style="margin-top:16px">Ao continuar, vamos abrir o WhatsApp com o seu pedido já escrito. <strong>É só apertar ENVIAR.</strong> ' + (temAdiant() ? 'Depois do adiantamento, confirmamos' : 'Confirmamos') + ' pelo WhatsApp ' + esc(prazoConfTxt()) + '.</p>';
     h += '<div class="acoes"><button type="button" class="btn-principal btn-wpp" id="btnEnviar">' + iconeWpp() + ' Continuar no WhatsApp para enviar o pedido</button></div>';
     document.getElementById("app").innerHTML = h;
   }
@@ -1300,8 +1301,8 @@
       L.push("Frete" + (r.distancia_km != null ? " (" + kmBR(r.distancia_km) + " km)" : "") + ": " + (r.frete_status === "a_confirmar" ? "a confirmar" : r.frete_status === "gratis" ? "grátis" : reais(r.frete_centavos)));
     }
     L.push("*Total " + (r.total_estimado ? "estimado" : "final") + ": " + reais(r.total_centavos) + "*");
-    L.push("Adiantamento para confirmar: " + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + " — restante: " + reais(Math.max(0, r.total_centavos - ADIANTAMENTO)));
-    if (pixChave()) { L.push("Pix (CNPJ " + pixFmt(pixChave()) + ") — vou enviar o comprovante aqui."); L.push("Pix copia e cola: " + pixPayload(Math.min(ADIANTAMENTO, r.total_centavos), r.numero)); }
+    if (temAdiant()) L.push("Adiantamento para confirmar: " + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + " — restante: " + reais(Math.max(0, r.total_centavos - ADIANTAMENTO)));
+    if (temAdiant() && pixChave()) { L.push("Pix (CNPJ " + pixFmt(pixChave()) + ") — vou enviar o comprovante aqui."); L.push("Pix copia e cola: " + pixPayload(Math.min(ADIANTAMENTO, r.total_centavos), r.numero)); }
     if (r.total_estimado) { var vtm = variacaoTxt(r.itens); L.push("(valor final confirmado após a pesagem" + (vtm ? "; " + vtm : "") + ")"); }
     L.push("Recebimento: " + (d.modalidade === "entrega" ? "Entrega" : "Retirada na loja"));
     var dt = dataBR(d.data);
@@ -1365,14 +1366,14 @@
     h += '<div class="painel"><p style="margin:0 0 4px">Número do seu pedido:</p><div class="ok-num">' + esc(r.numero) + '</div>';
     h += '<div class="passo-final"><span class="b">1</span><div>Toque no botão verde abaixo. O WhatsApp vai abrir com o pedido já escrito.</div></div>';
     h += '<div class="passo-final"><span class="b">2</span><div>No WhatsApp, <strong>aperte ENVIAR</strong>.</div></div>';
-    h += '<div class="passo-final"><span class="b">3</span><div>Faça o <strong>adiantamento de ' + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + '</strong>' + (pixChave() ? ' com o código Pix abaixo e <strong>envie o comprovante</strong> no WhatsApp' : ' conforme a nossa equipe orientar pelo WhatsApp') + '.</div></div>';
+    if (temAdiant()) h += '<div class="passo-final"><span class="b">3</span><div>Faça o <strong>adiantamento de ' + reais(Math.min(ADIANTAMENTO, r.total_centavos)) + '</strong>' + (pixChave() ? ' com o código Pix abaixo e <strong>envie o comprovante</strong> no WhatsApp' : ' conforme a nossa equipe orientar pelo WhatsApp') + '.</div></div>';
     h += '<div class="passo-final"><span class="b">✓</span><div>Pronto! Nossa equipe confirma seu pedido pelo WhatsApp <strong>' + esc(prazoConfTxt()) + '</strong>.</div></div>';
     h += '</div>';
     h += '<div class="acoes"><a class="btn-principal btn-wpp" href="' + esc(url) + '" target="_blank" rel="noopener">' + iconeWpp() + ' Abrir o WhatsApp com meu pedido</a>';
     h += '<button type="button" class="btn-sec" id="btnCopiar">Copiar o texto do pedido</button><div id="copiado" class="aviso" hidden>Texto copiado! Cole no WhatsApp da Di Mercatto e envie.</div></div>';
-    h += blocoPix(Math.min(ADIANTAMENTO, r.total_centavos), r.numero);
+    if (temAdiant()) h += blocoPix(Math.min(ADIANTAMENTO, r.total_centavos), r.numero);
     var vt = variacaoTxt(r.itens);
-    h += '<p class="aviso">Seu pedido só é confirmado depois que você enviar a mensagem e fizer o adiantamento. A confirmação chega pelo WhatsApp ' + esc(prazoConfTxt()) + '.' + (r.total_estimado && vt ? ' O total de ' + esc(reais(r.total_centavos)) + ' é estimado: ' + esc(vt) + ' depois da pesagem. Se mudar, avisamos antes de você receber.' : '') + '</p>';
+    h += '<p class="aviso">Seu pedido só é confirmado depois que você enviar a mensagem' + (temAdiant() ? ' e fizer o adiantamento' : '') + '. A confirmação chega pelo WhatsApp ' + esc(prazoConfTxt()) + '.' + (r.total_estimado && vt ? ' O total de ' + esc(reais(r.total_centavos)) + ' é estimado: ' + esc(vt) + ' depois da pesagem. Se mudar, avisamos antes de você receber.' : '') + '</p>';
     if (r.token) h += '<div class="painel"><h2 style="margin-top:0">Acompanhe seu pedido</h2><p style="margin:0 0 12px">Veja as etapas e qualquer alteração (peso, quantidade, valor). O link também vai na mensagem do WhatsApp.</p><a class="btn-sec" style="display:flex;justify-content:center;align-items:center;text-decoration:none" href="' + esc(linkAcompanhar(r.token)) + '" target="_blank" rel="noopener">Acompanhar meu pedido →</a></div>';
     h += '<div class="acoes"><button type="button" class="btn-sec" id="btnNovo">Fazer outro pedido</button></div>';
     document.getElementById("app").innerHTML = h;

@@ -1197,7 +1197,7 @@
   function pixChaveBr(){ var k = pixChave(), d = soDigitos(k); if (/^\d{10,11}$/.test(k)) return "+55" + d; return k; } // telefone precisa do +55; CNPJ, CPF, e-mail e aleatória vão como estão
   function pixPayload(valorCentavos, numero){
     var txid = String(numero || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 25) || "***";
-    var p = pixCampo("00", "01") + pixCampo("26", pixCampo("00", "br.gov.bcb.pix") + pixCampo("01", pixChaveBr())) + pixCampo("52", "0000") + pixCampo("53", "986") + pixCampo("54", (valorCentavos / 100).toFixed(2)) + pixCampo("58", "BR") + pixCampo("59", "DI MERCATTO") + pixCampo("60", "SALVADOR") + pixCampo("62", pixCampo("05", txid)) + "6304";
+    var p = pixCampo("00", "01") + pixCampo("26", pixCampo("00", "br.gov.bcb.pix") + pixCampo("01", pixChaveBr())) + pixCampo("52", "0000") + pixCampo("53", "986") + pixCampo("54", (valorCentavos / 100).toFixed(2)) + pixCampo("58", "BR") + pixCampo("59", "ECOSHOP COMERCIO DE ALIME") + pixCampo("60", "SALVADOR") + pixCampo("62", pixCampo("05", txid)) + "6304";
     return p + pixCrc(p);
   }
   function pixQrSvg(payload){
@@ -1209,7 +1209,7 @@
     var h = '<div class="pix-box"><div class="pix-tit">Pix do adiantamento: <b>' + reais(valor) + '</b> <span class="dica">(já com o valor, sem digitar nada)</span></div>';
     h += '<button type="button" class="btn-principal" id="btnPix" data-pix="' + esc(pl) + '">Copiar código Pix</button><div class="aviso" id="pixOk" hidden>Código copiado! Abra o app do seu banco, escolha <b>Pix → Pix Copia e Cola</b>, cole e confirme.</div>';
     if (qr) h += '<div class="pix-qr">' + qr + '<small>Em outro aparelho? Aponte a câmera do app do banco para o QR Code.</small></div>';
-    h += '<div class="pix-id">Favorecido: Di Mercatto · identificador <b>' + esc(String(numero || "").replace(/[^A-Za-z0-9]/g, "")) + '</b> (aparece no seu comprovante)</div>';
+    h += '<div class="pix-id">Favorecido: Ecoshop Comércio de Alimentos e Serviços Ltda (Di Mercatto) · identificador <b>' + esc(String(numero || "").replace(/[^A-Za-z0-9]/g, "")) + '</b> (aparece no seu comprovante)</div>';
     h += '<div class="pix-chave">Se preferir, chave Pix (CNPJ): <b id="pixTxt">' + esc(pixFmt(pixChave())) + '</b> <button type="button" class="btn-link" id="btnPixChave">copiar chave</button></div></div>';
     return h;
   }

@@ -528,14 +528,15 @@
   function subtotal(p, q){ return Math.round((porUn(p) ? kgDe(p, q) : q) * p.preco_centavos); }
   function soDigitos(s){ return String(s||"").replace(/\D/g,""); }
   function guardar(){
-    try { localStorage.setItem(CHAVE_CARRINHO, JSON.stringify({carrinho:estado.carrinho, dados:estado.dados, vendedor:estado.vendedor})); } catch(e){}
+    try { localStorage.setItem(CHAVE_CARRINHO, JSON.stringify({carrinho:estado.carrinho, dados:estado.dados, vendedor:estado.vendedor, vendedor_em:estado.vendedorEm || null})); } catch(e){}
   }
   function recuperar(){
     try {
       var s = JSON.parse(localStorage.getItem(CHAVE_CARRINHO) || "null");
       if (s && s.carrinho) estado.carrinho = s.carrinho;
       if (s && s.dados) for (var k in estado.dados) if (s.dados[k] != null) estado.dados[k] = s.dados[k];
-      if (s && s.vendedor) estado.vendedor = s.vendedor;
+      // vendedor do link vale por 12 horas e só até o próximo pedido enviado
+      if (s && s.vendedor && s.vendedor_em && Date.now() - s.vendedor_em < 12 * 3600 * 1000) { estado.vendedor = s.vendedor; estado.vendedorEm = s.vendedor_em; }
     } catch(e){}
   }
   /* sacola guardada de outra visita: continuar ou começar novo */
@@ -641,7 +642,7 @@
   function carregar(){
     var p = new URLSearchParams(location.search);
     recuperar();
-    if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); guardar(); }
+    if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); estado.vendedorEm = Date.now(); guardar(); }
     Promise.all([
       api("categorias?select=id,nome,icone,ordem,pedido_de,pedido_ate,layout,aviso&ativo=eq.true&order=ordem.asc,nome.asc"),
       api("produtos?select=codigo,nome,descricao,categoria_id,unidade,preco_centavos,minimo,incremento,maximo,valor_estimado,foto_url,ordem,destaque,selo,subcategoria,esgotado,antecedencia_dias,peso_unidade_g,opcoes,dias_semana,pedido_ate,pedido_de,composicao&ativo=eq.true&order=ordem.asc,nome.asc"),
@@ -1347,6 +1348,7 @@
       estado.resultado = r;
       estado.carrinho = {};
       d.observacoes = "";
+      estado.vendedor = null; estado.vendedorEm = null;
       guardar();
       try { sessionStorage.setItem("dm_ultimo_pedido", JSON.stringify(r)); } catch(e){}
       irPara(4);

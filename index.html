@@ -676,6 +676,20 @@
   }
   function arred(n){ return Math.round(n*1000)/1000; }
   function subtotal(p, q){ return Math.round((porUn(p) ? kgDe(p, q) : q) * p.preco_centavos); }
+  // valida celular brasileiro: DDD válido + 9 + 8 números (aceita +55 e 0 na frente)
+  var DDDS = [11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,91,92,93,94,95,96,97,98,99];
+  function celularBR(v){
+    var d = String(v || "").replace(/\D/g, "");
+    if (!d) return {erro:"Falta informar seu WhatsApp com DDD. Ex.: (71) 98765-4321"};
+    if ((d.length === 12 || d.length === 13) && d.slice(0, 2) === "55") d = d.slice(2);
+    if (d.length === 12 && d.charAt(0) === "0") d = d.slice(1);
+    if (d.length < 11) return {erro: d.length === 10 && d.charAt(2) !== "9" ? "Esse número parece ser de telefone fixo. Informe um celular com WhatsApp. Ex.: (71) 98765-4321" : "Número incompleto. Informe DDD + celular com 9 dígitos. Ex.: (71) 98765-4321"};
+    if (d.length > 11) return {erro:"Número com dígitos a mais. Confira. Ex.: (71) 98765-4321"};
+    if (DDDS.indexOf(+d.slice(0, 2)) < 0) return {erro:"DDD " + d.slice(0, 2) + " não existe. Confira o DDD. Ex.: (71) 98765-4321"};
+    if (d.charAt(2) !== "9" || d.charAt(3) === "0") return {erro:"Celular deve começar com 9 depois do DDD. Ex.: (71) 98765-4321"};
+    if (/^(\d)\1{7}$/.test(d.slice(3))) return {erro:"Esse número não parece válido. Confira seu WhatsApp."};
+    return {num:d};
+  }
   function soDigitos(s){ return String(s||"").replace(/\D/g,""); }
   function guardar(){
     try { localStorage.setItem(CHAVE_CARRINHO, JSON.stringify({carrinho:estado.carrinho, dados:estado.dados, vendedor:estado.vendedor, vendedor_em:estado.vendedorEm || null})); } catch(e){}
@@ -1353,8 +1367,8 @@
     var partesNome = d.nome.trim().split(/\s+/).filter(function(x){ return x.length >= 2; });
     if (d.nome.trim().length < 2) erro("eNome","fNome","Falta informar seu nome.");
     else if (partesNome.length < 2) erro("eNome","fNome","Informe nome e sobrenome. Ex.: Maria Souza");
-    var dig = soDigitos(d.whatsapp);
-    if (dig.length < 10 || dig.length > 13) erro("eWpp","fWpp","Confira seu WhatsApp com DDD. Ex.: (71) 98765-4321");
+    var cw = celularBR(d.whatsapp);
+    if (cw.erro) erro("eWpp","fWpp",cw.erro);
     if (!d.modalidade) erro("eMod",null,"Escolha se vai retirar na loja ou receber em casa.");
     if (soDigitos(d.cep).length !== 8) erro("eCep","fCep","Informe o CEP com 8 números.");
     if (d.rua.length < 3) erro("eRua","fRua","Falta informar a rua.");

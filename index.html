@@ -448,6 +448,10 @@
   body.molduras-vinho .vitrine{text-align:center;padding-top:120px}
   body.molduras-vinho .vitrine .conteudo{display:flex;flex-direction:column;align-items:center}
   body.molduras-vinho .vitrine h1,body.molduras-vinho .vitrine p.txt{max-width:30em;margin-left:auto;margin-right:auto}
+  /* Destaques do Natal em vinho (prévia ?dest=vinho) */
+  body.dest-vinho .grade-prod.destaques .produto{border-color:var(--moldura,#6B1424)}
+  body.dest-vinho .grade-prod.destaques .produto .arte:not(.com-foto){background:radial-gradient(110% 90% at 30% 20%,#A33447 0%,#6B1424 55%,#3D0A14 100%)!important}
+  body.dest-vinho .grade-prod.destaques .produto .preco{color:#6B1424}
   body.molduras-vinho .vitrine .ramo{opacity:.5;width:150px;height:160px;right:-24px}
   body.molduras-vinho .vitrine .conteudo{z-index:1}
   body.molduras-vinho .vitrine .botoes{justify-content:center;width:100%;max-width:440px;margin-left:auto;margin-right:auto}
@@ -790,6 +794,7 @@
       estado.produtos = estado.produtos.filter(function(p){ return !(p.dias_semana && p.dias_semana.length) || p.dias_semana.indexOf(hojeDw) >= 0; });
       document.body.classList.toggle("tema-dia", temaDia());
       document.body.classList.toggle("tema-noite", temaNoite());
+      document.body.classList.toggle("dest-vinho", !temaNoite() && (estado.config.destaque_vinho === true || /[?&]dest=vinho\b/.test(location.search)));
       document.body.classList.toggle("molduras-vinho", !temaDia() && !temaNoite() && (estado.config.tema === "natal_vinho" || /[?&]molduras=vinho\b/.test(location.search)));
       document.body.classList.toggle("tema-vinho", temaNoite() && (estado.config.tema === "noite_vinho" || /[?&]cor=vinho\b/.test(location.search)));
       document.body.classList.toggle("tema-lilas", temaNoite() && (estado.config.tema === "noite_lilas" || /[?&]cor=lilas\b/.test(location.search)));

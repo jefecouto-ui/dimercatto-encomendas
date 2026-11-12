@@ -431,6 +431,94 @@
   .busca-fixa::before{content:"";position:absolute;inset:-8px -16px;background:var(--creme-claro);z-index:-1}
   .cat-tile span{white-space:nowrap}
   [hidden]{display:none!important}
+
+  /* ===== Tema "Noite de Natal" (escuro, dourado) ===== */
+  body.tema-noite{
+    --vinho:#D9B65F; --vinho-escuro:#B8933F; --creme:#33261F; --creme-claro:#17100E;
+    --laranja:#D9B65F; --dourado:#D9B65F; --dourado-claro:#8E7438; --verde:#9BC5A3;
+    --texto:#F5EBDD; --texto-suave:#B9A795; --borda:#3A2C25; --branco:#241A16;
+    --card:#241A16; --card2:#2C211C; --ouro:#D9B65F; --ouro2:#F0D9A0; --tinta:#1A120F;
+    background:radial-gradient(120% 60% at 50% 0%,#2A1C17 0%,#17100E 55%) fixed,#17100E;
+  }
+  body.tema-noite header.topo{background:rgba(23,16,14,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:var(--texto);border-bottom:1px solid #3A2C25;box-shadow:none}
+  body.tema-noite .marca{font-family:"Playfair Display",Georgia,serif;font-weight:700;font-size:25px;color:var(--ouro2);letter-spacing:.2px}
+  body.tema-noite .ajuda{background:transparent;color:var(--ouro2);border:1.5px solid var(--ouro)}
+  body.tema-noite .faixa-teste{background:#3A2E12;color:#F0D9A0}
+  /* capa */
+  body.tema-noite .vitrine{background:transparent;text-align:center;align-items:center;justify-content:center;padding:54px 22px 34px;min-height:0}
+  body.tema-noite .vitrine::before{background:radial-gradient(60% 70% at 50% 40%,rgba(217,182,95,.16) 0%,rgba(217,182,95,0) 70%)}
+  body.tema-noite .vitrine .moldura{border-color:rgba(217,182,95,.35)}
+  body.tema-noite .vitrine .moldura+.moldura{border-color:rgba(217,182,95,.15)}
+  body.tema-noite .vitrine .ramo,body.tema-noite .vitrine .estrela{display:none}
+  body.tema-noite .grade-kits .kit .arte{height:64px}
+  body.tema-noite .vitrine .conteudo{display:flex;flex-direction:column;align-items:center}
+  body.tema-noite .vitrine .conteudo::before{content:"✦";display:block;color:var(--ouro);font-size:18px;line-height:1;padding:0 64px;margin-bottom:6px;
+    background:linear-gradient(var(--ouro),var(--ouro)) left center/52px 1px no-repeat,linear-gradient(var(--ouro),var(--ouro)) right center/52px 1px no-repeat}
+  body.tema-noite .vitrine .chip{background:rgba(217,182,95,.14);color:var(--ouro2);border:1px solid rgba(217,182,95,.45)}
+  body.tema-noite .vitrine .script{font-family:"Playfair Display",Georgia,serif;font-weight:700;font-size:clamp(34px,10vw,52px);line-height:1.05;color:var(--ouro2);margin-top:10px;
+    background:linear-gradient(180deg,#F7E4B4 0%,#D9B65F 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  body.tema-noite .vitrine h1{font-family:"Playfair Display",Georgia,serif;font-style:italic;font-weight:500;font-size:21px;line-height:1.3;color:#E9DCCB;margin-top:8px;max-width:22em}
+  body.tema-noite .vitrine p.txt{color:#B9A795;font-size:15.5px;max-width:30em}
+  body.tema-noite .vitrine .botoes{justify-content:center;width:100%;max-width:420px}
+  body.tema-noite .vitrine .b1{background:linear-gradient(180deg,#E3C473 0%,#C9A24B 100%);color:var(--tinta);box-shadow:0 10px 26px rgba(217,182,95,.25)}
+  body.tema-noite .confianca{background:transparent;color:var(--ouro);border-top:1px solid #3A2C25;border-bottom:1px solid #3A2C25;letter-spacing:2px;text-transform:uppercase;font-size:13px}
+  /* títulos */
+  body.tema-noite .tit-sec h2{color:var(--ouro2)}
+  body.tema-noite .dica{color:var(--texto-suave)}
+  body.tema-noite .busca input{background:var(--card);color:var(--texto);border-color:#3A2C25}
+  body.tema-noite .busca{color:var(--texto-suave)}
+  body.tema-noite .busca-fixa::before{background:#17100E}
+  /* categorias */
+  body.tema-noite .cat-tile{background:linear-gradient(160deg,#2C211C 0%,#201714 100%)!important;border:1px solid #3A2C25;color:var(--texto)}
+  body.tema-noite .cat-tile svg{color:var(--ouro)}
+  body.tema-noite .cat-tile span{color:var(--texto-suave)}
+  body.tema-noite .barra-cat{background:#17100E;border-color:#3A2C25}
+  body.tema-noite .barra-cat .voltar-ini{background:var(--ouro);color:var(--tinta)}
+  body.tema-noite .cat-btn{background:transparent;color:var(--ouro2);border-color:#5A4625}
+  body.tema-noite .cat-btn[aria-current],body.tema-noite .cat-btn.ativa{background:var(--ouro);color:var(--tinta)}
+  body.tema-noite .aviso-cat{background:rgba(217,182,95,.10);border-color:rgba(217,182,95,.45);color:var(--ouro2)}
+  /* produtos */
+  body.tema-noite .produto,body.tema-noite .lista-prod,body.tema-noite .painel,body.tema-noite .lateral,body.tema-noite .opc-linha,body.tema-noite .opcao,body.tema-noite .aviso,body.tema-noite .aviso-prazo,body.tema-noite .etapas{background:var(--card);border-color:#3A2C25;color:var(--texto);box-shadow:none}
+  body.tema-noite .produto{border:1px solid #3A2C25}
+  body.tema-noite .produto .arte{background:linear-gradient(160deg,#33261F 0%,#241A16 100%)!important;color:var(--ouro)}
+  body.tema-noite .produto .arte.com-foto{background:#241A16!important;border-color:#3A2C25}
+  body.tema-noite .produto .selo{background:var(--ouro);color:var(--tinta)}
+  body.tema-noite .preco,body.tema-noite .lista-prod .l-preco{color:var(--ouro2)}
+  body.tema-noite .lista-prod .linha{border-color:#3A2C25}
+  body.tema-noite .lista-prod .linha.no-pedido,body.tema-noite .produto.no-pedido{background:#2E2219;box-shadow:inset 4px 0 0 var(--ouro)}
+  body.tema-noite .grade-kits .produto.kit{border-color:#6B5628}
+  body.tema-noite .grade-kits .produto.kit.no-pedido{border-color:var(--ouro);box-shadow:0 0 0 1px var(--ouro)}
+  body.tema-noite .compo{background:#1D1512;border-color:#3A2C25}
+  body.tema-noite .compo li{border-color:#3A2C25}
+  body.tema-noite .compo li::before{color:var(--ouro)}
+  body.tema-noite .compo .qt{color:var(--ouro2)}
+  body.tema-noite .compo-tit{color:var(--ouro)}
+  /* quantidade */
+  body.tema-noite .qtd button{background:transparent;border-color:#6B5628;color:var(--ouro2)}
+  body.tema-noite .qtd button[data-acao=mais]{background:linear-gradient(180deg,#E3C473 0%,#C9A24B 100%);border-color:#C9A24B;color:var(--tinta)}
+  body.tema-noite .lista-prod .linha .ctrl .qtd .valor small{color:var(--ouro2)}
+  body.tema-noite .qtd input.qtd-in{background:#1D1512;color:var(--texto);border-color:#3A2C25}
+  /* botões e barra */
+  body.tema-noite .btn-principal{background:linear-gradient(180deg,#E3C473 0%,#C9A24B 100%);color:var(--tinta)}
+  body.tema-noite .btn-principal:disabled{background:#3A2C25;color:#7E6C5C}
+  body.tema-noite .btn-sec{background:transparent;color:var(--ouro2);border-color:#6B5628}
+  body.tema-noite .barra{background:#241A16;border:1px solid #4A3A2E;box-shadow:0 14px 30px rgba(0,0,0,.55)}
+  body.tema-noite .barra .btn-principal,body.tema-noite .folha-pe .btn-principal{background:linear-gradient(180deg,#E3C473 0%,#C9A24B 100%);color:var(--tinta)}
+  body.tema-noite .barra .btn-principal:disabled{background:#3A2C25;color:#7E6C5C}
+  body.tema-noite .barra .sacola b{background:var(--ouro);color:var(--tinta);border-color:#241A16}
+  body.tema-noite .folha{background:#1F1613;color:var(--texto)}
+  body.tema-noite .folha-x{background:#33261F;color:var(--texto)}
+  body.tema-noite .item-sacola .tirar{background:#3A2420;color:#F2B8A8}
+  /* formulários */
+  body.tema-noite input[type=text],body.tema-noite input[type=tel],body.tema-noite input[type=date],body.tema-noite textarea,body.tema-noite select{background:#1D1512;color:var(--texto);border-color:#3E2F27;color-scheme:dark}
+  body.tema-noite .opcao[aria-pressed=true]{background:#33261F;color:var(--ouro2);border-color:var(--ouro);box-shadow:inset 0 0 0 1px var(--ouro)}
+  body.tema-noite .confirmo{background:#2C211C}
+  body.tema-noite .etapas .num{background:#241A16;border-color:#4A3A2E}
+  body.tema-noite .etapas li.feita .num,body.tema-noite .etapas li.atual .num{background:var(--ouro);border-color:var(--ouro);color:var(--tinta)}
+  body.tema-noite .msg-erro{background:#3A1A16;color:#F2B8A8}
+  body.tema-noite .fim-marca q{color:var(--texto-suave)}
+  body.tema-noite a{color:var(--ouro2)}
+  body.tema-noite .vitrine a.b1{color:var(--tinta)}
 </style>
 </head>
 <body>
@@ -660,6 +748,8 @@
       var hojeDw = new Date().getDay();
       estado.produtos = estado.produtos.filter(function(p){ return !(p.dias_semana && p.dias_semana.length) || p.dias_semana.indexOf(hojeDw) >= 0; });
       document.body.classList.toggle("tema-dia", temaDia());
+      document.body.classList.toggle("tema-noite", temaNoite());
+      if (temaNoite()) { var mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = "#17100E"; }
       // limpa do carrinho o que não existe mais
       Object.keys(estado.carrinho).forEach(function(c){ var pp = produtoPorCodigo(codDe(c)), op = opDe(c); if (!pp || pp.esgotado || (temOpcoes(pp) ? !op || pp.opcoes.itens.indexOf(op) < 0 : !!op)) delete estado.carrinho[c]; else if (porUn(pp) && estado.carrinho[c].q % 1 !== 0) estado.carrinho[c].q = Math.max(pp.minimo, Math.round(estado.carrinho[c].q)); });
       var ajuda = linkWhats(temaDia() ? "Olá! Gostaria de ajuda para fazer um pedido." : "Olá! Gostaria de ajuda para fazer uma encomenda.");
@@ -710,6 +800,8 @@
     if (!location.hash && estado.etapa === 1 && estado.cat != null) { estado.cat = null; irPara(1); var c = document.getElementById("cardapio"); if (c) c.scrollIntoView(); }
   });
   function temaDia(){ return estado.config.tema === "dia_a_dia"; }
+  // tema escuro "Noite de Natal": painel (tema = "noite") ou prévia pelo link ?tema=noite
+  function temaNoite(){ return !temaDia() && (estado.config.tema === "noite" || /[?&]tema=noite\b/.test(location.search)); }
   function catsComProdutos(){ return estado.categorias.filter(function(c){ return estado.produtos.some(function(p){ return p.categoria_id === c.id; }); }); }
   function corCat(id){ var cs = estado.categorias; for (var i=0;i<cs.length;i++) if (cs[i].id === id) return i % 4; return 0; }
   function iconeCat(id){ var c = estado.categorias.filter(function(x){ return x.id === id; })[0]; return c ? c.icone : "talheres"; }

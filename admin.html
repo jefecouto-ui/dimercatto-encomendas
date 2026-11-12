@@ -181,6 +181,7 @@
   #dlgGerente{max-width:420px;width:calc(100% - 32px);padding:22px;border:0;border-radius:16px}
   #dlgGerente h2{font-size:19px;margin:0 0 8px}
   #dlgGerente input{width:100%}
+  #dlgGerente .senha-oculta{-webkit-text-security:disc;text-security:disc;font-family:text-security-disc,inherit;letter-spacing:2px}
 </style>
 </head>
 <body>
@@ -916,10 +917,11 @@
       if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "dlgGerente"; document.body.appendChild(dlg); }
       dlg.innerHTML = '<h2>🔒 ' + esc(titulo || "Autorização do gerente") + '</h2><p class="dica" style="margin:0 0 12px">' + esc(motivo) + '</p>' +
         '<label for="gEmail">Gerente</label><select id="gEmail"><option value="">Carregando…</option></select>' +
-        '<label for="gSenha" style="margin-top:10px">Senha do gerente</label><input type="password" id="gSenha" autocomplete="new-password">' +
+        '<label for="gSenha" style="margin-top:10px">Senha do gerente</label><input type="text" id="gSenha" class="senha-oculta" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other">' +
         '<div class="msg erro" id="gErro" hidden style="margin-top:10px"></div>' +
         '<div class="barra-acoes" style="margin-top:14px"><button type="button" class="btn sec" id="gCancelar">Cancelar</button><button type="button" class="btn" id="gOk">Autorizar</button></div>';
-      var fim = function(){ dlg.close(); };
+      // campo de senha "disfarçado" (texto com bolinhas) para o navegador não oferecer salvar/atualizar a senha
+      var fim = function(){ var c = dlg.querySelector("#gSenha"); if (c) c.value = ""; dlg.close(); };
       dlg.querySelector("#gCancelar").onclick = function(){ fim(); falhou(null); };
       dlg.querySelector("#gOk").onclick = function(){
         var em = dlg.querySelector("#gEmail").value.trim(), se = dlg.querySelector("#gSenha").value, er = dlg.querySelector("#gErro"), bt = dlg.querySelector("#gOk");
@@ -932,6 +934,7 @@
           fim(); ok(sb2);
         });
       };
+      if (!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security", "disc"))) dlg.querySelector("#gSenha").type = "password"; // navegador sem bolinhas: usa campo de senha normal
       dlg.showModal();
       // lista quem pode autorizar (gerentes e administradores) pelo nome
       sb.from("equipe").select("email,nome,papel").in("papel", ["gerente","admin"]).order("nome").then(function(q){

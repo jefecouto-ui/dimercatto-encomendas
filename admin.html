@@ -475,7 +475,7 @@
         document.getElementById("usuarioEmail").textContent = eu.nome || u.email;
         document.getElementById("usuario").hidden = false;
         document.getElementById("abas").hidden = false; document.getElementById("abaFin").hidden = !ehGerente();
-        return carregarBase().then(function(){ abrirAba(S.aba); iniciarAlertas(); });
+        return Promise.all([carregarBase(), carregarVendNomes()]).then(function(){ abrirAba(S.aba); iniciarAlertas(); });
       });
     });
   }
@@ -554,7 +554,7 @@
         return '<tr><td><span class="fin-st" style="background:' + s[2] + '"></span>' + s[1] + '</td><td class="n">' + l.length + '</td><td class="n">' + reais(soma(l, function(p){ return p.total_centavos; })) + '</td></tr>';
       }).join("") + '</tbody></table></div></div>';
       // por vendedor
-      var porV = {}; validos.forEach(function(p){ var v = p.vendedor || "Sem vendedor (site)"; porV[v] = porV[v] || {n:0, v:0}; porV[v].n++; porV[v].v += p.total_centavos; });
+      var porV = {}; validos.forEach(function(p){ var v = nomeVend(p.vendedor) || "Sem vendedor (site)"; porV[v] = porV[v] || {n:0, v:0}; porV[v].n++; porV[v].v += p.total_centavos; });
       var vs = Object.keys(porV).sort(function(a, b){ return porV[b].v - porV[a].v; });
       h += '<div class="fin-2"><div class="card"><h2>Por vendedor</h2><table class="fin-tab"><thead><tr><th>Vendedor</th><th class="n">Pedidos</th><th class="n">Valor</th><th class="n">Ticket</th></tr></thead><tbody>' + vs.map(function(v){
         return '<tr><td>' + esc(v) + '</td><td class="n">' + porV[v].n + '</td><td class="n">' + reais(porV[v].v) + '</td><td class="n">' + reais(Math.round(porV[v].v / porV[v].n)) + '</td></tr>';
@@ -580,7 +580,7 @@
       box.innerHTML = h;
       document.getElementById("finCsv").onclick = function(){
         var L = [["Pedido","Cliente","Situação","Retirada","Vendedor","Total (R$)","Estimado"].join(";")];
-        ps.forEach(function(p){ L.push([p.numero, (p.cliente_nome || "").replace(/;/g, ","), p.status, p.data_desejada, p.vendedor || "", (p.total_centavos / 100).toFixed(2).replace(".", ","), p.total_estimado ? "sim" : "não"].join(";")); });
+        ps.forEach(function(p){ L.push([p.numero, (p.cliente_nome || "").replace(/;/g, ","), p.status, p.data_desejada, nomeVend(p.vendedor), (p.total_centavos / 100).toFixed(2).replace(".", ","), p.total_estimado ? "sim" : "não"].join(";")); });
         var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + L.join("\r\n")], {type:"text/csv;charset=utf-8"})); a.download = "financeiro_" + (filtroFin.de || "inicio") + "_" + (filtroFin.ate || "hoje") + ".csv"; a.click();
       };
     });
@@ -624,7 +624,7 @@
       lista.forEach(function(a){
         var p = a.pedidos || {};
         h += '<div class="card aval' + (a.nota <= 3 ? ' baixa' : '') + (a.lida ? ' lida' : '') + '"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div>' + est(a.nota) + ' <b>' + ["","Muito ruim","Ruim","Regular","Bom","Excelente"][a.nota] + '</b></div><div class="meta">' + esc(dataHora(a.criado_em)) + '</div></div>';
-        h += '<div class="meta" style="margin-top:4px"><b>' + esc(p.numero || "") + '</b> · ' + esc(p.cliente_nome || "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' em ' + esc(dataBR(p.data_desejada)) + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
+        h += '<div class="meta" style="margin-top:4px"><b>' + esc(p.numero || "") + '</b> · ' + esc(p.cliente_nome || "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' em ' + esc(dataBR(p.data_desejada)) + (p.vendedor ? ' · vendedor: ' + esc(nomeVend(p.vendedor)) : '') + '</div>';
         var asp = ASPECTOS_AV.filter(function(x){ return a[x[0]]; });
         if (asp.length) h += '<div class="meta" style="margin-top:6px">' + asp.map(function(x){ return x[1] + ': ' + est(a[x[0]]); }).join(" &nbsp;·&nbsp; ") + '</div>';
         if (a.comentario) h += '<div class="coment">“' + esc(a.comentario) + '”</div>';
@@ -728,7 +728,7 @@
     h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + '</div></div>';
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += blocoAtendente(p) + blocoAdiant(p);
-    h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
+    h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(nomeVend(p.vendedor)) : '') + '</div>';
     if (p.endereco) h += '<div class="meta">' + (p.modalidade === "entrega" ? '' : '🏠 ') + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.cep ? ' — CEP ' + esc(p.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")) : '') + (p.frete_status === "a_confirmar" ? ' · <b style="color:var(--erro)">frete a confirmar</b>' : '') + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
     h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button>' + ((p.pedido_itens || []).some(function(i){ return i.unidade === "kg"; }) ? '<button class="btn sec" type="button" data-pesar="' + p.id + '" title="Digitar o peso real de cada item (ex.: 1,250 kg)">⚖ Informar peso</button>' : '') + '<button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button> <button class="btn perigo" type="button" data-excluir="' + p.id + '">🗑 Excluir</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
@@ -753,6 +753,11 @@
     return '<div class="atend meu"><span>👤 Atendendo: <b>' + esc(p.atendente_nome) + '</b>' + (hora ? ' <small>desde ' + hora + '</small>' : '') + '</span><span>' +
       '<button class="btn sec peq" type="button" data-assumir="' + p.id + '">Trocar</button> <button class="btn sec peq" type="button" data-assumir="' + p.id + '" data-liberar="1">Liberar</button></span></div>';
   }
+  var vendNomes = {};
+  function carregarVendNomes(){
+    return sb.from("vendedores").select("codigo,nome").then(function(r){ (r.data || []).forEach(function(v){ if (v.codigo) vendNomes[String(v.codigo).toLowerCase()] = v.nome || v.codigo; }); }, function(){});
+  }
+  function nomeVend(c){ if (!c) return ""; return vendNomes[String(c).toLowerCase()] || c; }
   var nomesAtend = null;
   function carregarNomesAtend(){
     if (nomesAtend) return Promise.resolve(nomesAtend);
@@ -970,7 +975,7 @@
     h += '<div class="destaque"><span>' + (entrega ? 'ENTREGA' : 'RETIRADA NA LOJA') + '</span><span>' + esc(dt.charAt(0).toUpperCase() + dt.slice(1)) + (p.horario ? ' — ' + esc(p.horario) : '') + '</span></div>';
     h += '<div class="colunas"><div class="col-esq">';
     h += '<div class="secao">Cliente</div><div class="campos duas">';
-    h += c("Nome", p.cliente_nome, "c2") + c("WhatsApp", p.cliente_whatsapp) + c("Vendedor", p.vendedor) + c("Atendente", p.atendente_nome);
+    h += c("Nome", p.cliente_nome, "c2") + c("WhatsApp", p.cliente_whatsapp) + c("Vendedor", nomeVend(p.vendedor)) + c("Atendente", p.atendente_nome);
     h += c("Endereço", (p.endereco || "") + (p.cep ? " — CEP " + String(p.cep).replace(/^(\d{5})(\d{3})$/, "$1-$2") : ""), "c2") + c("Bairro", p.bairro) + c("Referência", p.referencia);
     var adi = Math.min(p.adiantamento_centavos != null ? p.adiantamento_centavos : 5000, p.total_centavos || 0);
     if (p.adiantamento_centavos !== 0) h += c("Adiantamento", reais(adi) + (p.adiantamento_pago ? " — PAGO ✓" : " — PENDENTE")) + c("Restante a pagar", reais(Math.max(0, (p.total_centavos || 0) - (p.adiantamento_pago ? adi : 0))));

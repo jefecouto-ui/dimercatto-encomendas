@@ -522,9 +522,47 @@
     ["finDe","finAte"].forEach(function(id){ document.getElementById(id).onchange = function(){ filtroFin.de = document.getElementById("finDe").value; filtroFin.ate = document.getElementById("finAte").value; carregarFin(); }; });
     carregarFin();
   }
+  function durTxt(s){
+    if (s == null) return "—";
+    if (s < 60) return "menos de 1 min";
+    if (s < 3600) return Math.round(s / 60) + " min";
+    var h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h + "h" + (m < 10 ? "0" : "") + m;
+  }
+  function mediana(a){ if (!a.length) return null; var b = a.slice().sort(function(x, y){ return x - y; }), k = Math.floor(b.length / 2); return b.length % 2 ? b[k] : Math.round((b[k - 1] + b[k]) / 2); }
+  function montarTempoFin(validos){
+    var el = document.getElementById("finTempo"); if (!el) return;
+    var com = validos.filter(function(p){ return p.tempo_total_s != null; });
+    var linha = function(rot, l){
+      var t = l.map(function(p){ return p.tempo_total_s; }), sc = l.map(function(p){ return p.tempo_sacola_s; }).filter(function(x){ return x != null; });
+      return '<tr><td>' + rot + '</td><td class="n">' + l.length + '</td><td class="n">' + durTxt(mediana(t)) + '</td><td class="n">' + durTxt(mediana(sc)) + '</td><td class="n">' + (t.length ? durTxt(Math.min.apply(null, t)) : "—") + '</td><td class="n">' + (t.length ? durTxt(Math.max.apply(null, t)) : "—") + '</td></tr>';
+    };
+    var h = '<div class="fin-2"><div class="card"><h2>Tempo para fazer o pedido</h2>';
+    if (!com.length) h += '<p class="vazio" style="margin:0">Ainda sem pedidos medidos. A medição vale para pedidos feitos a partir de 12/11/2026.</p>';
+    else h += '<table class="fin-tab"><thead><tr><th>Origem</th><th class="n">Pedidos</th><th class="n">Tempo típico</th><th class="n">Montando a sacola</th><th class="n">Mais rápido</th><th class="n">Mais lento</th></tr></thead><tbody>' +
+      linha("Link de vendedora", com.filter(function(p){ return p.vendedor; })) + linha("Direto pelo site", com.filter(function(p){ return !p.vendedor; })) +
+      '</tbody><tfoot>' + linha("Todos", com).replace('<tr>', '<tr class="fin-total">') + '</tfoot></table><p style="font-size:12.5px;color:var(--suave);margin:8px 0 0">Tempo típico = metade dos clientes faz em menos tempo que isso. Conta de quando abriu o link até enviar o pedido.</p>';
+    h += '</div><div class="card"><h2>Visitas na loja</h2><div id="finVisitas"><p class="vazio" style="margin:0">Carregando…</p></div></div></div>';
+    el.innerHTML = h;
+    var q = sb.from("visitas").select("aberto_em,primeiro_item_em,enviado_em,vendedor").order("aberto_em", {ascending:false}).limit(10000);
+    if (filtroFin.vDe) q = q.gte("aberto_em", filtroFin.vDe + "T00:00:00-03:00");
+    q.then(function(r){
+      var box = document.getElementById("finVisitas"); if (!box) return;
+      if (r.error) { box.innerHTML = '<p class="msg erro">' + esc(erroTxt(r.error)) + '</p>'; return; }
+      var vs = r.data || [], agora = Date.now();
+      var sac = vs.filter(function(v){ return v.primeiro_item_em; }), env = vs.filter(function(v){ return v.enviado_em; });
+      var desist = sac.filter(function(v){ return !v.enviado_em && agora - new Date(v.aberto_em).getTime() > 2 * 3600 * 1000; });
+      var semItem = vs.filter(function(v){ return !v.primeiro_item_em && !v.enviado_em && agora - new Date(v.aberto_em).getTime() > 2 * 3600 * 1000; });
+      var pct = function(a){ return vs.length ? Math.round(a / vs.length * 100) + "%" : "—"; };
+      var mx = Math.max(vs.length, 1), barra = function(rot, n, extra){ return '<div class="fin-barra"><span class="t">' + rot + '</span><span class="b"><i style="width:' + Math.max(2, Math.round(n / mx * 100)) + '%"></i></span><span class="n">' + n + (extra ? ' · ' + extra : '') + '</span></div>'; };
+      box.innerHTML = vs.length ? '<div class="fin-barras">' + barra("Abriram a loja", vs.length) + barra("Montaram sacola", sac.length, pct(sac.length)) + barra("Enviaram", env.length, pct(env.length)) + '</div>' +
+        '<table class="fin-tab" style="margin-top:10px"><tbody><tr><td>Desistiram com itens na sacola</td><td class="n">' + desist.length + '</td></tr><tr><td>Só olharam (sem pôr nada)</td><td class="n">' + semItem.length + '</td></tr></tbody></table>' +
+        '<p style="font-size:12.5px;color:var(--suave);margin:8px 0 0">Desde o início da medição (12/11/2026). Desistência conta após 2 horas sem enviar.</p>'
+        : '<p class="vazio" style="margin:0">Nenhuma visita registrada ainda.</p>';
+    });
+  }
   function carregarFin(){
     var box = document.getElementById("finBox");
-    var q = sb.from("pedidos").select("id,numero,cliente_nome,status,total_centavos,total_estimado,frete_centavos,data_desejada,criado_em,vendedor,adiantamento_centavos,adiantamento_pago,pedido_itens(codigo,nome,produto_id,subtotal_centavos,quantidade,unidade,unidades)").order("data_desejada");
+    var q = sb.from("pedidos").select("id,numero,cliente_nome,status,total_centavos,total_estimado,frete_centavos,data_desejada,criado_em,vendedor,adiantamento_centavos,adiantamento_pago,tempo_total_s,tempo_sacola_s,pedido_itens(codigo,nome,produto_id,subtotal_centavos,quantidade,unidade,unidades)").order("data_desejada");
     if (filtroFin.de) q = q.gte("data_desejada", filtroFin.de);
     if (filtroFin.ate) q = q.lte("data_desejada", filtroFin.ate);
     q.then(function(r){
@@ -584,7 +622,9 @@
         var x = porP[k], pt = k.split("|"), qt = x.uns ? x.uns + " un" : (x.un === "kg" ? x.q.toLocaleString("pt-BR",{maximumFractionDigits:3}) + " kg" : x.q + " un");
         return '<tr><td>' + esc(pt[0]) + '</td><td>' + esc(pt.slice(1).join("|")) + '</td><td class="n">' + qt + '</td><td class="n">' + reais(x.v) + '</td></tr>';
       }).join("") + '</tbody><tfoot><tr class="fin-total"><td colspan="3">Total destes ' + pk.length + ' produtos</td><td class="n">' + reais(soma(pk, function(k){ return porP[k].v; })) + '</td></tr></tfoot></table></div>';
+      h += '<div id="finTempo"></div>';
       box.innerHTML = h;
+      montarTempoFin(validos);
       document.getElementById("finCsv").onclick = function(){
         var L = [["Pedido","Cliente","Situação","Retirada","Vendedor","Total (R$)","Estimado"].join(";")];
         ps.forEach(function(p){ L.push([p.numero, (p.cliente_nome || "").replace(/;/g, ","), p.status, p.data_desejada, nomeVend(p.vendedor), (p.total_centavos / 100).toFixed(2).replace(".", ","), p.total_estimado ? "sim" : "não"].join(";")); });
@@ -732,7 +772,7 @@
   }
   function cartaoPedido(p){
     var h = '<div class="pedido"><div class="topo"><div><span class="num">' + esc(p.numero) + '</span> <span class="cli-nome">' + esc(p.cliente_nome || "") + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>' + (p.alterado_em ? ' <span class="tag" title="Alterado em ' + esc(dataHora(p.alterado_em)) + '">✎ alterado</span>' : '') + (p.versao > 1 ? (p.cliente_ok_versao === p.versao ? ' <span class="tag st-concluido">✓ cliente concordou</span>' : ' <span class="tag st-aguardando">aguardando OK do cliente</span>') : '');
-    h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + '</div></div>';
+    h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + (p.tempo_total_s != null ? ' · ⏱ montado em ' + durTxt(p.tempo_total_s) : '') + '</div></div>';
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += blocoAtendente(p) + blocoAdiant(p);
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(nomeVend(p.vendedor)) : '') + '</div>';

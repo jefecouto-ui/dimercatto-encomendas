@@ -691,7 +691,28 @@
     return {num:d};
   }
   function soDigitos(s){ return String(s||"").replace(/\D/g,""); }
+  /* ---------- tempo do pedido: uma visita = do abrir o link até enviar ---------- */
+  var visita = null;
+  function novoId(){
+    try { if (crypto.randomUUID) return crypto.randomUUID(); } catch(e){}
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c){ var n = Math.random()*16|0; return (c === "x" ? n : (n&3|8)).toString(16); });
+  }
+  function salvarVisita(){ try { localStorage.setItem("dm_visita", JSON.stringify(visita)); } catch(e){} }
+  function eventoVisita(ev){
+    if (!visita) return;
+    api("rpc/registrar_visita", { method:"POST", body:{ p_sessao: visita.id, p_evento: ev, p_vendedor: estado.vendedor || null, p_dispositivo: innerWidth < 760 ? "celular" : "computador" } }).catch(function(){});
+  }
+  function iniciarVisita(){
+    try { visita = JSON.parse(localStorage.getItem("dm_visita") || "null"); } catch(e){ visita = null; }
+    if (!visita || !visita.id || Date.now() - (visita.em || 0) > 6 * 3600 * 1000) { visita = { id: novoId(), em: Date.now(), ab: false, it: false }; }
+    if (!visita.ab) { visita.ab = true; salvarVisita(); eventoVisita("abriu"); }
+  }
+  function marcarItemVisita(){
+    if (!visita || visita.it || !Object.keys(estado.carrinho).length) return;
+    visita.it = true; salvarVisita(); eventoVisita("item");
+  }
   function guardar(){
+    marcarItemVisita();
     try { localStorage.setItem(CHAVE_CARRINHO, JSON.stringify({carrinho:estado.carrinho, dados:estado.dados, vendedor:estado.vendedor, vendedor_em:estado.vendedorEm || null})); } catch(e){}
   }
   function recuperar(){
@@ -806,6 +827,8 @@
   function carregar(){
     var p = new URLSearchParams(location.search);
     recuperar();
+    if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); }
+    iniciarVisita();
     if (p.get("v")) { estado.vendedor = p.get("v").slice(0,60); estado.vendedorEm = Date.now(); guardar(); }
     Promise.all([
       api("categorias?select=id,nome,icone,ordem,pedido_de,pedido_ate,layout,aviso&ativo=eq.true&order=ordem.asc,nome.asc"),
@@ -1516,6 +1539,7 @@
       frete_a_confirmar: d.modalidade === "entrega" && !!d.frete && d.frete.st === "a_confirmar",
       pagamento: d.pagamento || null, observacoes: d.observacoes || null,
       vendedor: estado.vendedor || null,
+      visita_id: visita ? visita.id : null,
       itens: itensCarrinho().map(function(i){ return { codigo: i.p.codigo, quantidade: i.q, opcao: i.op || null, observacao: i.obs || null }; })
     }};
     api("rpc/criar_pedido", { method:"POST", body: corpo }).then(function(r){
@@ -1524,6 +1548,7 @@
       estado.carrinho = {};
       d.observacoes = "";
       estado.vendedor = null; estado.vendedorEm = null;
+      visita = null; try { localStorage.removeItem("dm_visita"); } catch(e){}
       guardar();
       try { sessionStorage.setItem("dm_ultimo_pedido", JSON.stringify(r)); } catch(e){}
       irPara(4);
@@ -1616,7 +1641,7 @@
     if (t.id === "btnPix" || t.id === "btnPixChave") { var k = t.id === "btnPix" ? t.getAttribute("data-pix") : pixChave(), rot = t.id === "btnPix" ? "Copie o código Pix:" : "Copie a chave Pix:";
       var ok = function(){ var e = document.getElementById("pixOk"); if (e) { e.hidden = false; if (t.id === "btnPixChave") e.innerHTML = "Chave copiada! Cole no app do seu banco e informe o valor de " + esc(reais(Math.min(ADIANTAMENTO, (estado.resultado || {}).total_centavos || ADIANTAMENTO))) + "."; } };
       if (navigator.clipboard) navigator.clipboard.writeText(k).then(ok, function(){ prompt(rot, k); }); else prompt(rot, k); return; }
-    if (t.id === "btnNovo") { estado.resultado = null; try { sessionStorage.removeItem("dm_ultimo_pedido"); } catch(e){} enviando = false; irPara(1); return; }
+    if (t.id === "btnNovo") { estado.resultado = null; iniciarVisita(); try { sessionStorage.removeItem("dm_ultimo_pedido"); } catch(e){} enviando = false; irPara(1); return; }
   });
   document.getElementById("sacolaFundo").addEventListener("click", fecharSacola);
   document.addEventListener("keydown", function(ev){ if (ev.key !== "Escape") return; if (!document.getElementById("opcFolha").hidden) fecharOpcoes(); else if (sacolaAberta()) fecharSacola(); });

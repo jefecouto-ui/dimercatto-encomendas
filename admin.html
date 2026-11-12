@@ -571,7 +571,7 @@
     carregarPedidos();
   }
   function carregarPedidos(){
-    var q = sb.from("pedidos").select("*, pedido_itens(*), pedido_historico(status,por,em)").order("data_desejada").order("criado_em");
+    var q = sb.from("pedidos").select("*, pedido_itens(*), pedido_historico(status,por,em)").order("data_desejada").order("horario", { nullsFirst: false }).order("criado_em");
     var busca = (filtroPed.busca || "").replace(/[,()*%\\]/g, " ").trim();
     if (busca) {
       // busca: ignora as datas e procura por nome, número do pedido ou WhatsApp

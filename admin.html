@@ -37,7 +37,7 @@
   .barra-acoes .cresce{flex:1;min-width:180px}
   label{display:block;font-weight:600;font-size:14px;margin:0 0 4px}
   .dica{font-weight:500;color:var(--suave);font-size:13px}
-  input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=tel],select,textarea{width:100%;min-height:44px;border:1.5px solid var(--borda);border-radius:10px;padding:8px 10px;background:#fff}
+  input[type=search],input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=tel],select,textarea{width:100%;min-height:44px;border:1.5px solid var(--borda);border-radius:10px;padding:8px 10px;background:#fff}
   textarea{min-height:70px;resize:vertical}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--vinho);box-shadow:0 0 0 3px rgba(148,57,45,.15)}
   .btn{min-height:44px;border-radius:10px;border:1.5px solid var(--vinho);background:var(--vinho);color:#fff;font-weight:700;padding:0 16px;display:inline-flex;align-items:center;gap:6px;justify-content:center;text-decoration:none}
@@ -552,9 +552,11 @@
   }
 
   /* ================= PEDIDOS ================= */
-  var filtroPed = { de: hojeISO(), ate: "", status: "", horario: "" };
+  var filtroPed = { de: hojeISO(), ate: "", status: "", horario: "", busca: "" };
   function abaPedidos(){
-    var h = '<h1>Pedidos</h1><div class="card nao-imprimir"><div class="barra-acoes">';
+    var h = '<h1>Pedidos</h1><div class="card nao-imprimir">';
+    h += '<div style="margin-bottom:12px"><label for="fBuscaPed">🔎 Buscar pedido <span class="dica">nome do cliente, número (ex.: NAT-0024 ou 24) ou WhatsApp — procura em todas as datas</span></label><input type="search" id="fBuscaPed" autocomplete="off" placeholder="Ex.: Maria, NAT-0024, 24 ou 71987…" value="' + esc(filtroPed.busca) + '"></div>';
+    h += '<div class="barra-acoes">';
     h += '<div><label for="fDe">Data de entrega — de</label><input type="date" id="fDe" value="' + esc(filtroPed.de) + '"></div>';
     h += '<div><label for="fAte">até <span class="dica">opcional</span></label><input type="date" id="fAte" value="' + esc(filtroPed.ate) + '"></div>';
     h += '<div><label for="fSt">Situação</label><select id="fSt"><option value="">Todas</option>' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (filtroPed.status === s[0] ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div>';
@@ -564,22 +566,34 @@
     main.innerHTML = h;
     ["fDe","fAte","fSt","fHor"].forEach(function(id){ var el = document.getElementById(id); if (el) el.onchange = function(){ filtroPed.de = document.getElementById("fDe").value; filtroPed.ate = document.getElementById("fAte").value; filtroPed.status = document.getElementById("fSt").value; var fh = document.getElementById("fHor"); filtroPed.horario = fh ? fh.value : ""; carregarPedidos(); }; });
     document.getElementById("fAtualizar").onclick = carregarPedidos;
+    var fb = document.getElementById("fBuscaPed"), tb = null;
+    fb.oninput = function(){ clearTimeout(tb); tb = setTimeout(function(){ filtroPed.busca = fb.value.trim(); carregarPedidos(); }, 350); };
     carregarPedidos();
   }
   function carregarPedidos(){
     var q = sb.from("pedidos").select("*, pedido_itens(*), pedido_historico(status,por,em)").order("data_desejada").order("criado_em");
-    if (filtroPed.de) q = q.gte("data_desejada", filtroPed.de);
-    if (filtroPed.ate) q = q.lte("data_desejada", filtroPed.ate);
+    var busca = (filtroPed.busca || "").replace(/[,()*%\\]/g, " ").trim();
+    if (busca) {
+      // busca: ignora as datas e procura por nome, número do pedido ou WhatsApp
+      var ors = ["cliente_nome.ilike.*" + busca + "*", "numero.ilike.*" + busca + "*"];
+      var dig = busca.replace(/\D/g, "");
+      if (/^\d{1,5}$/.test(busca)) ors.push("numero.ilike.*-" + ("0000" + busca).slice(-Math.max(4, busca.length)));
+      if (dig.length >= 4) ors.push("cliente_whatsapp.ilike.*" + dig + "*");
+      q = q.or(ors.join(","));
+    } else {
+      if (filtroPed.de) q = q.gte("data_desejada", filtroPed.de);
+      if (filtroPed.ate) q = q.lte("data_desejada", filtroPed.ate);
+    }
     if (filtroPed.status) q = q.eq("status", filtroPed.status);
     if (filtroPed.horario) q = q.eq("horario", filtroPed.horario);
     q.then(function(r){
       var box = document.getElementById("listaPedidos"); if (!box) return;
       if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
       var ps = r.data || [];
-      if (!ps.length) { box.innerHTML = '<p class="vazio">Nenhum pedido encontrado para esse filtro.</p>'; return; }
+      if (!ps.length) { box.innerHTML = '<p class="vazio">' + (busca ? 'Nenhum pedido encontrado para “' + esc(busca) + '”.' : 'Nenhum pedido encontrado para esse filtro.') + '</p>'; return; }
       var total = 0; ps.forEach(function(p){ if (p.status !== "cancelado") total += p.total_centavos; });
       ultimosPedidos = ps;
-      var h = '<div class="barra-acoes" style="align-items:center"><p class="dica cresce" style="margin:0">' + ps.length + ' pedido(s) · ' + reais(total) + ' (sem cancelados)</p>';
+      var h = '<div class="barra-acoes" style="align-items:center"><p class="dica cresce" style="margin:0">' + (busca ? 'Busca “' + esc(busca) + '” (todas as datas): ' : '') + ps.length + ' pedido(s) · ' + reais(total) + ' (sem cancelados)</p>';
       h += '<button class="btn sec" type="button" id="imprimirTodos">🖨 Imprimir os ' + ps.length + ' pedido(s) listados</button></div>';
       ps.forEach(function(p){ h += cartaoPedido(p); });
       box.innerHTML = h;

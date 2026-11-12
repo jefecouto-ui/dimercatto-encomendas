@@ -306,7 +306,7 @@
       <div><label for="ePFrete">Frete (R$) <span class="dica" id="ePFreteInfo"></span></label><input type="text" id="ePFrete" inputmode="decimal" placeholder="0,00"></div>
     </div>
     <h2 style="margin-top:18px">Itens</h2>
-    <div class="tabela"><table><thead><tr><th>Produto</th><th style="width:130px">Quantidade</th><th>Observação do item</th><th class="num">Subtotal</th><th></th></tr></thead><tbody id="ePItens"></tbody></table></div>
+    <div class="tabela"><table><thead><tr><th>Produto</th><th style="width:150px">Quantidade / peso real</th><th>Observação do item</th><th class="num">Subtotal</th><th></th></tr></thead><tbody id="ePItens"></tbody></table></div>
     <div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="ePNovo">Adicionar produto</label><select id="ePNovo"></select></div><button type="button" class="btn sec" id="ePAdd">+ Adicionar</button></div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">
       <label class="check"><input type="checkbox" id="ePFinal"> Quantidades já pesadas — valor final (não estimado)</label>
@@ -586,6 +586,12 @@
       box.querySelectorAll("select[data-status]").forEach(function(sel){ sel.onchange = function(){ mudarStatus(+sel.dataset.status, sel.value, sel); }; });
       document.getElementById("imprimirTodos").onclick = function(){ imprimirPedidos(ultimosPedidos); };
       box.querySelectorAll("[data-editped]").forEach(function(b){ b.onclick = function(){ abrirEdicao(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.editped; })[0]); }; });
+      box.querySelectorAll("[data-pesar]").forEach(function(b){ b.onclick = function(){
+        abrirEdicao(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.pesar; })[0]);
+        var cx = document.getElementById("ePFinal"); if (cx) cx.checked = true;
+        var mo = document.getElementById("ePMotivo"); if (mo && !mo.value) mo.value = "Peso final após a pesagem";
+        var q = document.querySelector('#ePItens input[data-kg="1"]'); if (q) { q.scrollIntoView({block:"center"}); q.focus(); q.select(); }
+      }; });
       box.querySelectorAll("[data-avisar]").forEach(function(b){ b.onclick = function(){ avisarCliente(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.avisar; })[0], b); }; });
       box.querySelectorAll("[data-adiant]").forEach(function(b){ b.onclick = function(){ marcarAdiant(+b.dataset.adiant, b.dataset.pago === "1", b); }; });
       box.querySelectorAll("[data-assumir]").forEach(function(b){ b.onclick = function(){ assumirPedido(+b.dataset.assumir, b.dataset.liberar === "1", b); }; });
@@ -605,7 +611,7 @@
     h += blocoAtendente(p) + blocoAdiant(p);
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(p.vendedor) : '') + '</div>';
     if (p.endereco) h += '<div class="meta">' + (p.modalidade === "entrega" ? '' : '🏠 ') + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.cep ? ' — CEP ' + esc(p.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")) : '') + (p.frete_status === "a_confirmar" ? ' · <b style="color:var(--erro)">frete a confirmar</b>' : '') + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
-    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button><button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button> <button class="btn perigo" type="button" data-excluir="' + p.id + '">🗑 Excluir</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
+    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button>' + ((p.pedido_itens || []).some(function(i){ return i.unidade === "kg"; }) ? '<button class="btn sec" type="button" data-pesar="' + p.id + '" title="Digitar o peso real de cada item (ex.: 1,250 kg)">⚖ Informar peso</button>' : '') + '<button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button> <button class="btn perigo" type="button" data-excluir="' + p.id + '">🗑 Excluir</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
@@ -768,19 +774,25 @@
   document.getElementById("ePMod").onchange = function(){ mostrarEntregaEdit(); document.getElementById("ePTotal").textContent = reais(totalEdit()); };
   document.getElementById("ePFrete").oninput = function(){ document.getElementById("ePTotal").textContent = reais(totalEdit()); };
   function freteEdit(){ if (document.getElementById("ePMod").value !== "entrega") return 0; var n = lerNum(document.getElementById("ePFrete").value); return n > 0 ? Math.round(n * 100) : 0; }
+  function lerPeso(txt, unidade){
+    var n = lerNum(txt);
+    if (unidade === "kg" && n >= 50 && /^\d+$/.test(String(txt).trim())) n = n / 1000; // 1250 = 1250 g
+    return Math.round(n * 1000) / 1000;
+  }
   function totalEdit(){ return itensEdit.reduce(function(a,i){ return a + (i.qtd > 0 ? Math.round(i.qtd * i.preco) : 0); }, 0) + freteEdit(); }
   function desenharItensEdit(){
     var tb = document.getElementById("ePItens");
     tb.innerHTML = itensEdit.length ? itensEdit.map(function(i, k){
       return '<tr><td><strong>' + esc(i.nome) + '</strong>' + (i.op ? '<div><b>' + esc(i.op) + '</b></div>' : '') + '<div class="dica">' + esc(i.codigo) + ' · ' + reais(i.preco) + '/' + unid(i.unidade) + (i.uns ? ' · <b>' + numBR(i.uns) + ' un pedidas</b>' : '') + '</div></td>' +
-        '<td><div style="display:flex;align-items:center;gap:6px"><input type="text" inputmode="decimal" data-q="' + k + '" value="' + esc(qtdParaTexto(i.qtd)) + '" style="min-height:40px"><span class="dica" style="margin:0">' + unid(i.unidade) + '</span></div></td>' +
+        '<td><div style="display:flex;align-items:center;gap:6px"><input type="text" inputmode="decimal" data-q="' + k + '"' + (i.unidade === "kg" ? ' data-kg="1" placeholder="ex.: 1,250" title="Peso real em kg. Aceita 1,250 · 1.250 · 1250 (gramas)"' : '') + ' value="' + esc(i.unidade === "kg" ? Number(i.qtd).toLocaleString("pt-BR",{minimumFractionDigits:3, maximumFractionDigits:3}) : qtdParaTexto(i.qtd)) + '" style="min-height:40px"><span class="dica" style="margin:0">' + unid(i.unidade) + '</span></div>' + (i.unidade === "kg" ? '<div class="dica" data-pq="' + k + '" style="margin-top:3px">peso real</div>' : '') + '</td>' +
         '<td><input type="text" data-o="' + k + '" maxlength="300" value="' + esc(i.obs) + '" placeholder="Ex.: sem passas" style="min-height:40px"></td>' +
         '<td class="num" data-s="' + k + '">' + (i.qtd > 0 ? reais(Math.round(i.qtd * i.preco)) : '<span style="color:var(--erro)">inválido</span>') + '</td>' +
         '<td><button type="button" class="btn perigo peq" data-rm="' + k + '" aria-label="Remover ' + esc(i.nome) + '">Remover</button></td></tr>';
     }).join("") : '<tr><td colspan="5" class="vazio">Nenhum item. Adicione pelo menos um produto.</td></tr>';
     document.getElementById("ePTotal").textContent = reais(totalEdit());
     tb.querySelectorAll("[data-q]").forEach(function(inp){ inp.oninput = function(){
-      var k = +inp.dataset.q, n = lerNum(inp.value); itensEdit[k].qtd = n > 0 ? n : 0;
+      var k = +inp.dataset.q, n = lerPeso(inp.value, itensEdit[k].unidade); itensEdit[k].qtd = n > 0 ? n : 0;
+      var pq = document.querySelector('[data-pq="' + k + '"]'); if (pq) pq.textContent = n > 0 ? "= " + n.toLocaleString("pt-BR",{minimumFractionDigits:3, maximumFractionDigits:3}) + " kg" : "peso real";
       document.querySelector('[data-s="' + k + '"]').innerHTML = n > 0 ? reais(Math.round(n * itensEdit[k].preco)) : '<span style="color:var(--erro)">inválido</span>';
       document.getElementById("ePTotal").textContent = reais(totalEdit());
     }; });

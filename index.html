@@ -422,6 +422,13 @@
   .barra-cat .lista{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
   .barra-cat .lista::-webkit-scrollbar{display:none}
   .barra-cat .cat-btn{min-height:42px}
+  /* todas as categorias visíveis (quebra em linhas, sem rolar para o lado) */
+  .barra-cat{flex-wrap:wrap;row-gap:8px}
+  .barra-cat .lista{display:contents}
+  @media (max-width:699px){
+    body .barra-cat{position:static;gap:6px;row-gap:6px;padding:8px 12px}
+    body .barra-cat .voltar-ini,body .barra-cat .cat-btn{min-height:36px;font-size:13.5px;padding:0 11px;border-width:1.5px}
+  }
   .cab-cat{display:flex;align-items:center;gap:12px;color:#fff;border-radius:18px;padding:16px;margin:14px 0 12px}
   .cab-cat h1{margin:0;font-family:"Playfair Display",Georgia,serif;font-size:26px;line-height:1.1}
   .cab-cat span{font-size:14px;font-weight:600;opacity:.9}

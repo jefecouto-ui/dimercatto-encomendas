@@ -49,7 +49,7 @@
   .fin-barra .b i{display:block;height:100%;background:var(--vinho);border-radius:8px}
   .fin-barra .n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
   .fin-tab{width:100%;border-collapse:collapse;font-size:14px} .fin-tab th{text-align:left;font-size:12.5px;color:var(--suave);border-bottom:1px solid var(--borda);padding:6px 4px}
-  .fin-tab td{padding:7px 4px;border-bottom:1px solid #F1E3D7;font-variant-numeric:tabular-nums} .fin-tab td.n,.fin-tab th.n{text-align:right}
+  .fin-tab td{padding:7px 4px;border-bottom:1px solid #F1E3D7;font-variant-numeric:tabular-nums} .fin-tab td.n,.fin-tab th.n{text-align:right} .fin-tot{border-top:2px solid var(--borda);padding-top:8px;margin-top:4px;font-weight:800} .fin-tot .b{visibility:hidden} .fin-tab tr.fin-total td{font-weight:800;border-top:2px solid var(--borda);border-bottom:0}
   .fin-st{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
   .barra-acoes{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:14px}
   .barra-acoes .cresce{flex:1;min-width:180px}
@@ -547,19 +547,19 @@
       var dias = Object.keys(porDia).sort(), mxD = Math.max.apply(null, dias.map(function(d){ return porDia[d]; }).concat([1]));
       h += '<div class="fin-2"><div class="card"><h2>Faturamento por dia de retirada</h2><div class="fin-barras">' + dias.map(function(d){
         return '<div class="fin-barra"><span class="t">' + esc(dataBR(d)) + '</span><span class="b"><i style="width:' + Math.max(2, Math.round(porDia[d] / mxD * 100)) + '%"></i></span><span class="n">' + reais(porDia[d]) + '</span></div>';
-      }).join("") + '</div></div>';
+      }).join("") + '<div class="fin-barra fin-tot"><span class="t">Total</span><span class="b"></span><span class="n">' + reais(soma(dias, function(d){ return porDia[d]; })) + '</span></div>' + '</div></div>';
       // por situação
       h += '<div class="card"><h2>Por situação</h2><table class="fin-tab"><thead><tr><th>Situação</th><th class="n">Pedidos</th><th class="n">Valor</th></tr></thead><tbody>' + ST_FIN.map(function(s){
         var l = ps.filter(function(p){ return p.status === s[0]; }); if (!l.length) return "";
         return '<tr><td><span class="fin-st" style="background:' + s[2] + '"></span>' + s[1] + '</td><td class="n">' + l.length + '</td><td class="n">' + reais(soma(l, function(p){ return p.total_centavos; })) + '</td></tr>';
-      }).join("") + '</tbody></table></div></div>';
+      }).join("") + '</tbody><tfoot><tr class="fin-total"><td>Total (sem cancelados)</td><td class="n">' + validos.length + '</td><td class="n">' + reais(soma(validos, function(p){ return p.total_centavos; })) + '</td></tr></tfoot></table></div></div>';
       // por vendedor
       var porV = {}; validos.forEach(function(p){ var v = nomeVend(p.vendedor) || "Sem vendedor (site)"; porV[v] = porV[v] || {n:0, v:0}; porV[v].n++; porV[v].v += p.total_centavos; });
       vendAtivos.forEach(function(n){ porV[n] = porV[n] || {n:0, v:0}; });
       var vs = Object.keys(porV).sort(function(a, b){ return (porV[b].v - porV[a].v) || a.localeCompare(b, "pt-BR"); });
       h += '<div class="fin-2"><div class="card"><h2>Por vendedor</h2><table class="fin-tab"><thead><tr><th>Vendedor</th><th class="n">Pedidos</th><th class="n">Valor</th><th class="n">Ticket</th></tr></thead><tbody>' + vs.map(function(v){
         return '<tr><td>' + esc(v) + '</td><td class="n">' + porV[v].n + '</td><td class="n">' + reais(porV[v].v) + '</td><td class="n">' + (porV[v].n ? reais(Math.round(porV[v].v / porV[v].n)) : "—") + '</td></tr>';
-      }).join("") + '</tbody></table></div>';
+      }).join("") + (function(){ var tn = 0, tv = 0; vs.forEach(function(v){ tn += porV[v].n; tv += porV[v].v; }); return '</tbody><tfoot><tr class="fin-total"><td>Total</td><td class="n">' + tn + '</td><td class="n">' + reais(tv) + '</td><td class="n">' + (tn ? reais(Math.round(tv / tn)) : "—") + '</td></tr></tfoot>'; })() + '</table></div>';
       // por categoria
       var catDe = {}; (S.produtos || []).forEach(function(pr){ catDe[pr.id] = pr.categoria_id; });
       var nomeCat = {}; (S.categorias || []).forEach(function(c){ nomeCat[c.id] = c.nome; });
@@ -571,13 +571,13 @@
       var cs = Object.keys(porC).sort(function(a, b){ return porC[b] - porC[a]; }), mxC = Math.max.apply(null, cs.map(function(c){ return porC[c]; }).concat([1]));
       h += '<div class="card"><h2>Por categoria</h2><div class="fin-barras">' + cs.map(function(c){
         return '<div class="fin-barra"><span class="t">' + esc(c) + '</span><span class="b"><i style="width:' + Math.max(2, Math.round(porC[c] / mxC * 100)) + '%"></i></span><span class="n">' + reais(porC[c]) + '</span></div>';
-      }).join("") + '</div></div></div>';
+      }).join("") + '<div class="fin-barra fin-tot"><span class="t">Total</span><span class="b"></span><span class="n">' + reais(soma(cs, function(c){ return porC[c]; })) + '</span></div>' + '</div></div></div>';
       // top produtos
       var pk = Object.keys(porP).sort(function(a, b){ return porP[b].v - porP[a].v; }).slice(0, 15);
       h += '<div class="card"><h2>Produtos que mais faturam</h2><table class="fin-tab"><thead><tr><th>Código</th><th>Produto</th><th class="n">Quantidade</th><th class="n">Valor</th></tr></thead><tbody>' + pk.map(function(k){
         var x = porP[k], pt = k.split("|"), qt = x.uns ? x.uns + " un" : (x.un === "kg" ? x.q.toLocaleString("pt-BR",{maximumFractionDigits:3}) + " kg" : x.q + " un");
         return '<tr><td>' + esc(pt[0]) + '</td><td>' + esc(pt.slice(1).join("|")) + '</td><td class="n">' + qt + '</td><td class="n">' + reais(x.v) + '</td></tr>';
-      }).join("") + '</tbody></table></div>';
+      }).join("") + '</tbody><tfoot><tr class="fin-total"><td colspan="3">Total destes ' + pk.length + ' produtos</td><td class="n">' + reais(soma(pk, function(k){ return porP[k].v; })) + '</td></tr></tfoot></table></div>';
       box.innerHTML = h;
       document.getElementById("finCsv").onclick = function(){
         var L = [["Pedido","Cliente","Situação","Retirada","Vendedor","Total (R$)","Estimado"].join(";")];

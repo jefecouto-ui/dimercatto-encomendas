@@ -170,6 +170,9 @@
   .compo .qt{margin-left:auto;padding-left:8px;font-weight:800;white-space:nowrap;color:var(--vinho)}
   .qtd.zero button[disabled]{opacity:.35;cursor:default}
   .qtd.zero .valor{color:var(--texto-suave)}
+  .toast-aviso{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translate(-50%,20px);z-index:60;max-width:min(92vw,420px);background:#2E211B;color:#fff;border-radius:14px;padding:12px 16px;font-size:16px;font-weight:700;box-shadow:0 10px 26px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;text-align:center}
+  .toast-aviso.on{opacity:1;transform:translate(-50%,0)}
+  .qtd.zero .qtd-in::placeholder{color:var(--texto-suave);opacity:.7}
   .aviso-cat{margin-top:10px;padding:11px 14px;border-radius:12px;background:#FFF4D6;border:1.5px solid #E9C46A;color:#5C4400;font-size:15px;font-weight:600;line-height:1.35}
   .lista-prod{background:#fff;border:1.5px solid var(--borda);border-radius:16px;overflow:hidden;margin-top:10px}
   .lista-prod .linha{display:grid;grid-template-columns:minmax(0,1fr) 178px;gap:10px;align-items:center;padding:11px 12px 11px 14px;border:0;border-bottom:1px dashed var(--borda);border-radius:0;box-shadow:none;background:transparent}
@@ -633,6 +636,13 @@
   /* ---------- utilidades ---------- */
   function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function reais(c){ return (c/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
+  function avisar(txt){
+    var t = document.getElementById("toastAviso");
+    if (!t) { t = document.createElement("div"); t.id = "toastAviso"; t.className = "toast-aviso"; t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); document.body.appendChild(t); }
+    t.textContent = txt; t.classList.add("on"); clearTimeout(avisar._t); avisar._t = setTimeout(function(){ t.classList.remove("on"); }, 3500);
+  }
+  function pesoLivre(p){ return p.unidade === "kg" && !porUn(p); }
+  function kg3(n){ return Number(n).toLocaleString("pt-BR",{minimumFractionDigits:3, maximumFractionDigits:3}); }
   function numBR(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
   function unidadeTxt(u, q){
     if (u === "kg") return "kg";
@@ -971,7 +981,7 @@
   function linhaLista(p){ // visualização em lista (cardápio de papel)
     var it = estado.carrinho[p.codigo];
     var h = '<article class="produto linha' + (it && it.q ? ' no-pedido' : '') + (p.esgotado ? ' esgotado' : '') + '" id="p-' + esc(p.codigo) + '" data-cod="' + esc(p.codigo) + '">';
-    h += '<div class="l-info"><h3>' + esc(p.nome) + '</h3>' + (p.descricao ? '<p class="desc">' + esc(p.descricao) + '</p>' : '') + '<div class="l-preco">' + reais(p.preco_centavos) + '<small>' + (p.unidade === "kg" ? ' o kg' : ' ' + precoUnTxt(p.unidade)) + '</small>' + (porUn(p) && p.minimo > 1 ? '<span class="l-un">mínimo ' + numBR(p.minimo) + ' unidades</span>' : '') + '</div></div>';
+    h += '<div class="l-info"><h3>' + esc(p.nome) + '</h3>' + (p.descricao ? '<p class="desc">' + esc(p.descricao) + '</p>' : '') + '<div class="l-preco">' + reais(p.preco_centavos) + '<small>' + (p.unidade === "kg" ? ' o kg' : ' ' + precoUnTxt(p.unidade)) + '</small>' + (porUn(p) && p.minimo > 1 ? '<span class="l-un">mínimo ' + numBR(p.minimo) + ' unidades</span>' : (pesoLivre(p) ? '<span class="l-un">mínimo ' + kg3(p.minimo) + ' kg</span>' : '')) + '</div></div>';
     h += '<div class="ctrl" data-codigo="' + esc(p.codigo) + '">' + controle(p, it) + '</div>';
     return h + '</article>';
   }
@@ -1008,11 +1018,12 @@
     if (p.esgotado) return '<button type="button" class="btn-esg" disabled>Esgotado</button>';
     if (p.dias_semana && p.dias_semana.length && foraJanelaHoje(p) && !(it && it.op)) { var jj = janela(p), agoraHm = hhmm(); return '<button type="button" class="btn-esg" disabled>' + (jj.de && agoraHm < jj.de ? 'Abre às ' + jj.de.replace(":", "h").replace(/h00$/, "h") : 'Encerrado hoje') + '</button>'; }
     if (temOpcoes(p) && !(it && it.op)) { var nq = qtdNoCarrinho(p.codigo); return nq ? '<button type="button" class="btn-add btn-opc-sel" data-escolher="' + esc(p.codigo) + '">' + nq + ' no pedido · alterar</button>' : '<button type="button" class="btn-add" data-escolher="' + esc(p.codigo) + '" aria-label="Escolher ' + esc(p.nome) + '">+ Escolher</button>'; }
+    if ((!it || !it.q) && pesoLivre(p)) return '<div class="qtd zero"><button type="button" data-acao="menos" disabled aria-label="Diminuir ' + esc(p.nome) + '">−</button><label class="valor"><input class="qtd-in" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" data-qtdin="' + esc(p.codigo) + '" value="" placeholder="0,000" aria-label="Digite o peso em kg de ' + esc(p.nome) + ' (mínimo ' + esc(kg3(p.minimo)) + ' kg)"><span class="un">kg</span><small>digite o peso</small></label><button type="button" data-acao="mais" aria-label="Adicionar ' + esc(p.nome) + '">+</button></div>';
     if (!it || !it.q) return '<div class="qtd zero"><button type="button" data-acao="menos" disabled aria-label="Diminuir ' + esc(p.nome) + '">−</button><div class="valor">0' + (porUn(p) ? ' un' : (p.unidade === "kg" ? ' kg' : '')) + '</div><button type="button" data-acao="mais" aria-label="Adicionar ' + esc(p.nome) + '">+</button></div>';
     return '<div class="qtd">' +
       '<button type="button" data-acao="menos" aria-label="Diminuir ' + esc(p.nome) + '">−</button>' +
       (p.unidade === "kg" && !porUn(p)
-        ? '<label class="valor"><input class="qtd-in" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" data-qtdin="' + esc(p.codigo) + '" value="' + esc(numBR(it.q)) + '" aria-label="Quantidade em kg de ' + esc(p.nome) + '"><span class="un">kg</span><small>' + reais(subtotal(p, it.q)) + '</small></label>'
+        ? '<label class="valor"><input class="qtd-in" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" data-qtdin="' + esc(p.codigo) + '" value="' + esc(kg3(it.q)) + '" aria-label="Quantidade em kg de ' + esc(p.nome) + '"><span class="un">kg</span><small>' + reais(subtotal(p, it.q)) + '</small></label>'
         : '<div class="valor" aria-live="polite">' + (porUn(p) ? esc(numBR(it.q)) + ' un <span class="kg-eq">≈ ' + esc(numBR(kgDe(p, it.q))) + ' kg</span>' : esc(qtdTxt(p.unidade, it.q))) + '<small>' + reais(subtotal(p, it.q)) + '</small></div>') +
       '<button type="button" data-acao="mais" aria-label="Aumentar ' + esc(p.nome) + '">+</button>' +
       '</div>';
@@ -1599,9 +1610,11 @@
     var t = String(inp.value || "").trim().replace(/\s/g, "");
     if (t.indexOf(",") >= 0) t = t.replace(/\./g, "").replace(",", ".");
     var n = Math.round(Number(t) * 1000) / 1000;
+    if (/^\d+$/.test(t) && n >= 50) n = Math.round(n) / 1000; // 1250 = 1250 g
+    var avisoMin = false;
     if (!(n > 0)) { delete estado.carrinho[codigo]; }
     else {
-      if (n < p.minimo) n = p.minimo;
+      if (n < p.minimo) { n = Number(p.minimo); avisoMin = true; }
       if (p.maximo != null && n > p.maximo) n = p.maximo;
       var it = estado.carrinho[codigo] || {q:0, obs:""}; it.q = n; estado.carrinho[codigo] = it;
     }
@@ -1611,6 +1624,7 @@
       box.innerHTML = controle(p, estado.carrinho[codigo]);
     });
     atualizarBarra();
+    if (avisoMin) avisar("O mínimo de " + p.nome + " é " + kg3(p.minimo) + " kg.");
   }
   document.addEventListener("change", function(ev){
     if (ev.target.dataset && ev.target.dataset.qtdin) { digitarQtd(ev.target); return; }

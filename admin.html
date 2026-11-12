@@ -915,7 +915,7 @@
       var dlg = document.getElementById("dlgGerente");
       if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "dlgGerente"; document.body.appendChild(dlg); }
       dlg.innerHTML = '<h2>🔒 ' + esc(titulo || "Autorização do gerente") + '</h2><p class="dica" style="margin:0 0 12px">' + esc(motivo) + '</p>' +
-        '<label for="gEmail">E-mail do gerente</label><input type="email" id="gEmail" autocomplete="off">' +
+        '<label for="gEmail">Gerente</label><select id="gEmail"><option value="">Carregando…</option></select>' +
         '<label for="gSenha" style="margin-top:10px">Senha do gerente</label><input type="password" id="gSenha" autocomplete="new-password">' +
         '<div class="msg erro" id="gErro" hidden style="margin-top:10px"></div>' +
         '<div class="barra-acoes" style="margin-top:14px"><button type="button" class="btn sec" id="gCancelar">Cancelar</button><button type="button" class="btn" id="gOk">Autorizar</button></div>';
@@ -923,16 +923,25 @@
       dlg.querySelector("#gCancelar").onclick = function(){ fim(); falhou(null); };
       dlg.querySelector("#gOk").onclick = function(){
         var em = dlg.querySelector("#gEmail").value.trim(), se = dlg.querySelector("#gSenha").value, er = dlg.querySelector("#gErro"), bt = dlg.querySelector("#gOk");
-        if (!em || !se) { er.textContent = "Informe e-mail e senha do gerente."; er.hidden = false; return; }
+        if (!em || !se) { er.textContent = "Escolha o gerente e digite a senha dele."; er.hidden = false; return; }
         bt.disabled = true; bt.textContent = "Verificando…";
         var sb2 = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: "dm-gerente-temp" } });
         sb2.auth.signInWithPassword({ email: em, password: se }).then(function(r){
           bt.disabled = false; bt.textContent = "Autorizar";
-          if (r.error) { er.textContent = "E-mail ou senha do gerente incorretos."; er.hidden = false; return; }
+          if (r.error) { er.textContent = "Senha incorreta para esse gerente (ou ele ainda não criou a senha no primeiro acesso)."; er.hidden = false; return; }
           fim(); ok(sb2);
         });
       };
-      dlg.showModal(); dlg.querySelector("#gEmail").focus();
+      dlg.showModal();
+      // lista quem pode autorizar (gerentes e administradores) pelo nome
+      sb.from("equipe").select("email,nome,papel").in("papel", ["gerente","admin"]).order("nome").then(function(q){
+        var sel = dlg.querySelector("#gEmail"), lst = (q.data || []);
+        if (!lst.length) { sel.innerHTML = '<option value="">Nenhum gerente cadastrado</option>'; return; }
+        sel.innerHTML = '<option value="">Escolha o nome…</option>' + lst.map(function(g){
+          return '<option value="' + esc(g.email) + '">' + esc(g.nome || g.email) + (g.papel === "admin" ? " (administrador)" : "") + '</option>';
+        }).join("");
+        if (lst.length === 1) { sel.value = lst[0].email; dlg.querySelector("#gSenha").focus(); } else sel.focus();
+      });
     });
   }
   function acaoGerente(id, acao, st){

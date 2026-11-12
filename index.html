@@ -523,14 +523,14 @@
   body.tema-noite a{color:var(--ouro2)}
   body.tema-noite .vitrine a.b1{color:var(--tinta)}
 
-  /* variação vinho do tema escuro */
-  body.tema-noite.tema-vinho{
-    --vinho:#EBC98F; --vinho-escuro:#C9A15E; --dourado:#EBC98F; --laranja:#EBC98F; --dourado-claro:#7A3A3E;
-    --ouro:#EBC98F; --ouro2:#F7E3BD; --tinta:#2A0A10; --texto:#FBEFE9; --texto-suave:#D4AFAA; --verde:#B9E0C4;
-    --g1:#F3D9A6; --g2:#D3A867; --ac-borda:#8A4A47; --linha:#5A1E26; --linha2:#6E2A31; --fundo:#2B0B12; --fundo2:#5A1520;
-    --card:#3A1119; --card2:#45161F; --card3:#4E1A24; --campo:#300D14; --sel:#521A24; --ac-rgb:235,201,143; --teste-bg:#4E2A14;
-    --borda:#5A1E26; --branco:#3A1119; --creme:#4E1A24; --creme-claro:#2B0B12;
-  }
+  /* variação vinho do tema escuro: cores do original (dourado), só as molduras dos cards em vinho */
+  body.tema-noite.tema-vinho{--moldura:#8C2A36}
+  body.tema-noite.tema-vinho .produto,body.tema-noite.tema-vinho .lista-prod,body.tema-noite.tema-vinho .painel,body.tema-noite.tema-vinho .lateral,
+  body.tema-noite.tema-vinho .cat-tile,body.tema-noite.tema-vinho .opc-linha,body.tema-noite.tema-vinho .barra,body.tema-noite.tema-vinho .busca input,
+  body.tema-noite.tema-vinho .grade-kits .produto.kit,body.tema-noite.tema-vinho .vitrine .moldura{border-color:var(--moldura)}
+  body.tema-noite.tema-vinho .produto,body.tema-noite.tema-vinho .lista-prod,body.tema-noite.tema-vinho .cat-tile,body.tema-noite.tema-vinho .grade-kits .produto.kit{border-width:1.5px}
+  body.tema-noite.tema-vinho .vitrine .moldura+.moldura{border-color:rgba(140,42,54,.45)}
+  body.tema-noite.tema-vinho .grade-kits .produto.kit.no-pedido{border-color:var(--ouro);box-shadow:0 0 0 1px var(--ouro)}
   /* variação lilás do tema escuro */
   body.tema-noite.tema-lilas{
     --vinho:#CDB0F0; --vinho-escuro:#A986D6; --dourado:#CDB0F0; --laranja:#CDB0F0; --dourado-claro:#6E5A8C;
@@ -771,7 +771,7 @@
       document.body.classList.toggle("tema-noite", temaNoite());
       document.body.classList.toggle("tema-vinho", temaNoite() && (estado.config.tema === "noite_vinho" || /[?&]cor=vinho\b/.test(location.search)));
       document.body.classList.toggle("tema-lilas", temaNoite() && (estado.config.tema === "noite_lilas" || /[?&]cor=lilas\b/.test(location.search)));
-      if (temaNoite()) { var mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = document.body.classList.contains("tema-lilas") ? "#140F1C" : document.body.classList.contains("tema-vinho") ? "#2B0B12" : "#17100E"; }
+      if (temaNoite()) { var mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = document.body.classList.contains("tema-lilas") ? "#140F1C" : "#17100E"; }
       // limpa do carrinho o que não existe mais
       Object.keys(estado.carrinho).forEach(function(c){ var pp = produtoPorCodigo(codDe(c)), op = opDe(c); if (!pp || pp.esgotado || (temOpcoes(pp) ? !op || pp.opcoes.itens.indexOf(op) < 0 : !!op)) delete estado.carrinho[c]; else if (porUn(pp) && estado.carrinho[c].q % 1 !== 0) estado.carrinho[c].q = Math.max(pp.minimo, Math.round(estado.carrinho[c].q)); });
       var ajuda = linkWhats(temaDia() ? "Olá! Gostaria de ajuda para fazer um pedido." : "Olá! Gostaria de ajuda para fazer uma encomenda.");

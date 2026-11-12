@@ -1205,9 +1205,9 @@
 
     if (soRetirada) {
       h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>';
-      h += nomeH + '<h3 class="sub-end">Endereço' + OBR + '</h3>' + endH + wppH;
-      h += '<p class="aviso" style="margin-top:14px">📍 Pedido para <strong>retirar na loja</strong>' + (cfg.retirada_endereco ? ': ' + esc(cfg.retirada_endereco) : ' Di Mercatto') + '.</p>';
+      h += nomeH + wppH;
       h += '</div>';
+      d.cep = ""; d.rua = ""; d.numero = ""; d.compl = ""; d.bairro = ""; d.referencia = ""; d.endereco = "";
     } else {
       h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>' + nomeH + wppH + '</div>';
       var mods = [{valor:"retirada", texto:"Retirar na loja", sub: cfg.retirada_endereco || "Di Mercatto"}, {valor:"entrega", texto:"Receber em casa", sub:"Entrega"}];
@@ -1370,10 +1370,12 @@
     var cw = celularBR(d.whatsapp);
     if (cw.erro) erro("eWpp","fWpp",cw.erro);
     if (!d.modalidade) erro("eMod",null,"Escolha se vai retirar na loja ou receber em casa.");
-    if (soDigitos(d.cep).length !== 8) erro("eCep","fCep","Informe o CEP com 8 números.");
-    if (d.rua.length < 3) erro("eRua","fRua","Falta informar a rua.");
-    if (!d.numero) erro("eNum","fNum","Falta o número (use S/N se não houver).");
-    if (d.bairro.length < 2) erro("eBairro","fBairro","Falta informar o bairro.");
+    if (document.getElementById("fCep")) { // endereço só quando há entrega
+      if (soDigitos(d.cep).length !== 8) erro("eCep","fCep","Informe o CEP com 8 números.");
+      if (d.rua.length < 3) erro("eRua","fRua","Falta informar a rua.");
+      if (!d.numero) erro("eNum","fNum","Falta o número (use S/N se não houver).");
+      if (d.bairro.length < 2) erro("eBairro","fBairro","Falta informar o bairro.");
+    }
     if (d.modalidade === "entrega") {
       if (freteAtivo() && soDigitos(d.cep).length === 8 && d.numero) {
         var fr = d.frete, c = freteAtual();
@@ -1445,7 +1447,7 @@
     h += '<div class="painel"><h2>Seus dados</h2>';
     h += linha("Nome", d.nome) + linha("WhatsApp", d.whatsapp);
     h += linha("Recebimento", d.modalidade === "entrega" ? "Receber em casa" : "Retirar na loja");
-    if (true) { h += linha("Endereço", d.endereco) + linha("Bairro", d.bairro) + (d.cep ? linha("CEP", mascaraCep(d.cep)) : ""); if (d.referencia) h += linha("Referência", d.referencia); }
+    if (d.endereco) { h += linha("Endereço", d.endereco) + linha("Bairro", d.bairro) + (d.cep ? linha("CEP", mascaraCep(d.cep)) : ""); if (d.referencia) h += linha("Referência", d.referencia); }
     var dt = dataBR(d.data); h += linha(d.modalidade === "retirada" ? "Data da retirada" : "Data", dt.charAt(0).toUpperCase()+dt.slice(1));
     if (d.horario) h += linha("Horário", d.horario);
     if (d.pagamento) h += linha("Pagamento", d.pagamento);
@@ -1486,7 +1488,7 @@
     L.push("Recebimento: " + (d.modalidade === "entrega" ? "Entrega" : "Retirada na loja"));
     var dt = dataBR(d.data);
     L.push("Data: " + dt + (d.horario ? " — " + d.horario : ""));
- L.push("Endereço: " + d.endereco + " — " + d.bairro + (d.cep ? " — CEP " + mascaraCep(d.cep) : "") + (d.referencia ? " (Ref.: " + d.referencia + ")" : ""));
+    if (d.endereco) L.push("Endereço: " + d.endereco + " — " + d.bairro + (d.cep ? " — CEP " + mascaraCep(d.cep) : "") + (d.referencia ? " (Ref.: " + d.referencia + ")" : ""));
     if (d.pagamento) L.push("Pagamento: " + d.pagamento);
     if (d.observacoes) L.push("Observações: " + d.observacoes);
     L.push("");

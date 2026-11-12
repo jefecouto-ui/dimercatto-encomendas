@@ -555,9 +555,10 @@
       }).join("") + '</tbody></table></div></div>';
       // por vendedor
       var porV = {}; validos.forEach(function(p){ var v = nomeVend(p.vendedor) || "Sem vendedor (site)"; porV[v] = porV[v] || {n:0, v:0}; porV[v].n++; porV[v].v += p.total_centavos; });
-      var vs = Object.keys(porV).sort(function(a, b){ return porV[b].v - porV[a].v; });
+      vendAtivos.forEach(function(n){ porV[n] = porV[n] || {n:0, v:0}; });
+      var vs = Object.keys(porV).sort(function(a, b){ return (porV[b].v - porV[a].v) || a.localeCompare(b, "pt-BR"); });
       h += '<div class="fin-2"><div class="card"><h2>Por vendedor</h2><table class="fin-tab"><thead><tr><th>Vendedor</th><th class="n">Pedidos</th><th class="n">Valor</th><th class="n">Ticket</th></tr></thead><tbody>' + vs.map(function(v){
-        return '<tr><td>' + esc(v) + '</td><td class="n">' + porV[v].n + '</td><td class="n">' + reais(porV[v].v) + '</td><td class="n">' + reais(Math.round(porV[v].v / porV[v].n)) + '</td></tr>';
+        return '<tr><td>' + esc(v) + '</td><td class="n">' + porV[v].n + '</td><td class="n">' + reais(porV[v].v) + '</td><td class="n">' + (porV[v].n ? reais(Math.round(porV[v].v / porV[v].n)) : "—") + '</td></tr>';
       }).join("") + '</tbody></table></div>';
       // por categoria
       var catDe = {}; (S.produtos || []).forEach(function(pr){ catDe[pr.id] = pr.categoria_id; });
@@ -753,9 +754,9 @@
     return '<div class="atend meu"><span>👤 Atendendo: <b>' + esc(p.atendente_nome) + '</b>' + (hora ? ' <small>desde ' + hora + '</small>' : '') + '</span><span>' +
       '<button class="btn sec peq" type="button" data-assumir="' + p.id + '">Trocar</button> <button class="btn sec peq" type="button" data-assumir="' + p.id + '" data-liberar="1">Liberar</button></span></div>';
   }
-  var vendNomes = {};
+  var vendNomes = {}, vendAtivos = [];
   function carregarVendNomes(){
-    return sb.from("vendedores").select("codigo,nome").then(function(r){ (r.data || []).forEach(function(v){ if (v.codigo) vendNomes[String(v.codigo).toLowerCase()] = v.nome || v.codigo; }); }, function(){});
+    return sb.from("vendedores").select("codigo,nome,ativo").then(function(r){ vendAtivos = []; (r.data || []).forEach(function(v){ if (v.codigo) { vendNomes[String(v.codigo).toLowerCase()] = v.nome || v.codigo; if (v.ativo) vendAtivos.push(v.nome || v.codigo); } }); }, function(){});
   }
   function nomeVend(c){ if (!c) return ""; return vendNomes[String(c).toLowerCase()] || c; }
   var nomesAtend = null;

@@ -575,6 +575,7 @@
     --borda:#362A45; --branco:#211932; --creme:#32264A; --creme-claro:#140F1C;
   }
 .hora-sel{display:flex;align-items:center;gap:10px}.hora-sel select{flex:1;background:#fff;color:inherit;font-size:20px;font-weight:700;padding:12px 10px;min-height:52px;text-align:center}.hora-sel span{font-size:24px;font-weight:800}
+.tirar-conf{display:flex;align-items:center;gap:4px;margin:8px 0 0 auto;padding:6px 10px;min-height:36px;border:1.5px solid var(--erro);color:var(--erro);background:#fff;border-radius:10px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}.tirar-conf svg{width:16px;height:16px}
 </style>
 </head>
 <body>
@@ -1190,13 +1191,13 @@
   }
 
   /* ---------- etapa 2: dados ---------- */
-  function resumoItensHTML(editavel){
+  function resumoItensHTML(editavel, conferir){
     var h = "", t = totais();
     itensCarrinho().forEach(function(i, ix){
       h += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div>' + (i.op ? '<div class="q"><b>' + esc(i.op) + '</b></div>' : '') + '<div class="q">' + esc(qtdProd(i.p, i.q)) + ' × ' + reais(i.p.preco_centavos) + (porUn(i.p) ? '/kg' : '') + '</div>';
       if (editavel) h += '<label class="campo" style="margin-top:8px;font-size:15px" for="obs-' + ix + '">Observação deste item <span class="dica">Opcional</span></label><input type="text" id="obs-' + ix + '" data-obs="' + esc(i.key) + '" maxlength="300" value="' + esc(i.obs) + '" placeholder="Ex.: cortar em fatias">';
       else if (i.obs) h += '<div class="q">Obs.: ' + esc(i.obs) + '</div>';
-      h += '</div><div class="v">' + reais(subtotal(i.p, i.q)) + '</div></div>';
+      h += '</div><div class="v">' + reais(subtotal(i.p, i.q)) + (conferir ? '<button type="button" class="tirar-conf" data-tirarconf="' + esc(i.key) + '" aria-label="Excluir ' + esc(i.p.nome) + ' do pedido">' + LIXO + ' Excluir</button>' : '') + '</div></div>';
     });
     h += '<div class="total"><div>Total' + (t.estimado ? '<small>Estimado — confirmado após a pesagem' + (variacaoTxt(itensCarrinho()) ? '; ' + esc(variacaoTxt(itensCarrinho())) : '') + '</small>' : '') + '</div><div>' + reais(t.total) + '</div></div>';
     return h;
@@ -1470,7 +1471,7 @@
     if (!totais().n) return irPara(1);
     var d = estado.dados, h = "";
     h += '<h1 class="titulo-etapa">Confira seu pedido</h1>';
-    var cf = freteAtual(), rh = resumoItensHTML(false);
+    var cf = freteAtual(), rh = resumoItensHTML(false, true);
     if (cf && cf.ok) rh = rh.replace('<div class="total"><div>Total', '<div class="total sub"><div>Subtotal dos produtos');
     h += '<div class="painel"><h2>Produtos</h2>' + rh;
     if (cf && cf.ok) { var tt = totais(); h += '<div class="linha-item"><div><div class="n">Frete' + (cf.km != null ? ' <span class="q">(' + kmBR(cf.km) + ' km)</span>' : '') + '</div></div><div class="v">' + (cf.status === "a_confirmar" ? 'a confirmar' : cf.status === "gratis" ? 'grátis' : reais(cf.centavos)) + '</div></div><div class="total"><div>Total com frete' + (tt.estimado || cf.status === "a_confirmar" ? '<small>Estimado</small>' : '') + '</div><div>' + reais(tt.total + (cf.centavos || 0)) + '</div></div>'; }
@@ -1639,6 +1640,13 @@
     if (t.id === "barraBtn" || t.id === "lateralBtn") { irPara(2); return; }
     if (t.id === "abrirSacola") { abrirSacola(); return; }
     if (t.dataset.remover) { removerItem(t.dataset.remover); return; }
+    if (t.dataset.tirarconf) {
+      var itc = itensCarrinho().filter(function(x){ return x.key === t.dataset.tirarconf; })[0];
+      if (!confirm("Excluir " + (itc ? itc.p.nome : "este item") + " do pedido?")) return;
+      removerItem(t.dataset.tirarconf);
+      if (!totais().n) { avisar("Seu pedido ficou sem produtos. Escolha os itens no cardápio."); irPara(1); } else { telaConferir(); window.scrollTo(0, 0); }
+      return;
+    }
     if (t.id === "sacolaFechar") { fecharSacola(); return; }
     if (t.id === "sacolaMais") { fecharSacola(); if (estado.cat == null && estado.guia == null) { var cc = document.getElementById("cardapio"); if (cc) cc.scrollIntoView({behavior:"smooth"}); } return; }
     if (t.id === "sacolaContinuar") { fecharSacola(); irPara(2); return; }

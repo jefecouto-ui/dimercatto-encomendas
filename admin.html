@@ -562,7 +562,7 @@
   }
   function carregarFin(){
     var box = document.getElementById("finBox");
-    var q = sb.from("pedidos").select("id,numero,cliente_nome,status,total_centavos,total_estimado,frete_centavos,data_desejada,criado_em,vendedor,adiantamento_centavos,adiantamento_pago,tempo_total_s,tempo_sacola_s,pedido_itens(codigo,nome,produto_id,subtotal_centavos,quantidade,unidade,unidades)").order("data_desejada");
+    var q = sb.from("pedidos").select("id,numero,cliente_nome,status,total_centavos,total_estimado,frete_centavos,data_desejada,criado_em,vendedor,adiantamento_centavos,adiantamento_pago,tempo_total_s,tempo_sacola_s,pedido_itens(codigo,nome,produto_id,subtotal_centavos,quantidade,unidade,unidades)").is("excluido_em", null).order("data_desejada");
     if (filtroFin.de) q = q.gte("data_desejada", filtroFin.de);
     if (filtroFin.ate) q = q.lte("data_desejada", filtroFin.ate);
     q.then(function(r){
@@ -715,17 +715,19 @@
     var fx = ordemFaixas();
     if (fx.length) h += '<div><label for="fHor">Faixa de horário</label><select id="fHor"><option value="">Todas</option>' + fx.map(function(f){ return '<option' + (filtroPed.horario === f ? " selected" : "") + '>' + esc(f) + '</option>'; }).join("") + '</select></div>';
     h += '<div><label for="fOrdem">Ordenar por</label><select id="fOrdem"><option value="chegada"' + (filtroPed.ordem === "chegada" ? " selected" : "") + '>Chegada (mais novos em cima)</option><option value="retirada"' + (filtroPed.ordem === "retirada" ? " selected" : "") + '>Data e hora de retirada</option></select></div>';
-    h += '<button class="btn sec" id="fAtualizar" type="button">Atualizar</button></div></div><div id="listaPedidos"><p class="vazio">Carregando pedidos…</p></div>';
+    h += '<button class="btn sec" id="fAtualizar" type="button">Atualizar</button><button class="btn sec" id="fLixeira" type="button">' + (filtroPed.lixeira ? '← Voltar aos pedidos' : '🗑 Lixeira') + '</button></div></div><div id="listaPedidos"><p class="vazio">Carregando pedidos…</p></div>';
     main.innerHTML = h;
     ["fDe","fAte","fSt","fHor"].forEach(function(id){ var el = document.getElementById(id); if (el) el.onchange = function(){ filtroPed.de = document.getElementById("fDe").value; filtroPed.ate = document.getElementById("fAte").value; filtroPed.status = document.getElementById("fSt").value; var fh = document.getElementById("fHor"); filtroPed.horario = fh ? fh.value : ""; carregarPedidos(); }; });
     document.getElementById("fOrdem").onchange = function(){ filtroPed.ordem = this.value; carregarPedidos(); };
     document.getElementById("fAtualizar").onclick = carregarPedidos;
+    document.getElementById("fLixeira").onclick = function(){ filtroPed.lixeira = !filtroPed.lixeira; this.textContent = filtroPed.lixeira ? '← Voltar aos pedidos' : '🗑 Lixeira'; carregarPedidos(); };
     var fb = document.getElementById("fBuscaPed"), tb = null;
     fb.oninput = function(){ clearTimeout(tb); tb = setTimeout(function(){ filtroPed.busca = fb.value.trim(); carregarPedidos(); }, 350); };
     carregarPedidos();
   }
   function carregarPedidos(){
-    var q = sb.from("pedidos").select("*, pedido_itens(*), pedido_historico(status,por,em)");
+    if (filtroPed.lixeira) return carregarLixeira();
+    var q = sb.from("pedidos").select("*, pedido_itens(*), pedido_historico(status,por,em)").is("excluido_em", null);
     q = filtroPed.ordem === "retirada" ? q.order("data_desejada").order("horario", { nullsFirst: false }).order("criado_em") : q.order("criado_em", { ascending: false });
     var busca = (filtroPed.busca || "").replace(/[,()*%\\]/g, " ").trim();
     if (busca) {
@@ -766,8 +768,9 @@
       box.querySelectorAll("[data-assumir]").forEach(function(b){ b.onclick = function(){ assumirPedido(+b.dataset.assumir, b.dataset.liberar === "1", b); }; });
       box.querySelectorAll("[data-excluir]").forEach(function(b){ b.onclick = function(){
         var pp = ultimosPedidos.filter(function(x){ return x.id === +b.dataset.excluir; })[0];
-        if (!confirm("Excluir de vez o pedido " + (pp ? pp.numero + " de " + pp.cliente_nome : "") + "? Não tem como desfazer.")) return;
-        acaoGerente(+b.dataset.excluir, "excluir");
+        var mot = prompt("Mover o pedido " + (pp ? pp.numero + " de " + pp.cliente_nome : "") + " para a lixeira?\n\nEle sai da lista e o cliente passa a ver o pedido como cancelado. Dá para restaurar depois.\n\nMotivo (opcional):", "");
+        if (mot === null) return;
+        acaoGerente(+b.dataset.excluir, "excluir", null, { motivo: mot });
       }; });
       box.querySelectorAll("[data-exportar]").forEach(function(b){ b.onclick = function(){ exportarPedido(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.exportar; })[0]); }; });
       box.querySelectorAll("[data-imprimir]").forEach(function(b){ b.onclick = function(){ imprimirPedidos(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.imprimir; })); }; });
@@ -780,7 +783,7 @@
     h += blocoAtendente(p) + blocoAdiant(p);
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(nomeVend(p.vendedor)) : '') + '</div>';
     if (p.endereco) h += '<div class="meta">' + (p.modalidade === "entrega" ? '' : '🏠 ') + esc(p.endereco || "") + ' — ' + esc(p.bairro || "") + (p.cep ? ' — CEP ' + esc(p.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")) : '') + (p.frete_status === "a_confirmar" ? ' · <b style="color:var(--erro)">frete a confirmar</b>' : '') + (p.referencia ? " (Ref.: " + esc(p.referencia) + ")" : "") + '</div>';
-    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button>' + ((p.pedido_itens || []).some(function(i){ return i.unidade === "kg"; }) ? '<button class="btn sec" type="button" data-pesar="' + p.id + '" title="Digitar o peso real de cada item (ex.: 1,250 kg)">⚖ Informar peso</button>' : '') + '<button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button> <button class="btn perigo" type="button" data-excluir="' + p.id + '">🗑 Excluir</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
+    h += '<div class="barra-acoes" style="margin:10px 0 0"><div class="cresce" style="max-width:280px"><label>Mudar situação</label><select data-status="' + p.id + '">' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === p.status ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div><button class="btn" type="button" data-editped="' + p.id + '">✎ Editar pedido</button>' + ((p.pedido_itens || []).some(function(i){ return i.unidade === "kg"; }) ? '<button class="btn sec" type="button" data-pesar="' + p.id + '" title="Digitar o peso real de cada item (ex.: 1,250 kg)">⚖ Informar peso</button>' : '') + '<button class="btn sec" type="button" data-imprimir="' + p.id + '">🖨 Imprimir formulário</button> <button class="btn sec" type="button" data-exportar="' + p.id + '" title="Arquivo para importar no sistema (código;quantidade)">⬇ Exportar</button> <button class="btn perigo" type="button" data-excluir="' + p.id + '">🗑 Mover para a lixeira</button><button class="btn sec" type="button" data-avisar="' + p.id + '">📲 Avisar cliente</button>' + (p.token ? '<a class="btn sec" href="' + esc(linkAcompanhar(p.token)) + '" target="_blank" rel="noopener">🔗 Ver como o cliente</a>' : '') + '</div>';
     if (p.motivo_alteracao) h += '<div class="meta" style="margin-top:8px">Motivo da alteração (o cliente vê): ' + esc(p.motivo_alteracao) + '</div>';
     if (p.obs_cozinha) h += '<div class="msg info" style="margin:10px 0 0">Cozinha: ' + esc(p.obs_cozinha) + '</div>';
     h += '<details><summary>Ver itens (' + (p.pedido_itens || []).length + ')</summary><div class="tabela"><table><thead><tr><th>Código</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Subtotal</th></tr></thead><tbody>';
@@ -1106,18 +1109,67 @@
       });
     });
   }
-  function acaoGerente(id, acao, st){
-    var p = ultimosPedidos.filter(function(x){ return x.id === id; })[0] || {};
+  function acaoGerente(id, acao, st, extra){
+    extra = extra || {};
+    var p = ultimosPedidos.concat(lixeiraPedidos).filter(function(x){ return x.id === id; })[0] || {};
     var executar = function(cli){
-      return cli.rpc("gerente_acao", { p_pedido_id: id, p_acao: acao, p_status: st || null }).then(function(r){
+      return cli.rpc("gerente_acao", { p_pedido_id: id, p_acao: acao, p_status: st || null, p_motivo: (extra.motivo || "").trim() || null, p_solicitante: (S.usuario && S.usuario.email) || null }).then(function(r){
         if (cli !== sb) cli.auth.signOut();
         if (r.error) { alert(erroTxt(r.error)); carregarPedidos(); return; }
         carregarPedidos();
       });
     };
     if (ehGerente()) return executar(sb);
-    var motivo = acao === "excluir" ? "Excluir o pedido " + (p.numero || "") + " apaga ele de vez." : precisaGerente(p, st);
-    return pedirGerente(motivo, acao === "excluir" ? "Excluir pedido — autorização do gerente" : "Autorização do gerente").then(executar, function(){ carregarPedidos(); });
+    var TXT = {
+      excluir: ["Mover o pedido " + (p.numero || "") + " para a lixeira precisa da autorização do gerente.", "Lixeira — autorização do gerente"],
+      restaurar: ["Restaurar o pedido " + (p.numero || "") + " da lixeira precisa da autorização do gerente.", "Restaurar — autorização do gerente"],
+      excluir_definitivo: ["Excluir DEFINITIVAMENTE o pedido " + (p.numero || "") + ". Ele some do sistema e o link do cliente para de funcionar. Fica só o registro de quem excluiu.", "Excluir definitivamente — autorização do gerente"]
+    };
+    var t = TXT[acao] || [precisaGerente(p, st), "Autorização do gerente"];
+    return pedirGerente(t[0], t[1]).then(executar, function(){ carregarPedidos(); });
+  }
+  /* ---------- lixeira ---------- */
+  var lixeiraPedidos = [];
+  function carregarLixeira(){
+    var box = document.getElementById("listaPedidos"); if (!box) return;
+    box.innerHTML = '<p class="vazio">Carregando lixeira…</p>';
+    Promise.all([
+      sb.from("pedidos").select("id,numero,cliente_nome,cliente_whatsapp,data_desejada,total_centavos,excluido_em,excluido_por,excluido_status_ant").not("excluido_em", "is", null).order("excluido_em", { ascending: false }),
+      sb.from("equipe").select("email,nome"),
+      ehGerente() ? sb.from("log_exclusoes").select("numero,cliente_nome,total_centavos,acao,solicitado_por,autorizado_por,motivo,em").order("em", { ascending: false }).limit(100) : Promise.resolve({ data: null })
+    ]).then(function(rs){
+      var r = rs[0], eq = rs[1], lg = rs[2], NM = {};
+      ((eq && eq.data) || []).forEach(function(e){ if (e.email) NM[e.email.toLowerCase()] = e.nome || e.email; });
+      var quem = function(em){ return em ? (NM[String(em).toLowerCase()] || em) : "—"; };
+      if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
+      lixeiraPedidos = r.data || [];
+      var h = '<div class="card"><h2>🗑 Lixeira</h2><p class="dica" style="margin:0 0 10px">Pedidos na lixeira não aparecem na lista, na produção nem no Financeiro. O cliente vê o pedido como cancelado. Restaurar ou excluir definitivamente pede a autorização do gerente.</p>';
+      if (!lixeiraPedidos.length) h += '<p class="vazio" style="margin:0">A lixeira está vazia.</p>';
+      else h += '<table class="fin-tab"><thead><tr><th>Pedido</th><th>Cliente</th><th>Retirada</th><th class="n">Valor</th><th>Na lixeira desde</th><th></th></tr></thead><tbody>' + lixeiraPedidos.map(function(p){
+        return '<tr><td><b>' + esc(p.numero) + '</b></td><td>' + esc(p.cliente_nome) + '</td><td>' + esc(dataBR(p.data_desejada)) + '</td><td class="n">' + reais(p.total_centavos) + '</td><td>' + esc(dataHora(p.excluido_em)) + '<br><span class="dica">por ' + esc(quem(p.excluido_por)) + '</span></td>' +
+          '<td style="white-space:nowrap"><button type="button" class="btn sec peq" data-restaurar="' + p.id + '">↩ Restaurar</button> <button type="button" class="btn sec peq" style="color:#b3261e;border-color:#b3261e" data-definitivo="' + p.id + '">Excluir definitivamente</button></td></tr>';
+      }).join("") + '</tbody></table>';
+      h += '</div>';
+      if (lg && lg.data) {
+        var AC = { lixeira: "Foi para a lixeira", restaurado: "Restaurado", definitivo: "Excluído definitivamente" };
+        h += '<div class="card"><h2>Registro de exclusões</h2>' + (lg.data.length ? '<table class="fin-tab"><thead><tr><th>Quando</th><th>Pedido</th><th>O que aconteceu</th><th>Pedido por</th><th>Autorizado por</th><th>Motivo</th></tr></thead><tbody>' + lg.data.map(function(l){
+          return '<tr><td>' + esc(dataHora(l.em)) + '</td><td>' + esc(l.numero) + '<br><span class="dica">' + esc(l.cliente_nome || "") + ' · ' + reais(l.total_centavos || 0) + '</span></td><td>' + esc(AC[l.acao] || l.acao) + '</td><td>' + esc(quem(l.solicitado_por)) + '</td><td>' + esc(quem(l.autorizado_por)) + '</td><td>' + esc(l.motivo || "—") + '</td></tr>';
+        }).join("") + '</tbody></table>' : '<p class="vazio" style="margin:0">Nenhuma exclusão registrada ainda.</p>') + '</div>';
+      }
+      box.innerHTML = h;
+      box.querySelectorAll("[data-restaurar]").forEach(function(b){ b.onclick = function(){
+        var p = lixeiraPedidos.filter(function(x){ return x.id === +b.dataset.restaurar; })[0];
+        if (!confirm("Restaurar o pedido " + p.numero + " de " + p.cliente_nome + "? Ele volta para a lista com a situação que tinha antes.")) return;
+        acaoGerente(p.id, "restaurar");
+      }; });
+      box.querySelectorAll("[data-definitivo]").forEach(function(b){ b.onclick = function(){
+        var p = lixeiraPedidos.filter(function(x){ return x.id === +b.dataset.definitivo; })[0];
+        var mot = prompt("EXCLUIR DEFINITIVAMENTE o pedido " + p.numero + " de " + p.cliente_nome + "?\n\nNão tem como desfazer: ele some do sistema e o link do cliente para de funcionar. Fica guardado só o registro de quem excluiu.\n\nPara confirmar, escreva o motivo:", "");
+        if (mot === null) return;
+        if (!mot.trim()) { alert("Escreva o motivo para excluir definitivamente."); return; }
+        acaoGerente(p.id, "excluir_definitivo", null, { motivo: mot });
+      }; });
+    });
   }
   function mudarStatus(id, st, sel){
     var pp = ultimosPedidos.filter(function(x){ return x.id === id; })[0];

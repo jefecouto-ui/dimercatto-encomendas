@@ -574,6 +574,7 @@
     --card:#211932; --card2:#2A2040; --card3:#32264A; --campo:#1A1427; --sel:#2E2245; --ac-rgb:205,176,240; --teste-bg:#33274A;
     --borda:#362A45; --branco:#211932; --creme:#32264A; --creme-claro:#140F1C;
   }
+.hora-sel{display:flex;align-items:center;gap:10px}.hora-sel select{flex:1;background:#fff;color:inherit;font-size:20px;font-weight:700;padding:12px 10px;min-height:52px;text-align:center}.hora-sel span{font-size:24px;font-weight:800}
 </style>
 </head>
 <body>
@@ -1258,7 +1259,14 @@
     var hor = Array.isArray(cfg.horarios) ? cfg.horarios : [];
     if (temFaixas()) { h += '<label class="campo">Horário' + OBR + '</label><div id="faixasBox"><p class="dica">Escolha a data para ver os horários disponíveis.</p></div><div class="erro-campo" id="eHor" hidden></div>'; }
     else if (hor.length) { h += '<label class="campo">Horário' + OBR + '</label>' + botoesOpcao("horario", hor, d.horario, "Horário") + '<div class="erro-campo" id="eHor" hidden></div>'; }
-    else { h += '<label class="campo" for="fHora">Horário desejado' + OBR + '</label><input type="time" id="fHora" step="900" value="' + esc(/^\d{2}:\d{2}$/.test(d.horario) ? d.horario : "") + '"><div class="erro-campo" id="eHor" hidden></div>'; }
+    else {
+      // hora escolhida em duas listas grandes (hora e minutos), sem o relógio do celular
+      var hv = /^\d{2}:\d{2}$/.test(d.horario) ? d.horario.split(":") : ["", ""];
+      var hIni = +(cfg.hora_inicio || 7), hFim = +(cfg.hora_fim || 20), opH = "", opM = "";
+      for (var hh = hIni; hh <= hFim; hh++) { var t2 = (hh < 10 ? "0" : "") + hh; opH += '<option value="' + t2 + '"' + (hv[0] === t2 ? " selected" : "") + '>' + t2 + ' h</option>'; }
+      ["00","15","30","45"].forEach(function(m){ opM += '<option value="' + m + '"' + (hv[1] === m ? " selected" : "") + '>' + m + ' min</option>'; });
+      h += '<label class="campo" for="fHoraH">Horário da retirada' + OBR + '</label><div class="hora-sel"><select id="fHoraH" aria-label="Hora"><option value="">Hora</option>' + opH + '</select><span>:</span><select id="fHoraM" aria-label="Minutos"><option value="">Min</option>' + opM + '</select></div><div class="erro-campo" id="eHor" hidden></div>';
+    }
     h += '</div>';
 
     var pags = Array.isArray(cfg.pagamentos) ? cfg.pagamentos : [];
@@ -1371,7 +1379,7 @@
     if (g("fBairro") != null) d.bairro = g("fBairro");
     if (g("fRef") != null) d.referencia = g("fRef");
     if (g("fData") != null) d.data = g("fData");
-    if (g("fHora") != null) d.horario = g("fHora");
+    if (g("fHoraH") != null) { var hH = g("fHoraH"), hM = g("fHoraM"); d.horario = hH ? hH + ":" + (hM || "00") : ""; }
     if (g("fObs") != null) d.observacoes = g("fObs");
     document.querySelectorAll("[data-obs]").forEach(function(i){ var c = i.getAttribute("data-obs"); if (estado.carrinho[c]) estado.carrinho[c].obs = i.value.trim(); });
     guardar();
@@ -1413,7 +1421,7 @@
     else if (dpv && !dpv.length) erro("eData","fData","Sua sacola tem itens de dias diferentes da semana. Deixe só os de um dia.");
     else if (dpv && dpv.indexOf(new Date(d.data + "T12:00:00").getDay()) < 0) erro("eData","fData","Essa data é " + NOMES_DIA[new Date(d.data + "T12:00:00").getDay()] + ". Seus itens são de " + dpv.map(function(x){ return NOMES_DIA[x]; }).join(", ") + (proximaDataValida() ? ": próxima data possível " + ddmm(proximaDataValida()) + "." : "."));
     else if (lim) erro("eData", soHoje() ? null : "fData", lim.nome + " está disponível hoje " + janelaTxt(lim) + (soHoje() ? ". Retire do pedido ou volte no horário." : ". Escolha outra data."));
-    if (!d.horario) erro("eHor", document.getElementById("fHora") ? "fHora" : null, "Escolha o horário.");
+    if (!d.horario) erro("eHor", document.getElementById("fHoraH") ? "fHoraH" : null, "Escolha o horário.");
     if (Array.isArray(cfg.pagamentos) && cfg.pagamentos.length && !d.pagamento) erro("ePag",null,"Escolha a forma de pagamento.");
     if (primeiro) { primeiro.scrollIntoView({behavior:"smooth", block:"center"}); if (primeiro.focus) primeiro.focus({preventScroll:true}); return false; }
     return true;
@@ -1648,6 +1656,7 @@
   document.addEventListener("input", function(ev){
     if (ev.target.id === "fBusca") { filtrarBusca(ev.target.value); return; }
     if (ev.target.matches("input, textarea")) { ev.target.classList.remove("invalido"); ev.target.removeAttribute("aria-invalid"); }
+    if (ev.target.id === "fHoraH" || ev.target.id === "fHoraM") { ["fHoraH","fHoraM"].forEach(function(id){ var c = document.getElementById(id); if (c) { c.classList.remove("invalido"); c.removeAttribute("aria-invalid"); } }); var eh = document.getElementById("eHor"); if (eh) eh.hidden = true; }
     var idf = ev.target.id;
     if (idf === "fCep") { var v = mascaraCep(ev.target.value); if (v !== ev.target.value) ev.target.value = v; var ec = document.getElementById("eCep"); if (ec) ec.hidden = true;
       var novo = soDigitos(v); if (novo !== estado.dados.cep) { estado.dados.cep = novo; estado.dados.frete = null; desenharFrete(); if (novo.length === 8) buscarCep(); } }

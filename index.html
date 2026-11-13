@@ -576,6 +576,7 @@
   }
 .hora-sel{display:flex;align-items:center;gap:10px}.hora-sel select{flex:1;background:#fff;color:inherit;font-size:20px;font-weight:700;padding:12px 10px;min-height:52px;text-align:center}.hora-sel span{font-size:24px;font-weight:800}
 .tirar-conf{display:flex;align-items:center;gap:4px;margin:8px 0 0 auto;padding:6px 10px;min-height:36px;border:1.5px solid var(--erro);color:var(--erro);background:#fff;border-radius:10px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}.tirar-conf svg{width:16px;height:16px}
+.aviso-preco{background:#FFF4E5;border:1.5px solid #E8A33D;color:#5A3A00;margin-top:12px}
 </style>
 </head>
 <body>
@@ -1489,6 +1490,7 @@
     h += '<label class="confirmo"><input type="checkbox" id="fConfirmo"> <span>Confirmo que revisei os produtos, quantidades e informações ' + (temaDia() ? 'do meu pedido' : 'da minha encomenda') + '.</span></label>';
     h += '<div class="erro-campo" id="eConf" hidden></div><div id="erroEnvio"></div>';
     h += '<p class="aviso" style="margin-top:16px">Ao continuar, vamos abrir o WhatsApp com o seu pedido já escrito. <strong>É só apertar ENVIAR.</strong> ' + (temAdiant() ? 'Depois do adiantamento, confirmamos' : 'Confirmamos') + ' pelo WhatsApp ' + esc(prazoConfTxt()) + '.</p>';
+    h += '<p class="aviso aviso-preco"><strong>Atenção:</strong> os preços podem sofrer variação. Nos produtos vendidos por peso, o valor final é confirmado na pesagem.</p>';
     h += '<div class="acoes"><button type="button" class="btn-principal btn-wpp" id="btnEnviar">' + iconeWpp() + ' Continuar no WhatsApp para enviar o pedido</button></div>';
     document.getElementById("app").innerHTML = h;
   }

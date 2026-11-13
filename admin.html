@@ -704,7 +704,7 @@
   }
 
   /* ================= PEDIDOS ================= */
-  var filtroPed = { de: hojeISO(), ate: "", status: "", horario: "", busca: "" };
+  var filtroPed = { de: hojeISO(), ate: "", status: "", horario: "", busca: "", ordem: "chegada" };
   function abaPedidos(){
     var h = '<h1>Pedidos</h1><div class="card nao-imprimir">';
     h += '<div style="margin-bottom:12px"><label for="fBuscaPed">🔎 Buscar pedido <span class="dica">nome do cliente, número (ex.: NAT-0024 ou 24) ou WhatsApp — procura em todas as datas</span></label><input type="search" id="fBuscaPed" autocomplete="off" placeholder="Ex.: Maria, NAT-0024, 24 ou 71987…" value="' + esc(filtroPed.busca) + '"></div>';
@@ -714,16 +714,19 @@
     h += '<div><label for="fSt">Situação</label><select id="fSt"><option value="">Todas</option>' + STATUS.map(function(s){ return '<option value="' + s[0] + '"' + (filtroPed.status === s[0] ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div>';
     var fx = ordemFaixas();
     if (fx.length) h += '<div><label for="fHor">Faixa de horário</label><select id="fHor"><option value="">Todas</option>' + fx.map(function(f){ return '<option' + (filtroPed.horario === f ? " selected" : "") + '>' + esc(f) + '</option>'; }).join("") + '</select></div>';
+    h += '<div><label for="fOrdem">Ordenar por</label><select id="fOrdem"><option value="chegada"' + (filtroPed.ordem === "chegada" ? " selected" : "") + '>Chegada (mais novos em cima)</option><option value="retirada"' + (filtroPed.ordem === "retirada" ? " selected" : "") + '>Data e hora de retirada</option></select></div>';
     h += '<button class="btn sec" id="fAtualizar" type="button">Atualizar</button></div></div><div id="listaPedidos"><p class="vazio">Carregando pedidos…</p></div>';
     main.innerHTML = h;
     ["fDe","fAte","fSt","fHor"].forEach(function(id){ var el = document.getElementById(id); if (el) el.onchange = function(){ filtroPed.de = document.getElementById("fDe").value; filtroPed.ate = document.getElementById("fAte").value; filtroPed.status = document.getElementById("fSt").value; var fh = document.getElementById("fHor"); filtroPed.horario = fh ? fh.value : ""; carregarPedidos(); }; });
+    document.getElementById("fOrdem").onchange = function(){ filtroPed.ordem = this.value; carregarPedidos(); };
     document.getElementById("fAtualizar").onclick = carregarPedidos;
     var fb = document.getElementById("fBuscaPed"), tb = null;
     fb.oninput = function(){ clearTimeout(tb); tb = setTimeout(function(){ filtroPed.busca = fb.value.trim(); carregarPedidos(); }, 350); };
     carregarPedidos();
   }
   function carregarPedidos(){
-    var q = sb.from("pedidos").select("*, pedido_itens(*), pedido_historico(status,por,em)").order("data_desejada").order("horario", { nullsFirst: false }).order("criado_em");
+    var q = sb.from("pedidos").select("*, pedido_itens(*), pedido_historico(status,por,em)");
+    q = filtroPed.ordem === "retirada" ? q.order("data_desejada").order("horario", { nullsFirst: false }).order("criado_em") : q.order("criado_em", { ascending: false });
     var busca = (filtroPed.busca || "").replace(/[,()*%\\]/g, " ").trim();
     if (busca) {
       // busca: ignora as datas e procura por nome, número do pedido ou WhatsApp

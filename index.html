@@ -9,6 +9,11 @@
 <meta property="og:description" content="Escolha seus produtos, a data e envie seu pedido pelo WhatsApp. Simples e rápido.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#94392D">
+<link rel="manifest" href="loja.webmanifest">
+<link rel="apple-touch-icon" href="img/loja-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="img/loja-32.png">
+<meta name="apple-mobile-web-app-title" content="Di Mercatto">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,700;1,500&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -578,6 +583,7 @@
 .tirar-conf{display:flex;align-items:center;gap:4px;margin:8px 0 0 auto;padding:6px 10px;min-height:36px;border:1.5px solid var(--erro);color:var(--erro);background:#fff;border-radius:10px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}.tirar-conf svg{width:16px;height:16px}
 .aviso-preco{background:#FFF4E5;border:1.5px solid #E8A33D;color:#5A3A00;margin-top:12px}
 .confirmo-preco{margin:12px 0 0;background:#fff;border:1.5px solid #E8A33D}
+.instalar{position:fixed;left:12px;right:12px;bottom:12px;z-index:60;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#fff;border:2px solid var(--vinho,#6B1424);border-radius:16px;padding:12px 14px;box-shadow:0 8px 28px rgba(0,0,0,.18)}.instalar-ic img{width:48px;height:48px;border-radius:12px;display:block}.instalar-tx{flex:1;min-width:160px;display:flex;flex-direction:column;gap:2px;font-size:15px;line-height:1.3}.instalar-tx span{font-size:13.5px;color:var(--suave,#6b5d58)}.instalar-bt{display:flex;gap:8px;align-items:center;width:100%;justify-content:flex-end}.instalar-bt .btn-principal{padding:10px 18px;min-height:44px;font-size:16px}.instalar-x{background:none;border:0;font:inherit;font-size:15px;color:var(--suave,#6b5d58);text-decoration:underline;padding:10px;min-height:44px;cursor:pointer}body.com-barra .instalar{bottom:calc(92px + env(safe-area-inset-bottom))}
 </style>
 </head>
 <body>
@@ -605,6 +611,7 @@
   <div class="carregando">Carregando o cardápio…</div>
 </main>
 
+<div id="instalar" class="instalar" hidden><div class="instalar-ic"><img src="img/loja-192.png" alt=""></div><div class="instalar-tx"><b>Adicione a loja na tela do seu celular</b><span id="instalarComo">Para pedir de novo com um toque, sem procurar o link.</span></div><div class="instalar-bt"><button type="button" class="btn-principal" id="btnInstalar">Instalar</button><button type="button" class="instalar-x" id="btnInstalarNao" aria-label="Agora não">Agora não</button></div></div>
 <footer class="rodape">Di Mercatto · Graça, Salvador — BA<br>Prefere ajuda? <a href="#" id="linkAjudaRodape" target="_blank" rel="noopener">Fale com a gente pelo WhatsApp</a></footer>
 <div class="espaco-barra" id="espacoBarra" hidden></div>
 
@@ -647,6 +654,31 @@
   /* ---------- utilidades ---------- */
   function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function reais(c){ return (c/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
+  /* ---------- instalar na tela inicial (PWA) ---------- */
+  var promptInstalar = null;
+  function instalarVisto(){ try { return +localStorage.getItem("dm_instalar_nao") || 0; } catch(e){ return 0; } }
+  function fecharInstalar(lembrar){ var b = document.getElementById("instalar"); if (b) b.hidden = true; if (lembrar) { try { localStorage.setItem("dm_instalar_nao", String(Date.now())); } catch(e){} } }
+  function ehIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
+  function jaInstalado(){ return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true || /[?&]app=1/.test(location.search); }
+  function mostrarInstalar(){
+    if (jaInstalado()) return;
+    if (Date.now() - instalarVisto() < 7 * 86400000) return;           // "agora não" vale 7 dias
+    var b = document.getElementById("instalar"), bt = document.getElementById("btnInstalar"), como = document.getElementById("instalarComo");
+    if (!b) return;
+    if (promptInstalar) { bt.hidden = false; como.textContent = "Para pedir de novo com um toque, sem procurar o link."; }
+    else if (ehIOS()) { bt.hidden = true; como.innerHTML = 'No Safari, toque em <b>Compartilhar</b> (quadrado com seta) e depois em <b>"Adicionar à Tela de Início"</b>.'; }
+    else return;
+    b.hidden = false;
+  }
+  window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); promptInstalar = e; setTimeout(mostrarInstalar, 20000); });
+  window.addEventListener("appinstalled", function(){ fecharInstalar(true); avisar("Pronto! A loja está na tela do seu celular."); });
+  document.addEventListener("click", function(ev){
+    if (ev.target.id === "btnInstalar") { if (!promptInstalar) return; promptInstalar.prompt(); promptInstalar.userChoice.then(function(){ promptInstalar = null; fecharInstalar(true); }); }
+    if (ev.target.id === "btnInstalarNao") fecharInstalar(true);
+  });
+  if (ehIOS()) setTimeout(mostrarInstalar, 25000);
+  if ("serviceWorker" in navigator && location.protocol === "https:") { try { navigator.serviceWorker.register("sw.js"); } catch(e){} }
+
   function avisar(txt){
     var t = document.getElementById("toastAviso");
     if (!t) { t = document.createElement("div"); t.id = "toastAviso"; t.className = "toast-aviso"; t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); document.body.appendChild(t); }
@@ -1179,6 +1211,7 @@
       lat.innerHTML = hl;
     }
     barra.hidden = !mostrar; document.getElementById("espacoBarra").hidden = !mostrar;
+    document.body.classList.toggle("com-barra", !!mostrar);
     if (sacolaAberta()) { if (mostrar) desenharSacola(); else fecharSacola(); }
     if (!mostrar) return;
     var btn = document.getElementById("barraBtn"), bq = document.getElementById("barraQtd");

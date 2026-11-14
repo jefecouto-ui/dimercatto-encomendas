@@ -562,7 +562,7 @@
   }
   function carregarFin(){
     var box = document.getElementById("finBox");
-    var q = sb.from("pedidos").select("id,numero,cliente_nome,status,total_centavos,total_estimado,frete_centavos,data_desejada,criado_em,vendedor,adiantamento_centavos,adiantamento_pago,tempo_total_s,tempo_sacola_s,pedido_itens(codigo,nome,produto_id,subtotal_centavos,quantidade,unidade,unidades)").is("excluido_em", null).order("data_desejada");
+    var q = sb.from("pedidos").select("id,numero,cliente_nome,status,total_centavos,total_estimado,frete_centavos,data_desejada,criado_em,vendedor,adiantamento_centavos,adiantamento_pago,tempo_total_s,tempo_sacola_s,pagamento,pedido_itens(codigo,nome,produto_id,subtotal_centavos,quantidade,unidade,unidades)").is("excluido_em", null).order("data_desejada");
     if (filtroFin.de) q = q.gte("data_desejada", filtroFin.de);
     if (filtroFin.ate) q = q.lte("data_desejada", filtroFin.ate);
     q.then(function(r){
@@ -622,12 +622,19 @@
         var x = porP[k], pt = k.split("|"), qt = x.uns ? x.uns + " un" : (x.un === "kg" ? x.q.toLocaleString("pt-BR",{maximumFractionDigits:3}) + " kg" : x.q + " un");
         return '<tr><td>' + esc(pt[0]) + '</td><td>' + esc(pt.slice(1).join("|")) + '</td><td class="n">' + qt + '</td><td class="n">' + reais(x.v) + '</td></tr>';
       }).join("") + '</tbody><tfoot><tr class="fin-total"><td colspan="3">Total destes ' + pk.length + ' produtos</td><td class="n">' + reais(soma(pk, function(k){ return porP[k].v; })) + '</td></tr></tfoot></table></div>';
+      // por forma de pagamento
+      var porPg = {}; validos.forEach(function(p){ var k = (p.pagamento || "").trim() || "Não informado"; porPg[k] = porPg[k] || {n:0, v:0}; porPg[k].n++; porPg[k].v += p.total_centavos; });
+      var pgs = Object.keys(porPg).sort(function(a, b){ return (porPg[b].v - porPg[a].v) || a.localeCompare(b, "pt-BR"); });
+      var pgTot = soma(validos, function(p){ return p.total_centavos; });
+      h += '<div class="card"><h2>Por forma de pagamento</h2><table class="fin-tab"><thead><tr><th>Forma</th><th class="n">Pedidos</th><th class="n">Valor</th><th class="n">% do valor</th></tr></thead><tbody>' + pgs.map(function(k){
+        return '<tr><td>' + esc(k) + '</td><td class="n">' + porPg[k].n + '</td><td class="n">' + reais(porPg[k].v) + '</td><td class="n">' + (pgTot ? Math.round(porPg[k].v / pgTot * 100) + "%" : "—") + '</td></tr>';
+      }).join("") + '</tbody><tfoot><tr class="fin-total"><td>Total</td><td class="n">' + validos.length + '</td><td class="n">' + reais(pgTot) + '</td><td class="n">100%</td></tr></tfoot></table><p style="font-size:12.5px;color:var(--suave);margin:8px 0 0">Forma escolhida pelo cliente no pedido. O pagamento é feito na retirada; pedidos anteriores a 14/11 aparecem como "Não informado".</p></div>';
       h += '<div id="finTempo"></div>';
       box.innerHTML = h;
       montarTempoFin(validos);
       document.getElementById("finCsv").onclick = function(){
-        var L = [["Pedido","Cliente","Situação","Retirada","Vendedor","Total (R$)","Estimado"].join(";")];
-        ps.forEach(function(p){ L.push([p.numero, (p.cliente_nome || "").replace(/;/g, ","), p.status, p.data_desejada, nomeVend(p.vendedor), (p.total_centavos / 100).toFixed(2).replace(".", ","), p.total_estimado ? "sim" : "não"].join(";")); });
+        var L = [["Pedido","Cliente","Situação","Retirada","Vendedor","Pagamento","Total (R$)","Estimado"].join(";")];
+        ps.forEach(function(p){ L.push([p.numero, (p.cliente_nome || "").replace(/;/g, ","), p.status, p.data_desejada, nomeVend(p.vendedor), (p.pagamento || ""), (p.total_centavos / 100).toFixed(2).replace(".", ","), p.total_estimado ? "sim" : "não"].join(";")); });
         var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + L.join("\r\n")], {type:"text/csv;charset=utf-8"})); a.download = "financeiro_" + (filtroFin.de || "inicio") + "_" + (filtroFin.ate || "hoje") + ".csv"; a.click();
       };
     });

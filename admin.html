@@ -563,11 +563,11 @@
     var h = '<div class="fin-2"><div class="card"><h2>Tempo para fazer o pedido</h2>';
     if (!com.length) h += '<p class="vazio" style="margin:0">Ainda sem pedidos medidos. A medição vale para pedidos feitos a partir de 12/11/2026.</p>';
     else h += '<table class="fin-tab"><thead><tr><th>Origem</th><th class="n">Pedidos</th><th class="n">Tempo típico</th><th class="n">Montando a sacola</th><th class="n">Mais rápido</th><th class="n">Mais lento</th></tr></thead><tbody>' +
-      linha("Link de vendedora", com.filter(function(p){ return p.vendedor; })) + linha("Direto pelo site", com.filter(function(p){ return !p.vendedor; })) +
-      '</tbody><tfoot>' + linha("Todos", com).replace('<tr>', '<tr class="fin-total">') + '</tfoot></table><p style="font-size:12.5px;color:var(--suave);margin:8px 0 0">Tempo típico = metade dos clientes faz em menos tempo que isso. Conta de quando abriu o link até enviar o pedido.</p>';
+      linha("📞 Por telefone (equipe)", com.filter(function(p){ return p.origem === "telefone"; })) + linha("Link de vendedora", com.filter(function(p){ return p.origem !== "telefone" && p.vendedor; })) + linha("Direto pelo site", com.filter(function(p){ return p.origem !== "telefone" && !p.vendedor; })) +
+      '</tbody><tfoot>' + linha("Todos", com).replace('<tr>', '<tr class="fin-total">') + '</tfoot></table><p style="font-size:12.5px;color:var(--suave);margin:8px 0 0">Tempo típico = metade dos clientes faz em menos tempo que isso. No site, conta de quando o cliente abriu o link até enviar. Por telefone, de quando a equipe abriu "Inserir pedido" (ou pôs o 1º item) até registrar.</p>';
     h += '</div><div class="card"><h2>Visitas na loja</h2><div id="finVisitas"><p class="vazio" style="margin:0">Carregando…</p></div></div></div>';
     el.innerHTML = h;
-    var q = sb.from("visitas").select("aberto_em,primeiro_item_em,enviado_em,vendedor").order("aberto_em", {ascending:false}).limit(10000);
+    var q = sb.from("visitas").select("aberto_em,primeiro_item_em,enviado_em,vendedor").or("dispositivo.is.null,dispositivo.neq.telefone").order("aberto_em", {ascending:false}).limit(10000);
     if (filtroFin.vDe) q = q.gte("aberto_em", filtroFin.vDe + "T00:00:00-03:00");
     q.then(function(r){
       var box = document.getElementById("finVisitas"); if (!box) return;
@@ -586,7 +586,7 @@
   }
   function carregarFin(){
     var box = document.getElementById("finBox");
-    var q = sb.from("pedidos").select("id,numero,cliente_nome,status,total_centavos,total_estimado,frete_centavos,data_desejada,criado_em,vendedor,adiantamento_centavos,adiantamento_pago,tempo_total_s,tempo_sacola_s,pagamento,pedido_itens(codigo,nome,produto_id,subtotal_centavos,quantidade,unidade,unidades)").is("excluido_em", null).order("data_desejada");
+    var q = sb.from("pedidos").select("id,numero,cliente_nome,status,total_centavos,total_estimado,frete_centavos,data_desejada,criado_em,vendedor,adiantamento_centavos,adiantamento_pago,tempo_total_s,tempo_sacola_s,pagamento,origem,pedido_itens(codigo,nome,produto_id,subtotal_centavos,quantidade,unidade,unidades)").is("excluido_em", null).order("data_desejada");
     if (filtroFin.de) q = q.gte("data_desejada", filtroFin.de);
     if (filtroFin.ate) q = q.lte("data_desejada", filtroFin.ate);
     q.then(function(r){
@@ -810,7 +810,7 @@
   }
   function cartaoPedido(p){
     var h = '<div class="pedido"><div class="topo"><div><span class="num">' + esc(p.numero) + '</span> <span class="cli-nome">' + esc(p.cliente_nome || "") + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>' + (p.alterado_em ? ' <span class="tag" title="Alterado em ' + esc(dataHora(p.alterado_em)) + '">✎ alterado</span>' : '') + (p.versao > 1 ? (p.cliente_ok_versao === p.versao ? ' <span class="tag st-concluido">✓ cliente concordou</span>' : ' <span class="tag st-aguardando">aguardando OK do cliente</span>') : '');
-    h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + (p.tempo_total_s != null ? ' · ⏱ montado em ' + durTxt(p.tempo_total_s) : '') + '</div></div>';
+    h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + (p.origem === "telefone" ? ' · 📞 por telefone' : '') + (p.tempo_total_s != null ? ' · ⏱ ' + (p.origem === "telefone" ? 'atendido em ' : 'montado em ') + durTxt(p.tempo_total_s) : '') + '</div></div>';
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += blocoAtendente(p) + blocoAdiant(p);
     h += '<div style="margin-top:6px"><strong>' + esc(p.cliente_nome) + '</strong> · <a href="https://wa.me/' + (soDig(p.cliente_whatsapp).length <= 11 ? "55" : "") + soDig(p.cliente_whatsapp) + '" target="_blank" rel="noopener">' + esc(p.cliente_whatsapp) + '</a>' + (p.vendedor ? ' · vendedor: ' + esc(nomeVend(p.vendedor)) : '') + '</div>';

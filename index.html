@@ -741,19 +741,21 @@
     try { if (crypto.randomUUID) return crypto.randomUUID(); } catch(e){}
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c){ var n = Math.random()*16|0; return (c === "x" ? n : (n&3|8)).toString(16); });
   }
-  function salvarVisita(){ try { localStorage.setItem("dm_visita", JSON.stringify(visita)); } catch(e){} }
+  function salvarVisita(){ try { localStorage.setItem(CHAVE_VISITA, JSON.stringify(visita)); } catch(e){} }
   function eventoVisita(ev){
     if (!visita) return;
-    api("rpc/registrar_visita", { method:"POST", body:{ p_sessao: visita.id, p_evento: ev, p_vendedor: estado.vendedor || null, p_dispositivo: innerWidth < 760 ? "celular" : "computador" } }).catch(function(){});
+    api("rpc/registrar_visita", { method:"POST", body:{ p_sessao: visita.id, p_evento: ev, p_vendedor: estado.vendedor || null, p_dispositivo: BALCAO ? "telefone" : (innerWidth < 760 ? "celular" : "computador") } }).catch(function(){});
   }
+  var CHAVE_VISITA = BALCAO ? "dm_visita_tel" : "dm_visita";
   function iniciarVisita(){
-    if (BALCAO) { visita = null; return; }
-    try { visita = JSON.parse(localStorage.getItem("dm_visita") || "null"); } catch(e){ visita = null; }
+    try { visita = JSON.parse(localStorage.getItem(CHAVE_VISITA) || "null"); } catch(e){ visita = null; }
     if (!visita || !visita.id || Date.now() - (visita.em || 0) > 6 * 3600 * 1000) { visita = { id: novoId(), em: Date.now(), ab: false, it: false }; }
     if (!visita.ab) { visita.ab = true; salvarVisita(); eventoVisita("abriu"); }
   }
   function marcarItemVisita(){
     if (!visita || visita.it || !Object.keys(estado.carrinho).length) return;
+    // telefone: se a aba ficou aberta parada, o relógio começa no 1º item (início real do atendimento)
+    if (BALCAO && Date.now() - (visita.em || 0) > 10 * 60 * 1000) { visita = { id: novoId(), em: Date.now(), ab: true, it: false }; eventoVisita("abriu"); }
     visita.it = true; salvarVisita(); eventoVisita("item");
   }
   function guardar(){
@@ -1610,7 +1612,7 @@
       d.observacoes = "";
       if (BALCAO) { var vb = new URLSearchParams(location.search).get("v"); estado.vendedor = vb ? vb.slice(0,60) : null; estado.dados.nome = ""; estado.dados.whatsapp = ""; }
       else { estado.vendedor = null; estado.vendedorEm = null; }
-      visita = null; try { localStorage.removeItem("dm_visita"); } catch(e){}
+      visita = null; try { localStorage.removeItem(CHAVE_VISITA); } catch(e){}
       guardar();
       try { sessionStorage.setItem("dm_ultimo_pedido", JSON.stringify(r)); } catch(e){}
       irPara(4);

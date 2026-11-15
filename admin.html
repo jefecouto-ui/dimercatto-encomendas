@@ -193,6 +193,30 @@
     .ficha{break-after:page;page-break-after:always}
     .ficha:last-child{break-after:auto;page-break-after:auto}
   }
+  /* ordem de produção: impressão compacta para economizar papel */
+  @media print{
+    @page{margin:8mm}
+    #prConteudo{font-size:9.5pt}
+    #prConteudo h2{font-size:12.5pt;margin:0 0 1px}
+    #prConteudo > p.dica{font-size:8pt;margin:0 0 3px}
+    #prConteudo .cab-setor{font-size:10pt;margin:5px 0 1px;color:#000;break-after:avoid}
+    #prConteudo .icone-cat{display:none}
+    #prConteudo .tabela{overflow:visible;border:0;margin:0}
+    #prConteudo table{font-size:9pt;width:100%;border-collapse:collapse}
+    #prConteudo th,#prConteudo td{padding:1px 5px!important;line-height:1.15;border-bottom:0.5pt solid #bbb}
+    #prConteudo th{font-size:7.5pt}
+    #prConteudo td.num,#prConteudo td[style]{font-size:9.5pt!important}
+    #prConteudo tr{break-inside:avoid}
+    #prConteudo .dica{font-size:7.5pt;margin:0}
+    #prConteudo strong{font-weight:600}
+    #prConteudo .faixa-prod{border:1px solid #000;border-radius:4px;padding:1px 6px 4px;margin:5px 0;break-inside:auto!important;page-break-inside:auto!important}
+    #prConteudo .faixa-cab{font-size:10.5pt;margin:3px 0 0}
+    #prConteudo .faixa-cab span{font-size:8pt}
+    #prConteudo .total-geral{margin-top:4px;padding:3px 7px;border-width:1px;border-radius:4px}
+    #prConteudo .total-geral h3{font-size:9.5pt;margin:0 0 1px}
+    #prConteudo .total-geral .linhas{font-size:9pt;gap:1px 14px}
+    #prConteudo .total-geral .linhas b{font-size:10pt!important}
+  }
   .atend{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px;padding:8px 12px;border-radius:10px;background:#EEF4FF;border:1.5px solid #B9CCF0;font-size:15px}
   .atend.meu{background:#EAF6EC;border-color:#9FD0A8}
   .atend.livre{background:#FFF8E6;border-color:#EBCB7A}
@@ -722,11 +746,12 @@
     var fx = ordemFaixas();
     if (fx.length) h += '<div><label for="fHor">Faixa de horário</label><select id="fHor"><option value="">Todas</option>' + fx.map(function(f){ return '<option' + (filtroPed.horario === f ? " selected" : "") + '>' + esc(f) + '</option>'; }).join("") + '</select></div>';
     h += '<div><label for="fOrdem">Ordenar por</label><select id="fOrdem"><option value="chegada"' + (filtroPed.ordem === "chegada" ? " selected" : "") + '>Chegada (mais novos em cima)</option><option value="retirada"' + (filtroPed.ordem === "retirada" ? " selected" : "") + '>Data e hora de retirada</option></select></div>';
-    h += '<button class="btn sec" id="fAtualizar" type="button">Atualizar</button><button class="btn sec" id="fLixeira" type="button">' + (filtroPed.lixeira ? '← Voltar aos pedidos' : '🗑 Lixeira') + '</button></div></div><div id="listaPedidos"><p class="vazio">Carregando pedidos…</p></div>';
+    h += '<button class="btn sec" id="fAtualizar" type="button">Atualizar</button><button class="btn" id="fInserir" type="button">➕ Inserir pedido</button><button class="btn sec" id="fLixeira" type="button">' + (filtroPed.lixeira ? '← Voltar aos pedidos' : '🗑 Lixeira') + '</button></div></div><div id="listaPedidos"><p class="vazio">Carregando pedidos…</p></div>';
     main.innerHTML = h;
     ["fDe","fAte","fSt","fHor"].forEach(function(id){ var el = document.getElementById(id); if (el) el.onchange = function(){ filtroPed.de = document.getElementById("fDe").value; filtroPed.ate = document.getElementById("fAte").value; filtroPed.status = document.getElementById("fSt").value; var fh = document.getElementById("fHor"); filtroPed.horario = fh ? fh.value : ""; carregarPedidos(); }; });
     document.getElementById("fOrdem").onchange = function(){ filtroPed.ordem = this.value; carregarPedidos(); };
     document.getElementById("fAtualizar").onclick = carregarPedidos;
+    document.getElementById("fInserir").onclick = abrirInserirPedido;
     document.getElementById("fLixeira").onclick = function(){ filtroPed.lixeira = !filtroPed.lixeira; this.textContent = filtroPed.lixeira ? '← Voltar aos pedidos' : '🗑 Lixeira'; carregarPedidos(); };
     var fb = document.getElementById("fBuscaPed"), tb = null;
     fb.oninput = function(){ clearTimeout(tb); tb = setTimeout(function(){ filtroPed.busca = fb.value.trim(); carregarPedidos(); }, 350); };
@@ -813,9 +838,9 @@
     return '<div class="atend meu"><span>👤 Atendendo: <b>' + esc(p.atendente_nome) + '</b>' + (hora ? ' <small>desde ' + hora + '</small>' : '') + '</span><span>' +
       '<button class="btn sec peq" type="button" data-assumir="' + p.id + '">Trocar</button> <button class="btn sec peq" type="button" data-assumir="' + p.id + '" data-liberar="1">Liberar</button></span></div>';
   }
-  var vendNomes = {}, vendAtivos = [];
+  var vendNomes = {}, vendAtivos = [], vendLista = [];
   function carregarVendNomes(){
-    return sb.from("vendedores").select("codigo,nome,ativo").then(function(r){ vendAtivos = []; (r.data || []).forEach(function(v){ if (v.codigo) { vendNomes[String(v.codigo).toLowerCase()] = v.nome || v.codigo; if (v.ativo) vendAtivos.push(v.nome || v.codigo); } }); }, function(){});
+    return sb.from("vendedores").select("codigo,nome,ativo").then(function(r){ vendAtivos = []; vendLista = []; (r.data || []).forEach(function(v){ if (v.codigo) { vendNomes[String(v.codigo).toLowerCase()] = v.nome || v.codigo; if (v.ativo) { vendAtivos.push(v.nome || v.codigo); vendLista.push({ codigo: v.codigo, nome: v.nome || v.codigo }); } } }); }, function(){});
   }
   function nomeVend(c){ if (!c) return ""; return vendNomes[String(c).toLowerCase()] || c; }
   var nomesAtend = null;
@@ -1080,6 +1105,21 @@
     return false;
   }
   /* autorização do gerente: entra com o login dele numa sessão separada só para esta ação */
+  /* ---------- inserir pedido (telefone / balcão) ---------- */
+  function abrirInserirPedido(){
+    var dlg = document.getElementById("dlgInserir");
+    if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "dlgInserir"; document.body.appendChild(dlg); }
+    dlg.innerHTML = '<h2>➕ Inserir pedido</h2><p class="dica" style="margin:0 0 12px">Para pedido recebido por telefone ou no balcão. A loja abre numa nova aba: você escolhe os produtos e preenche os dados do cliente. No final o pedido entra direto aqui no painel, <strong>sem passar pelo WhatsApp</strong>.</p>' +
+      '<label for="insVend">Vendedora do pedido</label><select id="insVend"><option value="">Sem vendedora (pedido da loja)</option>' + vendLista.map(function(v){ return '<option value="' + esc(v.codigo) + '">' + esc(v.nome) + '</option>'; }).join("") + '</select>' +
+      '<div class="barra-acoes" style="margin-top:14px"><button type="button" class="btn sec" id="insCancelar">Cancelar</button><button type="button" class="btn" id="insAbrir">Abrir a loja</button></div>';
+    dlg.querySelector("#insCancelar").onclick = function(){ dlg.close(); };
+    dlg.querySelector("#insAbrir").onclick = function(){
+      var v = dlg.querySelector("#insVend").value;
+      window.open("index.html?balcao=1" + (v ? "&v=" + encodeURIComponent(v) : ""), "_blank");
+      dlg.close();
+    };
+    dlg.showModal();
+  }
   function pedirGerente(motivo, titulo){
     return new Promise(function(ok, falhou){
       var dlg = document.getElementById("dlgGerente");

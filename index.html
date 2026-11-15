@@ -659,6 +659,8 @@
   function instalarVisto(){ try { return +localStorage.getItem("dm_instalar_nao") || 0; } catch(e){ return 0; } }
   function fecharInstalar(lembrar){ var b = document.getElementById("instalar"); if (b) b.hidden = true; if (lembrar) { try { localStorage.setItem("dm_instalar_nao", String(Date.now())); } catch(e){} } }
   function ehIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
+  function ehAndroid(){ return /android/i.test(navigator.userAgent); }
+  function navegadorDeApp(){ return /Instagram|FBAN|FBAV|FB_IAB|WhatsApp|Line\/|; wv\)/i.test(navigator.userAgent); }
   function jaInstalado(){ return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true || /[?&]app=1/.test(location.search); }
   function mostrarInstalar(){
     if (jaInstalado()) return;
@@ -666,17 +668,19 @@
     var b = document.getElementById("instalar"), bt = document.getElementById("btnInstalar"), como = document.getElementById("instalarComo");
     if (!b) return;
     if (promptInstalar) { bt.hidden = false; como.textContent = "Para pedir de novo com um toque, sem procurar o link."; }
+    else if (navegadorDeApp()) { bt.hidden = true; como.innerHTML = 'Abra esta página no ' + (ehIOS() ? '<b>Safari</b>' : '<b>Chrome</b>') + ': toque nos <b>três pontinhos</b> no canto e em <b>"Abrir no navegador"</b>. Lá você consegue instalar.'; }
     else if (ehIOS()) { bt.hidden = true; como.innerHTML = 'No Safari, toque em <b>Compartilhar</b> (quadrado com seta) e depois em <b>"Adicionar à Tela de Início"</b>.'; }
+    else if (ehAndroid()) { bt.hidden = true; como.innerHTML = 'No Chrome, toque nos <b>três pontinhos ⋮</b> no canto de cima e depois em <b>"Adicionar à tela inicial"</b> ou <b>"Instalar app"</b>.'; }
     else return;
     b.hidden = false;
   }
-  window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); promptInstalar = e; setTimeout(mostrarInstalar, 20000); });
+  window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); promptInstalar = e; var b = document.getElementById("instalar"); if (b && !b.hidden) mostrarInstalar(); else setTimeout(mostrarInstalar, 3000); });
   window.addEventListener("appinstalled", function(){ fecharInstalar(true); avisar("Pronto! A loja está na tela do seu celular."); });
   document.addEventListener("click", function(ev){
     if (ev.target.id === "btnInstalar") { if (!promptInstalar) return; promptInstalar.prompt(); promptInstalar.userChoice.then(function(){ promptInstalar = null; fecharInstalar(true); }); }
     if (ev.target.id === "btnInstalarNao") fecharInstalar(true);
   });
-  if (ehIOS()) setTimeout(mostrarInstalar, 25000);
+  if (ehIOS() || ehAndroid()) setTimeout(mostrarInstalar, 12000);
   if ("serviceWorker" in navigator && location.protocol === "https:") { try { navigator.serviceWorker.register("sw.js"); } catch(e){} }
 
   function avisar(txt){

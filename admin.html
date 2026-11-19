@@ -295,7 +295,10 @@
     </div>
     <div style="margin-top:12px"><label for="pNome">Nome para o cliente *</label><input type="text" id="pNome" maxlength="120" required></div>
     <div style="margin-top:12px"><label for="pDesc">Descrição curta <span class="dica">opcional — aparece abaixo do nome</span></label><textarea id="pDesc" maxlength="300"></textarea></div>
-    <div style="margin-top:12px"><label for="pCaixa">Descrição no caixa <span class="dica">opcional — como está no sistema da loja</span></label><input type="text" id="pCaixa" maxlength="120"></div>
+    <div class="grade" style="margin-top:12px">
+      <div><label for="pCaixa">Descrição no caixa <span class="dica">opcional — como está no sistema da loja</span></label><input type="text" id="pCaixa" maxlength="120"></div>
+      <div><label for="pForn">Código do fornecedor <span class="dica">opcional — uso interno, não aparece na loja</span></label><input type="text" id="pForn" maxlength="40"></div>
+    </div>
     <div class="grade" style="margin-top:12px">
       <div><label for="pCategoria">Categoria</label><select id="pCategoria"></select></div>
       <div><label for="pSub">Subcategoria <span class="dica">opcional — ex.: Risoles</span></label><input type="text" id="pSub" maxlength="40" list="listaSubs"><datalist id="listaSubs"></datalist></div>
@@ -516,9 +519,11 @@
     return Promise.all([
       sb.from("categorias").select("*").order("ordem").order("nome"),
       sb.from("produtos").select("*").order("ordem").order("nome"),
-      sb.from("configuracoes").select("chave,valor")
+      sb.from("configuracoes").select("chave,valor"),
+      sb.from("produtos_fornecedor").select("produto_id,codigo_fornecedor")
     ]).then(function(r){
       S.categorias = r[0].data || []; S.produtos = r[1].data || [];
+      S.codForn = {}; (r[3].data || []).forEach(function(x){ S.codForn[x.produto_id] = x.codigo_fornecedor; });
       S.config = {}; (r[2].data || []).forEach(function(c){ S.config[c.chave] = c.valor; });
     });
   }
@@ -1820,6 +1825,7 @@
     document.getElementById("dlgProdutoTitulo").textContent = p ? "Editar produto" : "Cadastrar produto";
     var v = function(id, val){ document.getElementById(id).value = val == null ? "" : val; };
     v("pEan", p && p.ean ? p.ean : "");
+    v("pForn", p && S.codForn && S.codForn[p.id] ? S.codForn[p.id] : "");
     v("pCodigo", p ? p.codigo : ""); v("pNome", p ? p.nome : ""); v("pDesc", p ? p.descricao : ""); v("pCaixa", p ? p.descricao_caixa : "");
     v("pPreco", p ? (p.preco_centavos/100).toFixed(2).replace(".",",") : "");
     preencherCategorias(document.getElementById("pCategoria"), p ? p.categoria_id : (S.categorias[0] && S.categorias[0].id));
@@ -1906,6 +1912,13 @@
       if (r.error) return falha(erroTxt(r.error));
       if (!r.data || !r.data.length) return falha("Não foi possível salvar (sem permissão).");
       if (editando) { var i = S.produtos.indexOf(editando); S.produtos[i] = r.data[0]; } else S.produtos.push(r.data[0]);
+      var pid = r.data[0].id, forn = document.getElementById("pForn").value.trim().slice(0, 40); S.codForn = S.codForn || {};
+      if (forn !== (S.codForn[pid] || "")) {
+        (forn ? sb.from("produtos_fornecedor").upsert({produto_id: pid, codigo_fornecedor: forn, atualizado_em: new Date().toISOString()}) : sb.from("produtos_fornecedor").delete().eq("produto_id", pid)).then(function(rf){
+          if (rf.error) { alert("O produto foi salvo, mas o código do fornecedor não: " + erroTxt(rf.error)); return; }
+          if (forn) S.codForn[pid] = forn; else delete S.codForn[pid];
+        });
+      }
       S.produtos.sort(function(a,b){ return (a.ordem - b.ordem) || a.nome.localeCompare(b.nome); });
       dlgP.close(); desenharProdutos();
     });

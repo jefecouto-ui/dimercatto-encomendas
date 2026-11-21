@@ -339,6 +339,8 @@
   .opcao[aria-pressed=true]{border-color:var(--vinho);background:var(--creme);color:var(--vinho);box-shadow:inset 0 0 0 1px var(--vinho)}
   .acoes{display:flex;flex-direction:column;gap:12px;margin:22px 0}
   .confirmo{display:flex;gap:14px;align-items:flex-start;background:var(--creme);border-radius:14px;padding:14px;font-weight:600;cursor:pointer}
+  .novo-cad{margin-top:18px;font-weight:500}
+  .bloco-cad{margin-top:6px;padding:4px 0 2px 14px;border-left:3px solid var(--borda)}
   .confirmo input{width:30px;height:30px;flex:none;accent-color:var(--vinho);margin:0}
   .aviso{background:#fff;border-left:5px solid var(--dourado);border-radius:10px;padding:12px 14px;font-size:17px;color:var(--texto)}
   .vazio{text-align:center;padding:40px 10px;color:var(--texto-suave)}
@@ -653,7 +655,7 @@
     etapa: 1,
     categorias: [], produtos: [], config: {},
     carrinho: {},           // codigo -> {q: numero, obs: texto}
-    dados: { nome:"", whatsapp:"", modalidade:"", data:"", horario:"", endereco:"", cep:"", rua:"", numero:"", compl:"", frete:null, bairro:"", referencia:"", pagamento:"", observacoes:"" },
+    dados: { nome:"", whatsapp:"", modalidade:"", data:"", horario:"", endereco:"", cep:"", rua:"", numero:"", compl:"", frete:null, bairro:"", referencia:"", pagamento:"", observacoes:"", novo:false, cpf:"", nasc:"", cadCep:"", cadRua:"", cadNum:"", cadComp:"", cadBairro:"", cadCidade:"" },
     resultado: null,
     vendedor: null,
     guia: null, cat: null, sub: null
@@ -1265,6 +1267,40 @@
     });
     return h + '</div>';
   }
+  /* ---------- cliente sem cadastro: dados para a vendedora cadastrar ---------- */
+  function mascaraCpf(c){ c = soDigitos(c).slice(0, 11); return c.replace(/^(\d{3})(\d)/, "$1.$2").replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d{1,2})$/, ".$1-$2"); }
+  function mascaraNasc(c){ c = soDigitos(c).slice(0, 8); return c.length > 4 ? c.slice(0,2) + "/" + c.slice(2,4) + "/" + c.slice(4) : c.length > 2 ? c.slice(0,2) + "/" + c.slice(2) : c; }
+  function cpfValido(c){ c = soDigitos(c); if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+    for (var t = 9; t < 11; t++) { var s = 0; for (var i = 0; i < t; i++) s += +c[i] * (t + 1 - i); var r = (s * 10) % 11 % 10; if (r !== +c[t]) return false; } return true; }
+  function nascISO(t){ var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t || ""); if (!m) return null; var dt = new Date(+m[3], +m[2] - 1, +m[1]);
+    if (dt.getDate() !== +m[1] || dt.getMonth() !== +m[2] - 1) return null; var anos = (Date.now() - dt) / 31557600000; if (anos < 12 || anos > 115) return null; return m[3] + "-" + m[2] + "-" + m[1]; }
+  function cadUsaEntrega(){ return estado.dados.modalidade === "entrega" && !!document.getElementById("fCep"); }
+  function cadastroHTML(d){
+    var h = '<label class="confirmo novo-cad"><input type="checkbox" id="fNovo"' + (d.novo ? ' checked' : '') + '> <span>' + (BALCAO ? 'O cliente <b>não tem cadastro</b> na Di Mercatto' : 'É minha primeira compra: <b>não tenho cadastro</b> na Di Mercatto') + '</span></label>';
+    h += '<div id="blocoCad" class="bloco-cad"' + (d.novo ? '' : ' hidden') + '><p class="dica" style="margin:0 0 4px">' + (BALCAO ? 'Preencha para fazer o cadastro do cliente.' : 'Preencha para a nossa equipe fazer o seu cadastro.') + '</p>';
+    h += '<label class="campo" for="fCpf">CPF' + OBR + '</label><input type="text" id="fCpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" style="max-width:260px" value="' + esc(mascaraCpf(d.cpf)) + '"><div class="erro-campo" id="eCpf" hidden></div>';
+    h += '<label class="campo" for="fNasc">Data de nascimento' + OBR + ' <span class="dica">dia/mês/ano</span></label><input type="text" id="fNasc" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" style="max-width:200px" value="' + esc(d.nasc) + '"><div class="erro-campo" id="eNasc" hidden></div>';
+    h += '<p class="dica" id="cadMesmoEnd" style="margin-top:10px"' + (cadUsaEntrega() ? '' : ' hidden') + '>Para o cadastro vamos usar o endereço de entrega abaixo.</p>';
+    h += '<div id="cadEnd"' + (cadUsaEntrega() ? ' hidden' : '') + '><h3 class="sub-end">Endereço para o cadastro' + OBR + '</h3>';
+    h += '<label class="campo" for="fCadCep">CEP <span class="dica">O endereço se preenche sozinho</span></label><input type="text" id="fCadCep" inputmode="numeric" maxlength="9" placeholder="00000-000" style="max-width:180px" value="' + esc(mascaraCep(d.cadCep)) + '"><div class="erro-campo" id="eCadCep" hidden></div>';
+    h += '<label class="campo" for="fCadRua">Rua' + OBR + '</label><input type="text" id="fCadRua" maxlength="160" value="' + esc(d.cadRua) + '"><div class="erro-campo" id="eCadRua" hidden></div>';
+    h += '<div class="duas-col"><div><label class="campo" for="fCadNum">Número' + OBR + '</label><input type="text" id="fCadNum" maxlength="20" value="' + esc(d.cadNum) + '"><div class="erro-campo" id="eCadNum" hidden></div></div>';
+    h += '<div><label class="campo" for="fCadComp">Complemento <span class="dica">Opcional</span></label><input type="text" id="fCadComp" maxlength="80" placeholder="Apto, bloco" value="' + esc(d.cadComp) + '"></div></div>';
+    h += '<div class="duas-col"><div><label class="campo" for="fCadBairro">Bairro' + OBR + '</label><input type="text" id="fCadBairro" maxlength="120" value="' + esc(d.cadBairro) + '"><div class="erro-campo" id="eCadBairro" hidden></div></div>';
+    h += '<div><label class="campo" for="fCadCidade">Cidade' + OBR + '</label><input type="text" id="fCadCidade" maxlength="80" value="' + esc(d.cadCidade || "Salvador") + '"><div class="erro-campo" id="eCadCidade" hidden></div></div></div>';
+    return h + '</div></div>';
+  }
+  function buscarCepCad(){
+    var cep = soDigitos(estado.dados.cadCep); if (cep.length !== 8) return;
+    fetch("https://viacep.com.br/ws/" + cep + "/json/").then(function(r){ return r.json(); }).then(function(j){
+      if (soDigitos(estado.dados.cadCep) !== cep) return;
+      if (j.erro) { marcarErro("eCadCep", "fCadCep", "CEP não encontrado. Confira os números."); return; }
+      var d = estado.dados, set = function(id, k, v){ var e = document.getElementById(id); if (v && e) { e.value = v; d[k] = v; } };
+      set("fCadRua", "cadRua", j.logradouro); set("fCadBairro", "cadBairro", j.bairro); set("fCadCidade", "cadCidade", j.localidade);
+      guardar(); var nu = document.getElementById("fCadNum"); if (nu && !nu.value) nu.focus();
+    }).catch(function(){});
+  }
+  function mostrarCadEnd(){ var u = cadUsaEntrega(), a = document.getElementById("cadEnd"), b = document.getElementById("cadMesmoEnd"); if (a) a.hidden = u; if (b) b.hidden = !u; }
   function telaDados(){
     if (!totais().n) return irPara(1);
     var cfg = estado.config, d = estado.dados, h = "";
@@ -1285,11 +1321,11 @@
 
     if (soRetirada) {
       h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>';
-      h += nomeH + wppH;
+      h += nomeH + wppH + cadastroHTML(d);
       h += '</div>';
       d.cep = ""; d.rua = ""; d.numero = ""; d.compl = ""; d.bairro = ""; d.referencia = ""; d.endereco = "";
     } else {
-      h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>' + nomeH + wppH + '</div>';
+      h += '<div class="painel"><h2>Quem vai receber</h2><p class="legenda-obr"><span class="obr" aria-hidden="true">*</span> Preenchimento obrigatório</p>' + nomeH + wppH + cadastroHTML(d) + '</div>';
       var mods = [{valor:"retirada", texto:"Retirar na loja", sub: cfg.retirada_endereco || "Di Mercatto"}, {valor:"entrega", texto:"Receber em casa", sub:"Entrega"}];
       h += '<div class="painel"><h2>Como prefere receber?' + OBR + '</h2>' + botoesOpcao("modalidade", mods, d.modalidade, "Como prefere receber") + '<div class="erro-campo" id="eMod" hidden></div>';
       h += '<div id="blocoEntrega"><h3 class="sub-end">Seu endereço' + OBR + '</h3>';
@@ -1437,6 +1473,9 @@
     if (g("fData") != null) d.data = g("fData");
     if (g("fHoraH") != null) { var hH = g("fHoraH"), hM = g("fHoraM"); d.horario = hH ? hH + ":" + (hM || "00") : ""; }
     if (g("fObs") != null) d.observacoes = g("fObs");
+    var cn = document.getElementById("fNovo"); if (cn) d.novo = cn.checked;
+    [["fCpf","cpf"],["fNasc","nasc"],["fCadRua","cadRua"],["fCadNum","cadNum"],["fCadComp","cadComp"],["fCadBairro","cadBairro"],["fCadCidade","cadCidade"]].forEach(function(x){ if (g(x[0]) != null) d[x[1]] = g(x[0]); });
+    if (g("fCadCep") != null) d.cadCep = soDigitos(g("fCadCep"));
     document.querySelectorAll("[data-obs]").forEach(function(i){ var c = i.getAttribute("data-obs"); if (estado.carrinho[c]) estado.carrinho[c].obs = i.value.trim(); });
     guardar();
   }
@@ -1456,6 +1495,17 @@
     else if (partesNome.length < 2) erro("eNome","fNome","Informe nome e sobrenome. Ex.: Maria Souza");
     var cw = celularBR(d.whatsapp);
     if (cw.erro) erro("eWpp","fWpp",cw.erro);
+    if (d.novo && document.getElementById("fNovo")) {
+      if (!cpfValido(d.cpf)) erro("eCpf","fCpf", soDigitos(d.cpf).length !== 11 ? "Informe o CPF com 11 números." : "CPF inválido. Confira os números.");
+      if (!nascISO(d.nasc)) erro("eNasc","fNasc","Informe a data de nascimento no formato dia/mês/ano. Ex.: 25/03/1960");
+      if (!cadUsaEntrega()) {
+        if (d.cadCep && soDigitos(d.cadCep).length !== 8) erro("eCadCep","fCadCep","O CEP tem 8 números.");
+        if ((d.cadRua || "").length < 2) erro("eCadRua","fCadRua","Falta informar a rua.");
+        if (!d.cadNum) erro("eCadNum","fCadNum","Falta o número (use S/N se não houver).");
+        if ((d.cadBairro || "").length < 2) erro("eCadBairro","fCadBairro","Falta informar o bairro.");
+        if ((d.cadCidade || "").length < 2) erro("eCadCidade","fCadCidade","Falta informar a cidade.");
+      }
+    }
     if (!d.modalidade) erro("eMod",null,"Escolha se vai retirar na loja ou receber em casa.");
     if (document.getElementById("fCep")) { // endereço só quando há entrega
       if (soDigitos(d.cep).length !== 8) erro("eCep","fCep","Informe o CEP com 8 números.");
@@ -1609,6 +1659,10 @@
       pagamento: d.pagamento || null, observacoes: d.observacoes || null,
       vendedor: estado.vendedor || null,
       visita_id: visita ? visita.id : null,
+      cliente_novo: !!d.novo,
+      cadastro: d.novo ? (d.modalidade === "entrega" && d.rua
+        ? { cpf: soDigitos(d.cpf), nascimento: nascISO(d.nasc), cep: soDigitos(d.cep) || null, rua: d.rua, numero: d.numero, complemento: d.compl || null, bairro: d.bairro, cidade: d.cadCidade || "Salvador" }
+        : { cpf: soDigitos(d.cpf), nascimento: nascISO(d.nasc), cep: soDigitos(d.cadCep) || null, rua: d.cadRua, numero: d.cadNum, complemento: d.cadComp || null, bairro: d.cadBairro, cidade: d.cadCidade || "Salvador" }) : null,
       itens: itensCarrinho().map(function(i){ return { codigo: i.p.codigo, quantidade: i.q, opcao: i.op || null, observacao: i.obs || null }; })
     }};
     api("rpc/criar_pedido", { method:"POST", body: corpo }).then(function(r){
@@ -1616,7 +1670,7 @@
       r.cliente = (d.nome || "").split(/\s+/)[0]; r.cliente_wpp = d.whatsapp;
       estado.resultado = r;
       estado.carrinho = {};
-      d.observacoes = "";
+      d.observacoes = ""; d.novo = false; d.cpf = ""; d.nasc = ""; d.cadCep = ""; d.cadRua = ""; d.cadNum = ""; d.cadComp = ""; d.cadBairro = ""; d.cadCidade = "";
       if (BALCAO) { var vb = new URLSearchParams(location.search).get("v"); estado.vendedor = vb ? vb.slice(0,60) : null; estado.dados.nome = ""; estado.dados.whatsapp = ""; }
       else { estado.vendedor = null; estado.vendedorEm = null; }
       visita = null; try { localStorage.removeItem(CHAVE_VISITA); } catch(e){}
@@ -1708,6 +1762,7 @@
       lerFormulario();
       estado.dados[t.dataset.grupo] = t.dataset.valor; guardar();
       document.querySelectorAll('[data-grupo="' + t.dataset.grupo + '"]').forEach(function(b){ b.setAttribute("aria-pressed", String(b === t)); });
+      if (t.dataset.grupo === "modalidade") { estado.dados.modalidade = t.dataset.valor; mostrarCadEnd(); }
       if (t.dataset.grupo === "modalidade") { var ent = t.dataset.valor === "entrega"; ["avisoEntrega","freteWrap"].forEach(function(x){ var el = document.getElementById(x); if (el) el.hidden = !ent; }); }
       if (t.dataset.grupo === "modalidade" && t.dataset.valor === "entrega" && !estado.dados.frete) { lerFormulario(); cotarFrete(); }
       if (t.dataset.grupo === "data" && temFaixas()) carregarFaixas();
@@ -1746,6 +1801,10 @@
     var idf = ev.target.id;
     if (idf === "fCep") { var v = mascaraCep(ev.target.value); if (v !== ev.target.value) ev.target.value = v; var ec = document.getElementById("eCep"); if (ec) ec.hidden = true;
       var novo = soDigitos(v); if (novo !== estado.dados.cep) { estado.dados.cep = novo; estado.dados.frete = null; desenharFrete(); if (novo.length === 8) buscarCep(); } }
+    if (/^f(Cpf|Nasc|CadCep|CadRua|CadNum|CadBairro|CadCidade)$/.test(idf)) { var ee = document.getElementById("e" + idf.slice(1)); if (ee) ee.hidden = true; }
+    if (idf === "fCpf") { var vc = mascaraCpf(ev.target.value); if (vc !== ev.target.value) ev.target.value = vc; }
+    if (idf === "fNasc") { var vn = mascaraNasc(ev.target.value); if (vn !== ev.target.value) ev.target.value = vn; }
+    if (idf === "fCadCep") { var vcc = mascaraCep(ev.target.value); if (vcc !== ev.target.value) ev.target.value = vcc; var nc = soDigitos(vcc); if (nc !== estado.dados.cadCep) { estado.dados.cadCep = nc; if (nc.length === 8) buscarCepCad(); } }
     if (idf === "fNum" || idf === "fRua") { lerFormulario(); clearTimeout(tmFrete); tmFrete = setTimeout(cotarFrete, 900); }
   });
   function digitarQtd(inp){
@@ -1771,6 +1830,7 @@
   }
   document.addEventListener("change", function(ev){
     if (ev.target.dataset && ev.target.dataset.qtdin) { digitarQtd(ev.target); return; }
+    if (ev.target.id === "fNovo") { var bc = document.getElementById("blocoCad"); if (bc) bc.hidden = !ev.target.checked; if (ev.target.checked) { mostrarCadEnd(); var fc = document.getElementById("fCpf"); if (fc) fc.focus(); } }
     if (estado.etapa === 2) { lerFormulario(); if (ev.target.id === "fData" && temFaixas()) carregarFaixas(); }
   });
   document.addEventListener("keydown", function(ev){ if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.qtdin) { ev.preventDefault(); ev.target.blur(); } });

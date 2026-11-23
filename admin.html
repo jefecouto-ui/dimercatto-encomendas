@@ -230,6 +230,7 @@
   #dlgGerente h2{font-size:19px;margin:0 0 8px}
   #dlgGerente input{width:100%}
   #dlgGerente .senha-oculta{-webkit-text-security:disc;text-security:disc;font-family:text-security-disc,inherit;letter-spacing:2px}
+.hora-sel{display:flex;align-items:center;gap:6px}.hora-sel select{flex:1;min-width:0}.hora-sel span{font-weight:800}
 </style>
 </head>
 <body>
@@ -347,9 +348,9 @@
       <div><label for="ePNome">Cliente *</label><input type="text" id="ePNome" maxlength="120"></div>
       <div><label for="ePWpp">WhatsApp</label><input type="tel" id="ePWpp" maxlength="30"></div>
       <div><label for="ePData">Data *</label><input type="date" id="ePData"></div>
-      <div><label for="ePHora">Horário <span class="dica">opcional</span></label><input type="text" id="ePHora" maxlength="60"></div>
+      <div><label for="ePHoraH">Horário</label><div class="hora-sel"><select id="ePHoraH" aria-label="Hora"></select><span>:</span><select id="ePHoraM" aria-label="Minutos"></select></div></div>
       <div><label for="ePMod">Recebimento</label><select id="ePMod"><option value="retirada">Retirada na loja</option><option value="entrega">Entrega</option></select></div>
-      <div><label for="ePPag">Pagamento</label><input type="text" id="ePPag" maxlength="80" placeholder="A combinar"></div>
+      <div><label for="ePPag">Pagamento</label><select id="ePPag"></select></div>
     </div>
     <div class="grade" id="ePEntrega" style="margin-top:12px">
       <div><label for="ePEnd">Endereço</label><input type="text" id="ePEnd" maxlength="300"></div>
@@ -987,13 +988,39 @@
   /* ---------- Edição de pedido ---------- */
   var dlgE = document.getElementById("dlgPedido"), pedEdit = null, itensEdit = [];
   function qtdParaTexto(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
+  // horário e pagamento do Editar pedido: as mesmas escolhas que o cliente tem na loja
+  function escH(t){ return String(t).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function montarHoraEdit(valor){
+    valor = valor == null ? "" : String(valor).trim();
+    var ok = /^\d{2}:\d{2}$/.test(valor), hv = ok ? valor.split(":") : ["", ""];
+    var c = S.config || {}, hIni = +(c.hora_inicio || 7), hFim = +(c.hora_fim || 20);
+    var opH = '<option value="">Hora</option>', opM = '<option value="">Min</option>', minutos = ["00","15","30","45"];
+    if (valor && !ok) opH += '<option value="=' + escH(valor) + '" selected>' + escH(valor) + ' (atual)</option>';
+    if (ok && (+hv[0] < hIni || +hv[0] > hFim)) opH += '<option value="' + hv[0] + '" selected>' + hv[0] + ' h</option>';
+    for (var h = hIni; h <= hFim; h++) { var t = (h < 10 ? "0" : "") + h; opH += '<option value="' + t + '"' + (hv[0] === t ? " selected" : "") + '>' + t + ' h</option>'; }
+    if (ok && minutos.indexOf(hv[1]) < 0) minutos = minutos.concat([hv[1]]).sort();
+    minutos.forEach(function(m){ opM += '<option value="' + m + '"' + (hv[1] === m ? " selected" : "") + '>' + m + ' min</option>'; });
+    document.getElementById("ePHoraH").innerHTML = opH; document.getElementById("ePHoraM").innerHTML = opM;
+    document.getElementById("ePHoraM").disabled = !!(valor && !ok);
+  }
+  function lerHoraEdit(){
+    var h = document.getElementById("ePHoraH").value, m = document.getElementById("ePHoraM").value;
+    if (!h) return ""; if (h.charAt(0) === "=") return h.slice(1);
+    return h + ":" + (m || "00");
+  }
+  function montarPagEdit(valor){
+    valor = valor == null ? "" : String(valor).trim();
+    var lista = Array.isArray((S.config || {}).pagamentos) ? S.config.pagamentos.slice() : [];
+    if (valor && lista.indexOf(valor) < 0) lista.unshift(valor);
+    document.getElementById("ePPag").innerHTML = '<option value="">A combinar</option>' + lista.map(function(f){ return '<option' + (f === valor ? " selected" : "") + '>' + escH(f) + '</option>'; }).join("");
+  }
   function abrirEdicao(p){
     if (!p) return;
     pedEdit = p;
     document.getElementById("dlgPedidoTitulo").textContent = "Editar pedido " + p.numero;
     var v = function(id, val){ document.getElementById(id).value = val == null ? "" : val; };
-    v("ePNome", p.cliente_nome); v("ePWpp", p.cliente_whatsapp); v("ePData", p.data_desejada); v("ePHora", p.horario);
-    v("ePMod", p.modalidade); v("ePPag", p.pagamento); v("ePEnd", p.endereco); v("ePBairro", p.bairro); v("ePRef", p.referencia);
+    v("ePNome", p.cliente_nome); v("ePWpp", p.cliente_whatsapp); v("ePData", p.data_desejada); montarHoraEdit(p.horario); montarPagEdit(p.pagamento);
+    v("ePMod", p.modalidade); v("ePEnd", p.endereco); v("ePBairro", p.bairro); v("ePRef", p.referencia);
     v("ePObsCli", p.observacoes); v("ePObsCoz", p.obs_cozinha); v("ePMotivo", "");
     v("ePCep", p.cep || ""); v("ePFrete", p.modalidade === "entrega" ? ((p.frete_centavos || 0)/100).toFixed(2).replace(".", ",") : "");
     document.getElementById("ePFreteInfo").textContent = p.frete_status === "a_confirmar" ? "a confirmar" : (p.distancia_km != null ? numBR(p.distancia_km) + " km" : "");
@@ -1056,7 +1083,7 @@
     if (itensEdit.some(function(i){ return !(i.qtd > 0); })) return falha("Há item com quantidade inválida. Use, por exemplo, 1,5.");
     var mod = g("ePMod");
     if (mod === "entrega" && (!g("ePEnd") || !g("ePBairro"))) return falha("Para entrega, informe endereço e bairro.");
-    var dados = { cliente_nome:g("ePNome"), cliente_whatsapp:g("ePWpp"), data_desejada:g("ePData"), horario:g("ePHora"), modalidade:mod, pagamento:g("ePPag"),
+    var dados = { cliente_nome:g("ePNome"), cliente_whatsapp:g("ePWpp"), data_desejada:g("ePData"), horario:lerHoraEdit(), modalidade:mod, pagamento:g("ePPag"),
       endereco:g("ePEnd"), bairro:g("ePBairro"), referencia:g("ePRef"), observacoes:g("ePObsCli"), obs_cozinha:g("ePObsCoz"), motivo:g("ePMotivo"),
       valor_final: document.getElementById("ePFinal").checked, cep: soDig(g("ePCep")),
       frete_centavos: mod === "entrega" && g("ePFrete") !== "" ? freteEdit() : null,

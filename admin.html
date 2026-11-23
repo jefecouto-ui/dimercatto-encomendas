@@ -361,7 +361,7 @@
     </div>
     <h2 style="margin-top:18px">Itens</h2>
     <div class="tabela"><table><thead><tr><th>Produto</th><th style="width:150px">Quantidade / peso real</th><th>Observação do item</th><th class="num">Subtotal</th><th></th></tr></thead><tbody id="ePItens"></tbody></table></div>
-    <div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="ePNovo">Adicionar produto</label><select id="ePNovo"></select></div><button type="button" class="btn sec" id="ePAdd">+ Adicionar</button></div>
+    <div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="ePNovo">Adicionar produto</label><select id="ePNovo"></select></div><button type="button" class="btn sec" id="ePAdd">+ Adicionar</button><button type="button" class="btn sec" id="ePPrecos" title="Troca o preço dos itens deste pedido pelo preço atual do cadastro">↻ Atualizar preços</button></div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">
       <label class="check"><input type="checkbox" id="ePFinal"> Quantidades já pesadas — valor final (não estimado)</label>
       <div style="font-size:20px;font-weight:700">Total: <span id="ePTotal">R$ 0,00</span></div>
@@ -986,7 +986,7 @@
     });
   }
   /* ---------- Edição de pedido ---------- */
-  var dlgE = document.getElementById("dlgPedido"), pedEdit = null, itensEdit = [];
+  var dlgE = document.getElementById("dlgPedido"), pedEdit = null, itensEdit = [], precosAtualizados = false;
   function qtdParaTexto(n){ return Number(n).toLocaleString("pt-BR",{maximumFractionDigits:3}); }
   // horário e pagamento do Editar pedido: as mesmas escolhas que o cliente tem na loja
   function escH(t){ return String(t).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -1025,6 +1025,7 @@
     v("ePCep", p.cep || ""); v("ePFrete", p.modalidade === "entrega" ? ((p.frete_centavos || 0)/100).toFixed(2).replace(".", ",") : "");
     document.getElementById("ePFreteInfo").textContent = p.frete_status === "a_confirmar" ? "a confirmar" : (p.distancia_km != null ? numBR(p.distancia_km) + " km" : "");
     document.getElementById("ePFinal").checked = !p.total_estimado && (p.pedido_itens || []).some(function(i){ var pr = prodPorCodigo(i.codigo); return pr && pr.valor_estimado; });
+    precosAtualizados = false;
     itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), uns:i.unidades ? Number(i.unidades) : null, op:i.opcao || null, opc:i.opcao_codigo || null, obs:i.observacao || ""}; });
     document.getElementById("ePNovo").innerHTML = '<option value="">— escolha o produto —</option>' + S.categorias.concat([{id:null, nome:"Outros"}]).map(function(c){
       var ps = S.produtos.filter(function(x){ return c.id === null ? !catPorId(x.categoria_id) : x.categoria_id === c.id; });
@@ -1065,6 +1066,18 @@
     tb.querySelectorAll("[data-o]").forEach(function(inp){ inp.oninput = function(){ itensEdit[+inp.dataset.o].obs = inp.value; }; });
     tb.querySelectorAll("[data-rm]").forEach(function(b){ b.onclick = function(){ itensEdit.splice(+b.dataset.rm, 1); desenharItensEdit(); }; });
   }
+  // usa o preço atual do cadastro nos itens deste pedido (o servidor confere com atualizar_precos)
+  document.getElementById("ePPrecos").onclick = function(){
+    var mud = [];
+    itensEdit.forEach(function(i){ var pr = prodPorCodigo(i.codigo); if (pr && pr.preco_centavos != null && pr.preco_centavos !== i.preco) mud.push({i:i, novo:pr.preco_centavos}); });
+    if (!mud.length) { alert("Os preços deste pedido já são os preços atuais do cadastro."); return; }
+    var txt = mud.map(function(m){ return "• " + m.i.nome + ": " + reais(m.i.preco) + " → " + reais(m.novo) + "/" + unid(m.i.unidade); }).join("\n");
+    if (!confirm("Atualizar para o preço atual?\n\n" + txt + "\n\nO valor muda só depois de clicar em Salvar.")) return;
+    mud.forEach(function(m){ m.i.preco = m.novo; });
+    precosAtualizados = true;
+    var mo = document.getElementById("ePMotivo"); if (!mo.value.trim()) mo.value = "Preços atualizados";
+    desenharItensEdit();
+  };
   document.getElementById("ePAdd").onclick = function(){
     var c = document.getElementById("ePNovo").value; if (!c) return;
     var ja = itensEdit.filter(function(i){ return i.codigo === c; })[0];
@@ -1085,7 +1098,7 @@
     if (mod === "entrega" && (!g("ePEnd") || !g("ePBairro"))) return falha("Para entrega, informe endereço e bairro.");
     var dados = { cliente_nome:g("ePNome"), cliente_whatsapp:g("ePWpp"), data_desejada:g("ePData"), horario:lerHoraEdit(), modalidade:mod, pagamento:g("ePPag"),
       endereco:g("ePEnd"), bairro:g("ePBairro"), referencia:g("ePRef"), observacoes:g("ePObsCli"), obs_cozinha:g("ePObsCoz"), motivo:g("ePMotivo"),
-      valor_final: document.getElementById("ePFinal").checked, cep: soDig(g("ePCep")),
+      valor_final: document.getElementById("ePFinal").checked, atualizar_precos: precosAtualizados, cep: soDig(g("ePCep")),
       frete_centavos: mod === "entrega" && g("ePFrete") !== "" ? freteEdit() : null,
       itens: itensEdit.map(function(i){ return {codigo:i.codigo, quantidade:i.qtd, unidades:i.uns || null, opcao:i.op || null, opcao_codigo:i.opc || null, observacao:i.obs}; }) };
     var b1 = document.getElementById("ePSalvar"), b2 = document.getElementById("ePSalvarImprimir"); b1.disabled = b2.disabled = true;

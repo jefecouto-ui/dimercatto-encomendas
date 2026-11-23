@@ -994,6 +994,15 @@
     valor = valor == null ? "" : String(valor).trim();
     var ok = /^\d{2}:\d{2}$/.test(valor), hv = ok ? valor.split(":") : ["", ""];
     var c = S.config || {}, hIni = +(c.hora_inicio || 7), hFim = +(c.hora_fim || 20);
+    var fxs = Array.isArray(c.faixas) ? c.faixas.map(function(f){ return f.rotulo; }).filter(Boolean) : [];
+    var selM = document.getElementById("ePHoraM"), sep = selM.previousElementSibling;
+    selM.hidden = !!fxs.length; if (sep) sep.hidden = !!fxs.length;
+    if (fxs.length) {
+      var op = '<option value="">Faixa de horário</option>';
+      if (valor && fxs.indexOf(valor) < 0) op += '<option value="=' + escH(valor) + '" selected>' + escH(valor) + ' (atual)</option>';
+      fxs.forEach(function(r){ op += '<option value="=' + escH(r) + '"' + (r === valor ? " selected" : "") + '>' + escH(r) + '</option>'; });
+      document.getElementById("ePHoraH").innerHTML = op; selM.innerHTML = ""; return;
+    }
     var opH = '<option value="">Hora</option>', opM = '<option value="">Min</option>', minutos = ["00","15","30","45"];
     if (valor && !ok) opH += '<option value="=' + escH(valor) + '" selected>' + escH(valor) + ' (atual)</option>';
     if (ok && (+hv[0] < hIni || +hv[0] > hFim)) opH += '<option value="' + hv[0] + '" selected>' + hv[0] + ' h</option>';

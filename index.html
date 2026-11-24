@@ -355,6 +355,10 @@
   .lateral{display:none}
   .lateral h2{margin:0 0 6px;font-size:22px;color:var(--vinho)}
   .lateral .linha-item{font-size:16px;padding:8px 0}
+  .lateral .item-sacola{flex-wrap:wrap;row-gap:8px}
+  .lateral .item-sacola .info{flex:1 1 100%}
+  .lateral .item-sacola .n{font-size:15.5px}
+  .lateral .item-sacola .ctrl{flex:1;width:auto;max-width:200px}
   .lateral .vazio{padding:16px 0;font-size:16px}
   .lateral .btn-principal{width:100%;margin-top:14px}
 
@@ -1188,15 +1192,17 @@
     if (!t.n) { corpo.innerHTML = '<p class="vazio" style="padding:18px 0">Sua sacola está vazia.</p>'; }
     else {
       var h = '';
-      itensCarrinho().forEach(function(i){
-        h += '<div class="item-sacola"><div class="info"><div class="n">' + esc(i.p.nome) + '</div>' + (i.op ? '<div class="s"><b>' + esc(i.op) + '</b></div>' : '') + '<div class="s">' + reais(i.p.preco_centavos) + ' ' + precoUnTxt(i.p.unidade) + ' · <b>' + reais(subtotal(i.p, i.q)) + '</b></div></div>';
-        h += '<div class="ctrl" data-codigo="' + esc(i.key) + '">' + controle(i.p, i.op ? Object.assign({op:i.op}, estado.carrinho[i.key]) : estado.carrinho[i.key]) + '</div>';
-        h += '<button type="button" class="tirar" data-remover="' + esc(i.key) + '" aria-label="Retirar ' + esc(i.p.nome) + ' da sacola">' + LIXO + '</button></div>';
-      });
+      itensCarrinho().forEach(function(i){ h += itemSacolaHTML(i); });
       h += '<div class="folha-total"><div>Total' + (t.estimado ? '<small>Estimado — ' + (variacaoTxt(itensCarrinho()) ? esc(variacaoTxt(itensCarrinho())) + ' após a pesagem' : 'confirmado após a pesagem') + '</small>' : '') + '</div><div>' + reais(t.total) + '</div></div>';
       corpo.innerHTML = h;
     }
     document.getElementById("sacolaContinuar").disabled = !t.n;
+  }
+  // item da sacola com quantidade (+/−/peso) e lixeira — usado na folha do celular e no painel lateral do computador
+  function itemSacolaHTML(i){
+    var h = '<div class="item-sacola"><div class="info"><div class="n">' + esc(i.p.nome) + '</div>' + (i.op ? '<div class="s"><b>' + esc(i.op) + '</b></div>' : '') + '<div class="s">' + reais(i.p.preco_centavos) + ' ' + precoUnTxt(i.p.unidade) + ' · <b>' + reais(subtotal(i.p, i.q)) + '</b></div></div>';
+    h += '<div class="ctrl" data-codigo="' + esc(i.key) + '">' + controle(i.p, i.op ? Object.assign({op:i.op}, estado.carrinho[i.key]) : estado.carrinho[i.key]) + '</div>';
+    return h + '<button type="button" class="tirar" data-remover="' + esc(i.key) + '" aria-label="Retirar ' + esc(i.p.nome) + ' do pedido" title="Excluir do pedido">' + LIXO + '</button></div>';
   }
   function abrirSacola(){
     desenharSacola();
@@ -1222,11 +1228,11 @@
     var barra = document.getElementById("barra"), t = totais();
     var mostrar = (estado.etapa === 1);
     var lat = document.getElementById("lateral");
-    if (lat && mostrar) {
+    if (lat && mostrar && !(lat.contains(document.activeElement) && document.activeElement.tagName === "INPUT")) {
       var hl = '<h2>Seu pedido</h2>';
       if (!t.n) hl += '<p class="vazio">Toque em <strong>+</strong> nos produtos que deseja.</p>';
       else {
-        itensCarrinho().forEach(function(i){ hl += '<div class="linha-item"><div><div class="n">' + esc(i.p.nome) + '</div><div class="q">' + esc(qtdProd(i.p, i.q)) + '</div></div><div class="v">' + reais(subtotal(i.p, i.q)) + '</div></div>'; });
+        itensCarrinho().forEach(function(i){ hl += itemSacolaHTML(i); });
         hl += '<div class="total"><div>Total' + (t.estimado ? '<small>Estimado</small>' : '') + '</div><div>' + reais(t.total) + '</div></div>';
       }
       hl += '<button class="btn-principal" type="button" id="lateralBtn"' + (t.n ? '' : ' disabled') + '>Continuar →</button>';

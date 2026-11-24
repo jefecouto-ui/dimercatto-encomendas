@@ -867,7 +867,7 @@
     var hora = p.atendente_em ? new Date(p.atendente_em).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) : "";
     if (!p.atendente_nome) return '<div class="atend livre"><span>Ninguém atendendo</span><button class="btn peq" type="button" data-assumir="' + p.id + '">🙋 Assumir pedido</button></div>';
     return '<div class="atend meu"><span>👤 Atendendo: <b>' + esc(p.atendente_nome) + '</b>' + (hora ? ' <small>desde ' + hora + '</small>' : '') + '</span><span>' +
-      '<button class="btn sec peq" type="button" data-assumir="' + p.id + '">Trocar</button> <button class="btn sec peq" type="button" data-assumir="' + p.id + '" data-liberar="1">Liberar</button></span></div>';
+      '<button class="btn sec peq" type="button" data-assumir="' + p.id + '" title="Só com autorização do administrador">🔒 Trocar</button> <button class="btn sec peq" type="button" data-assumir="' + p.id + '" data-liberar="1" title="Só com autorização do administrador">🔒 Liberar</button></span></div>';
   }
   var vendNomes = {}, vendAtivos = [], vendLista = [];
   function carregarVendNomes(){
@@ -887,8 +887,14 @@
       nomesAtend = L; return L;
     });
   }
+  // trava: pedido já assumido só é trocado/liberado com autorização do administrador
+  function autorizarTroca(id, texto){
+    var p = ultimosPedidos.filter(function(x){ return x.id === id; })[0] || {};
+    if (!p.atendente_nome || S.papel === "admin") return Promise.resolve(sb);
+    return pedirGerente(p.numero + " já está com " + p.atendente_nome + ". " + texto + " precisa da senha de um administrador.", "Autorização do administrador", true);
+  }
   function assumirPedido(id, liberar, btn){
-    if (liberar) return gravarAtendente(id, true, null);
+    if (liberar) return autorizarTroca(id, "Liberar o pedido").then(function(cli){ gravarAtendente(id, true, null, cli); }, function(){});
     carregarNomesAtend().then(function(L){
       var dlg = document.getElementById("dlgAtend");
       if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "dlgAtend"; document.body.appendChild(dlg); }
@@ -897,13 +903,15 @@
         (L.length ? '<div class="nomes-atend">' + L.map(function(n){ return '<button type="button" class="btn sec" data-nome="' + esc(n) + '">' + esc(n) + '</button>'; }).join("") + '</div>'
                   : '<p class="dica">Nenhum vendedor cadastrado. Cadastre em Configurações → Vendedores.</p>') +
         '<div class="barra-acoes" style="margin-top:14px"><button type="button" class="btn sec" data-fechar>Cancelar</button></div>';
-      dlg.querySelectorAll("[data-nome]").forEach(function(b){ b.onclick = function(){ dlg.close(); gravarAtendente(id, false, b.dataset.nome); }; });
+      dlg.querySelectorAll("[data-nome]").forEach(function(b){ b.onclick = function(){ dlg.close();
+        if (p.atendente_nome === b.dataset.nome) return;
+        autorizarTroca(id, "Trocar para " + b.dataset.nome).then(function(cli){ gravarAtendente(id, false, b.dataset.nome, cli); }, function(){}); }; });
       dlg.querySelector("[data-fechar]").onclick = function(){ dlg.close(); };
       dlg.showModal();
     });
   }
-  function gravarAtendente(id, liberar, nome){
-    sb.rpc("assumir_pedido", { p_pedido_id: id, p_liberar: liberar, p_nome: nome }).then(function(r){
+  function gravarAtendente(id, liberar, nome, cli){
+    (cli || sb).rpc("assumir_pedido", { p_pedido_id: id, p_liberar: liberar, p_nome: nome }).then(function(r){
       if (r.error) { alert(erroTxt(r.error)); return; }
       var p = ultimosPedidos.filter(function(x){ return x.id === id; })[0]; if (!p) return;
       Object.assign(p, r.data);
@@ -1199,7 +1207,7 @@
     };
     dlg.showModal();
   }
-  function pedirGerente(motivo, titulo){
+  function pedirGerente(motivo, titulo, soAdmin){
     return new Promise(function(ok, falhou){
       var dlg = document.getElementById("dlgGerente");
       if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "dlgGerente"; document.body.appendChild(dlg); }
@@ -1225,9 +1233,9 @@
       if (!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security", "disc"))) dlg.querySelector("#gSenha").type = "password"; // navegador sem bolinhas: usa campo de senha normal
       dlg.showModal();
       // lista quem pode autorizar (gerentes e administradores) pelo nome
-      sb.from("equipe").select("email,nome,papel").in("papel", ["gerente","admin"]).order("nome").then(function(q){
+      sb.from("equipe").select("email,nome,papel").in("papel", soAdmin ? ["admin"] : ["gerente","admin"]).order("nome").then(function(q){
         var sel = dlg.querySelector("#gEmail"), lst = (q.data || []);
-        if (!lst.length) { sel.innerHTML = '<option value="">Nenhum gerente cadastrado</option>'; return; }
+        if (!lst.length) { sel.innerHTML = '<option value="">' + (soAdmin ? 'Nenhum administrador cadastrado' : 'Nenhum gerente cadastrado') + '</option>'; return; }
         sel.innerHTML = '<option value="">Escolha o nome…</option>' + lst.map(function(g){
           return '<option value="' + esc(g.email) + '">' + esc(g.nome || g.email) + (g.papel === "admin" ? " (administrador)" : "") + '</option>';
         }).join("");

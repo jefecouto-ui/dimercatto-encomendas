@@ -361,7 +361,7 @@
     </div>
     <h2 style="margin-top:18px">Itens</h2>
     <div class="tabela"><table><thead><tr><th>Produto</th><th style="width:150px">Quantidade / peso real</th><th>Observação do item</th><th class="num">Subtotal</th><th></th></tr></thead><tbody id="ePItens"></tbody></table></div>
-    <div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="ePNovo">Adicionar produto</label><select id="ePNovo"></select></div><button type="button" class="btn sec" id="ePAdd">+ Adicionar</button><button type="button" class="btn sec" id="ePPrecos" title="Troca o preço dos itens deste pedido pelo preço atual do cadastro">↻ Atualizar preços</button></div>
+    <div class="barra-acoes" style="margin-top:10px"><div style="flex:0 1 230px"><label for="ePBusca">Buscar produto</label><input type="search" id="ePBusca" placeholder="Código ou nome" autocomplete="off"></div><div class="cresce"><label for="ePNovo">Adicionar produto <span class="dica" id="ePBuscaN"></span></label><select id="ePNovo"></select></div><button type="button" class="btn sec" id="ePAdd">+ Adicionar</button><button type="button" class="btn sec" id="ePPrecos" title="Troca o preço dos itens deste pedido pelo preço atual do cadastro">↻ Atualizar preços</button></div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">
       <label class="check"><input type="checkbox" id="ePFinal"> Quantidades já pesadas — valor final (não estimado)</label>
       <div style="font-size:20px;font-weight:700">Total: <span id="ePTotal">R$ 0,00</span></div>
@@ -1044,15 +1044,35 @@
     document.getElementById("ePFinal").checked = !p.total_estimado && (p.pedido_itens || []).some(function(i){ var pr = prodPorCodigo(i.codigo); return pr && pr.valor_estimado; });
     precosAtualizados = false;
     itensEdit = (p.pedido_itens || []).map(function(i){ return {codigo:i.codigo, nome:i.nome, unidade:i.unidade, preco:i.preco_centavos, qtd:Number(i.quantidade), uns:i.unidades ? Number(i.unidades) : null, op:i.opcao || null, opc:i.opcao_codigo || null, obs:i.observacao || ""}; });
-    document.getElementById("ePNovo").innerHTML = '<option value="">— escolha o produto —</option>' + S.categorias.concat([{id:null, nome:"Outros"}]).map(function(c){
-      var ps = S.produtos.filter(function(x){ return c.id === null ? !catPorId(x.categoria_id) : x.categoria_id === c.id; });
-      if (!ps.length) return "";
-      return '<optgroup label="' + esc(c.nome) + '">' + ps.map(function(x){ return '<option value="' + esc(x.codigo) + '">' + esc(x.codigo + " — " + x.nome + " (" + reais(x.preco_centavos) + "/" + unid(x.unidade) + ")") + (x.ativo ? "" : " [fora da loja]") + '</option>'; }).join("") + '</optgroup>';
-    }).join("");
+    document.getElementById("ePBusca").value = ""; opcoesNovoItem("");
     document.getElementById("ePErro").hidden = true;
     mostrarEntregaEdit(); desenharItensEdit();
     dlgE.showModal();
   }
+  // lista de produtos para adicionar no Editar pedido, filtrada por código ou nome (sem acento)
+  function semAcento(t){ return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+  function opcoesNovoItem(filtro){
+    var f = semAcento(filtro).trim(), total = 0, unico = null;
+    var casa = function(x){ if (!f) return true; var c = semAcento(x.codigo), n = semAcento(x.nome); return c === f || c.indexOf(f) === 0 || f.split(/\s+/).every(function(w){ return n.indexOf(w) >= 0; }); };
+    var html = S.categorias.concat([{id:null, nome:"Outros"}]).map(function(c){
+      var ps = S.produtos.filter(function(x){ return (c.id === null ? !catPorId(x.categoria_id) : x.categoria_id === c.id) && casa(x); });
+      if (f) ps.sort(function(a, b){ return (b.ativo ? 1 : 0) - (a.ativo ? 1 : 0); });
+      if (!ps.length) return "";
+      total += ps.length; unico = ps[0];
+      return '<optgroup label="' + esc(c.nome) + '">' + ps.map(function(x){ return '<option value="' + esc(x.codigo) + '">' + esc(x.codigo + " — " + x.nome + " (" + reais(x.preco_centavos) + "/" + unid(x.unidade) + ")") + (x.ativo ? "" : " [fora da loja]") + '</option>'; }).join("") + '</optgroup>';
+    }).join("");
+    var sel = document.getElementById("ePNovo");
+    sel.innerHTML = '<option value="">' + (f ? (total ? '— ' + total + (total === 1 ? ' produto encontrado' : ' produtos encontrados') + ' —' : '— nenhum produto com "' + esc(filtro.trim()) + '" —') : '— escolha o produto —') + '</option>' + html;
+    if (f && total === 1) sel.value = unico.codigo;
+    document.getElementById("ePBuscaN").textContent = f ? (total ? total + " encontrado(s)" : "nenhum encontrado") : "";
+  }
+  document.getElementById("ePBusca").addEventListener("input", function(){ opcoesNovoItem(this.value); });
+  document.getElementById("ePBusca").addEventListener("keydown", function(ev){
+    if (ev.key !== "Enter") return; ev.preventDefault();
+    var sel = document.getElementById("ePNovo");
+    if (!sel.value) { var o = sel.querySelector("option[value]:not([value=''])"); if (o) sel.value = o.value; }
+    if (sel.value) document.getElementById("ePAdd").click();
+  });
   function prodPorCodigo(c){ for (var i=0;i<S.produtos.length;i++) if (S.produtos[i].codigo === c) return S.produtos[i]; return null; }
   function mostrarEntregaEdit(){ document.getElementById("ePEntrega").hidden = false; var fr = document.getElementById("ePFrete"); if (fr) fr.closest("div").hidden = document.getElementById("ePMod").value !== "entrega"; }
   document.getElementById("ePMod").onchange = function(){ mostrarEntregaEdit(); document.getElementById("ePTotal").textContent = reais(totalEdit()); };
@@ -1100,7 +1120,7 @@
     var ja = itensEdit.filter(function(i){ return i.codigo === c; })[0];
     if (ja) { ja.qtd = Math.round((ja.qtd + Number(prodPorCodigo(c).incremento)) * 1000) / 1000; }
     else { var x = prodPorCodigo(c); itensEdit.push({codigo:x.codigo, nome:x.nome, unidade:x.unidade, preco:x.preco_centavos, qtd:Number(x.minimo), obs:""}); }
-    document.getElementById("ePNovo").value = ""; desenharItensEdit();
+    var eb = document.getElementById("ePBusca"); if (eb.value) { eb.value = ""; opcoesNovoItem(""); } document.getElementById("ePNovo").value = ""; desenharItensEdit(); eb.focus();
   };
   document.getElementById("ePCancelar").onclick = function(){ dlgE.close(); };
   function salvarEdicao(imprimir){

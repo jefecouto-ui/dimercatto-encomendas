@@ -2310,11 +2310,13 @@
                          : (wpp ? '📱 ' + esc(wpp) : '<span class="dica">WhatsApp da loja</span>');
         return '<tr' + (v.ativo ? '' : ' style="opacity:.55"') + '><td><strong>' + esc(v.nome) + '</strong></td><td><code>' + esc(v.codigo) + '</code></td><td><span class="dica">' + esc(link) + '</span></td><td>' + celW + '</td><td class="num">' +
           '<button class="btn sec peq" type="button" data-vcopia="' + esc(link) + '">Copiar link</button> ' +
+          '<button class="btn sec peq" type="button" data-vqr="' + esc(link) + '" data-vqrnome="' + esc(v.nome) + '" data-vqrcod="' + esc(v.codigo) + '">QR code</button> ' +
           (admin ? '<button class="btn sec peq" type="button" data-vativo="' + v.id + '" data-novo="' + (!v.ativo) + '">' + (v.ativo ? 'Desativar' : 'Ativar') + '</button>' : '') + '</td></tr>';
       }).join("") + '</tbody></table></div>';
       box.querySelectorAll("[data-vcopia]").forEach(function(b){ b.onclick = function(){
         var t = b.dataset.vcopia; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ b.textContent = "Copiado ✓"; }, function(){ prompt("Copie o link:", t); });
       }; });
+      box.querySelectorAll("[data-vqr]").forEach(function(b){ b.onclick = function(){ abrirQrVendedor(b.dataset.vqr, b.dataset.vqrnome, b.dataset.vqrcod); }; });
       box.querySelectorAll("[data-vwpp]").forEach(function(inp){ inp.onchange = function(){
         var d = inp.value.replace(/\D/g, ""), ok = box.querySelector('[data-vwppok="' + inp.dataset.vwpp + '"]');
         if (d.length === 10 || d.length === 11) d = "55" + d;
@@ -2331,6 +2333,42 @@
         });
       }; });
     });
+  }
+  /* QR code do link da vendedora (biblioteca local vendor/qrcode-generator, carregada só quando usa) */
+  function carregarQrLib(){
+    if (window.qrcode) return Promise.resolve();
+    return new Promise(function(ok, falha){ var sc = document.createElement("script"); sc.src = "vendor/qrcode-generator-1.4.4.js"; sc.onload = ok; sc.onerror = function(){ falha(new Error("não carregou o gerador de QR")); }; document.head.appendChild(sc); });
+  }
+  function desenharQrVendedor(link, nome){
+    var q = qrcode(0, "M"); q.addData(link); q.make();
+    var n = q.getModuleCount(), cel = Math.max(6, Math.floor(560 / (n + 8))), qr = cel * (n + 8);
+    var W = qr + 80, H = qr + 250, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var c = cv.getContext("2d"); c.fillStyle = "#fff"; c.fillRect(0, 0, W, H);
+    c.fillStyle = "#7A1F2B"; c.fillRect(0, 0, W, 96);
+    c.fillStyle = "#fff"; c.textAlign = "center"; c.font = "800 34px Arial, sans-serif"; c.fillText("Encomendas de Natal", W / 2, 48);
+    c.font = "600 24px Arial, sans-serif"; c.fillText("Di Mercatto", W / 2, 80);
+    var ox = 40, oy = 116; c.fillStyle = "#000";
+    for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) c.fillRect(ox + (k + 4) * cel, oy + (r + 4) * cel, cel, cel);
+    c.fillStyle = "#7A1F2B"; c.font = "800 30px Arial, sans-serif"; c.fillText("Atendimento: " + nome, W / 2, oy + qr + 46);
+    c.fillStyle = "#444"; c.font = "20px Arial, sans-serif"; c.fillText(link.replace(/^https?:\/\//, ""), W / 2, oy + qr + 84);
+    c.fillText("Aponte a câmera do celular para fazer sua encomenda", W / 2, oy + qr + 118);
+    return cv;
+  }
+  function abrirQrVendedor(link, nome, cod){
+    carregarQrLib().then(function(){
+      var cv = desenharQrVendedor(link, nome), url = cv.toDataURL("image/png"), arq = "qrcode-" + cod + ".png";
+      var d = document.getElementById("dlgQrVend");
+      if (!d) { d = document.createElement("dialog"); d.id = "dlgQrVend"; d.style.maxWidth = "440px"; document.body.appendChild(d); }
+      d.innerHTML = '<h2 style="margin-top:0">QR code — ' + esc(nome) + '</h2><p class="dica" style="margin-top:0">Quem escanear cai na loja pelo link de ' + esc(nome) + ' (o pedido fica no nome dela).</p>' +
+        '<img src="' + url + '" alt="QR code do link de ' + esc(nome) + '" style="display:block;width:100%;max-width:340px;margin:0 auto;border:1px solid var(--borda);border-radius:12px">' +
+        '<div class="barra-acoes" style="margin-top:14px;justify-content:center"><a class="btn" href="' + url + '" download="' + esc(arq) + '">⬇ Baixar imagem</a><button class="btn sec" type="button" id="qrImprimir">🖨 Imprimir</button><button class="btn sec" type="button" id="qrFechar">Fechar</button></div>';
+      d.querySelector("#qrFechar").onclick = function(){ d.close(); };
+      d.querySelector("#qrImprimir").onclick = function(){
+        var w = window.open("", "_blank"); if (!w) { alert("Libere as janelas pop-up para imprimir."); return; }
+        w.document.write('<!doctype html><title>' + esc(arq) + '</title><body style="margin:0;display:grid;place-items:center;min-height:100vh"><img src="' + url + '" style="width:12cm" onload="setTimeout(function(){print()},300)"></body>'); w.document.close();
+      };
+      d.showModal();
+    }, function(e){ alert("Não foi possível gerar o QR code: " + e.message); });
   }
   function addVendedor(){
     var cod = document.getElementById("vdCod").value.trim().toLowerCase(), nome = document.getElementById("vdNome").value.trim();

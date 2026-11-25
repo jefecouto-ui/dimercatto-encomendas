@@ -839,8 +839,19 @@
     itensCarrinho().forEach(function(i){ t += subtotal(i.p, i.q); est = est || i.p.valor_estimado; n++; });
     return { total:t, estimado:est, n:n };
   }
+  // WhatsApp próprio da vendedora: pedidos e Ajuda pelo link dela vão para o celular dela (o pedido continua no painel)
+  function carregarWppVendedor(){
+    estado.wppVendedor = null;
+    if (BALCAO || !estado.vendedor) return;
+    api("rpc/contato_vendedor", { method:"POST", body:{ p_codigo: estado.vendedor } }).then(function(r){
+      var w = r && r.whatsapp ? soDigitos(r.whatsapp) : "";
+      if (!w) return;
+      var loja = soDigitos(estado.config.whatsapp); estado.wppVendedor = w;
+      document.querySelectorAll('a[href*="wa.me/' + loja + '"]').forEach(function(a){ a.href = a.href.replace("wa.me/" + loja, "wa.me/" + w); });
+    }, function(){});
+  }
   function linkWhats(texto){
-    var num = soDigitos(estado.config.whatsapp);
+    var num = soDigitos(!BALCAO && estado.wppVendedor ? estado.wppVendedor : estado.config.whatsapp);
     return "https://wa.me/" + num + (texto ? "?text=" + encodeURIComponent(texto) : "");
   }
   function dataBR(iso){ if(!iso) return ""; var p = iso.split("-"); var d = new Date(+p[0], +p[1]-1, +p[2]); return d.toLocaleDateString("pt-BR",{weekday:"long", day:"2-digit", month:"long"}); }
@@ -901,6 +912,7 @@
       var catsVisiveis = {}; estado.categorias.forEach(function(c){ catsVisiveis[c.id] = 1; });
       estado.produtos = estado.produtos.filter(function(p){ return p.categoria_id == null || catsVisiveis[p.categoria_id]; });
       r[2].forEach(function(c){ estado.config[c.chave] = c.valor; });
+      carregarWppVendedor();
       // opção do painel: produto sem foto não aparece na loja
       if (estado.config.ocultar_sem_foto === true) estado.produtos = estado.produtos.filter(function(p){ return !!p.foto_url; });
       // cardápio do dia: só aparece o produto de hoje

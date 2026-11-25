@@ -2114,7 +2114,7 @@
     h += '<div><label for="cfgFrMin">Pedido mínimo para entrega (R$) <span class="dica">vazio = sem mínimo</span></label><input type="text" id="cfgFrMin" inputmode="decimal" value="' + rs(fr.minimo_entrega_centavos) + '"></div></div></div>';
     h += '<div id="cfgMsg"></div><button class="btn" type="submit">Salvar configurações</button></form>';
     h += '<div class="card" style="margin-top:20px"><h2>Equipe com acesso ao painel</h2><div id="equipeLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="eqEmail">E-mail</label><input type="email" id="eqEmail"></div><div class="cresce"><label for="eqNome">Nome</label><input type="text" id="eqNome"></div><div><label for="eqPapel">Acesso</label><select id="eqPapel"><option value="atendente">Atendente / vendedor</option><option value="gerente">Gerente (autoriza, cancela e exclui pedidos)</option><option value="admin">Administrador</option></select></div><button class="btn sec" type="button" id="eqAdd">Adicionar</button></div><p class="dica">Só administradores incluem ou removem pessoas. Depois de incluída, a pessoa entra em "Primeiro acesso? Crie sua senha" com o mesmo e-mail. E-mails fora da equipe não conseguem criar senha.</p></div>';
-    h += '<div class="card" style="margin-top:20px"><h2>Vendedores</h2><p class="dica" style="margin-top:0">O link do vendedor é o da loja com <strong>?v=código</strong>. Só códigos cadastrados e ativos são gravados no pedido.</p><div id="vendLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" id="vendForm" style="margin-top:10px"><div class="cresce"><label for="vdCod">Código (ex.: ana)</label><input type="text" id="vdCod" maxlength="30" autocapitalize="off"></div><div class="cresce"><label for="vdNome">Nome</label><input type="text" id="vdNome" maxlength="80"></div><button class="btn sec" type="button" id="vdAdd">Adicionar</button></div></div>';
+    h += '<div class="card" style="margin-top:20px"><h2>Vendedores</h2><p class="dica" style="margin-top:0">O link do vendedor é o da loja com <strong>?v=código</strong>. Só códigos cadastrados e ativos são gravados no pedido. <strong>WhatsApp próprio</strong> (opcional): os pedidos e a Ajuda pelo link da vendedora vão para o celular dela; o pedido continua caindo no painel. Em branco, usa o WhatsApp da loja.</p><div id="vendLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" id="vendForm" style="margin-top:10px"><div class="cresce"><label for="vdCod">Código (ex.: ana)</label><input type="text" id="vdCod" maxlength="30" autocapitalize="off"></div><div class="cresce"><label for="vdNome">Nome</label><input type="text" id="vdNome" maxlength="80"></div><button class="btn sec" type="button" id="vdAdd">Adicionar</button></div></div>';
     main.innerHTML = h;
     ["datas","horarios","pagamentos"].forEach(desenharChips);
     desenharFaixas(); desenharFrFaixas();
@@ -2305,12 +2305,25 @@
       var admin = S.papel === "admin", base = location.href.replace(/admin\.html.*$/, "");
       box.innerHTML = '<div class="tabela"><table><tbody>' + r.data.map(function(v){
         var link = base + "?v=" + encodeURIComponent(v.codigo);
-        return '<tr' + (v.ativo ? '' : ' style="opacity:.55"') + '><td><strong>' + esc(v.nome) + '</strong></td><td><code>' + esc(v.codigo) + '</code></td><td><span class="dica">' + esc(link) + '</span></td><td class="num">' +
+        var wpp = v.whatsapp ? String(v.whatsapp).replace(/^55/, "").replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : "";
+        var celW = admin ? '<input type="tel" class="v-wpp" data-vwpp="' + v.id + '" value="' + esc(wpp) + '" placeholder="Usa o da loja" maxlength="16" style="width:150px" title="WhatsApp próprio: os pedidos pelo link dela vão para este número"><span class="dica" data-vwppok="' + v.id + '"></span>'
+                         : (wpp ? '📱 ' + esc(wpp) : '<span class="dica">WhatsApp da loja</span>');
+        return '<tr' + (v.ativo ? '' : ' style="opacity:.55"') + '><td><strong>' + esc(v.nome) + '</strong></td><td><code>' + esc(v.codigo) + '</code></td><td><span class="dica">' + esc(link) + '</span></td><td>' + celW + '</td><td class="num">' +
           '<button class="btn sec peq" type="button" data-vcopia="' + esc(link) + '">Copiar link</button> ' +
           (admin ? '<button class="btn sec peq" type="button" data-vativo="' + v.id + '" data-novo="' + (!v.ativo) + '">' + (v.ativo ? 'Desativar' : 'Ativar') + '</button>' : '') + '</td></tr>';
       }).join("") + '</tbody></table></div>';
       box.querySelectorAll("[data-vcopia]").forEach(function(b){ b.onclick = function(){
         var t = b.dataset.vcopia; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ b.textContent = "Copiado ✓"; }, function(){ prompt("Copie o link:", t); });
+      }; });
+      box.querySelectorAll("[data-vwpp]").forEach(function(inp){ inp.onchange = function(){
+        var d = inp.value.replace(/\D/g, ""), ok = box.querySelector('[data-vwppok="' + inp.dataset.vwpp + '"]');
+        if (d.length === 10 || d.length === 11) d = "55" + d;
+        if (d && !/^55\d{10,11}$/.test(d)) { ok.textContent = " ⚠ número inválido (use DDD + número)"; ok.style.color = "var(--erro)"; return; }
+        ok.textContent = " salvando…"; ok.style.color = "";
+        sb.from("vendedores").update({whatsapp: d || null}).eq("id", inp.dataset.vwpp).select().then(function(x){
+          if (x.error || !x.data || !x.data.length) { ok.textContent = " ⚠ " + (x.error ? erroTxt(x.error) : "sem permissão"); ok.style.color = "var(--erro)"; return; }
+          ok.textContent = d ? " ✓ salvo" : " ✓ volta a usar o da loja"; ok.style.color = "var(--ok, green)";
+        });
       }; });
       box.querySelectorAll("[data-vativo]").forEach(function(b){ b.onclick = function(){
         sb.from("vendedores").update({ativo: b.dataset.novo === "true"}).eq("id", b.dataset.vativo).select().then(function(x){

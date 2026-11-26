@@ -82,6 +82,9 @@
   .pedido{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#fff}
   .pedido .topo{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
   .pedido .num{font-weight:700;font-size:17px;color:var(--vinho)}
+  .pedido label.sel-ped{display:inline;margin:0 4px 0 0;padding:0}
+  .sel-ped input{width:20px;height:20px;vertical-align:-4px;cursor:pointer;accent-color:var(--vinho)}
+  .lote{padding:10px 12px;margin-bottom:10px;background:var(--creme, #faf6f1)}
   .pedido .meta{color:var(--suave);font-size:14px}
   .pedido details{margin-top:8px}
   .pedido summary{cursor:pointer;font-weight:600;color:var(--vinho)}
@@ -790,10 +793,18 @@
       ultimosPedidos = ps;
       var h = '<div class="barra-acoes" style="align-items:center"><p class="dica cresce" style="margin:0">' + (busca ? 'Busca “' + esc(busca) + '” (todas as datas): ' : '') + ps.length + ' pedido(s) · ' + reais(total) + ' (sem cancelados)</p>';
       h += '<button class="btn sec" type="button" id="imprimirTodos">🖨 Imprimir os ' + ps.length + ' pedido(s) listados</button></div>';
+      var ids = {}; ps.forEach(function(p){ ids[p.id] = 1; }); Object.keys(selPed).forEach(function(k){ if (!ids[k]) delete selPed[k]; });
+      var nConf = ps.filter(function(p){ return p.status === "confirmado"; }).length;
+      h += '<div class="card lote nao-imprimir" id="loteBar"><div class="barra-acoes" style="align-items:flex-end;margin:0">';
+      h += '<button class="btn sec" type="button" id="loteConf"' + (nConf ? '' : ' disabled') + '>☑ Selecionar todos os Confirmados (' + nConf + ')</button>';
+      h += '<button class="btn sec" type="button" id="loteLimpar">Limpar seleção</button>';
+      h += '<div><label for="loteStatus">Mudar os marcados para</label><select id="loteStatus">' + STATUS.filter(function(s){ return s[0] !== "cancelado" && s[0] !== "aguardando"; }).map(function(s){ return '<option value="' + s[0] + '"' + (s[0] === "preparacao" ? " selected" : "") + '>' + s[1] + '</option>'; }).join("") + '</select></div>';
+      h += '<button class="btn" type="button" id="loteAplicar">Aplicar</button><span class="dica" id="loteN"></span></div></div>';
       ps.forEach(function(p){ h += cartaoPedido(p); });
       box.innerHTML = h;
       box.querySelectorAll("select[data-status]").forEach(function(sel){ sel.onchange = function(){ mudarStatus(+sel.dataset.status, sel.value, sel); }; });
       document.getElementById("imprimirTodos").onclick = function(){ imprimirPedidos(ultimosPedidos); };
+      ligarLote(box);
       box.querySelectorAll("[data-cadok]").forEach(function(b){ b.onclick = function(){ marcarCadastrado(+b.dataset.cadok, b); }; });
       box.querySelectorAll("[data-editped]").forEach(function(b){ b.onclick = function(){ abrirEdicao(ultimosPedidos.filter(function(p){ return p.id === +b.dataset.editped; })[0]); }; });
       box.querySelectorAll("[data-pesar]").forEach(function(b){ b.onclick = function(){
@@ -816,7 +827,7 @@
     });
   }
   function cartaoPedido(p){
-    var h = '<div class="pedido"><div class="topo"><div><span class="num">' + esc(p.numero) + '</span> <span class="cli-nome">' + esc(p.cliente_nome || "") + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>' + (cadPend(p) ? ' <span class="tag st-aguardando">📋 cliente novo — cadastrar</span>' : '') + (p.alterado_em ? ' <span class="tag" title="Alterado em ' + esc(dataHora(p.alterado_em)) + '">✎ alterado</span>' : '') + (p.versao > 1 ? (p.cliente_ok_versao === p.versao ? ' <span class="tag st-concluido">✓ cliente concordou</span>' : ' <span class="tag st-aguardando">aguardando OK do cliente</span>') : '');
+    var h = '<div class="pedido"><div class="topo"><div><label class="sel-ped" title="Marcar para mudar a situação em lote"><input type="checkbox" data-selped="' + p.id + '"' + (selPed[p.id] ? ' checked' : '') + '></label> <span class="num">' + esc(p.numero) + '</span> <span class="cli-nome">' + esc(p.cliente_nome || "") + '</span> <span class="tag st-' + p.status + '">' + esc(statusNome(p.status)) + '</span>' + (cadPend(p) ? ' <span class="tag st-aguardando">📋 cliente novo — cadastrar</span>' : '') + (p.alterado_em ? ' <span class="tag" title="Alterado em ' + esc(dataHora(p.alterado_em)) + '">✎ alterado</span>' : '') + (p.versao > 1 ? (p.cliente_ok_versao === p.versao ? ' <span class="tag st-concluido">✓ cliente concordou</span>' : ' <span class="tag st-aguardando">aguardando OK do cliente</span>') : '');
     h += '<div class="meta">' + esc(dataBR(p.data_desejada)) + (p.horario ? " · " + esc(p.horario) : "") + ' · ' + (p.modalidade === "entrega" ? "Entrega" : "Retirada") + ' · feito em ' + esc(dataHora(p.criado_em)) + (p.origem === "telefone" ? ' · 📞 por telefone' : '') + (p.tempo_total_s != null ? ' · ⏱ ' + (p.origem === "telefone" ? 'atendido em ' : 'montado em ') + durTxt(p.tempo_total_s) : '') + '</div></div>';
     h += '<div style="text-align:right"><div style="font-weight:700;font-size:18px">' + reais(p.total_centavos) + '</div>' + (p.total_estimado ? '<div class="meta">estimado</div>' : '') + '</div></div>';
     h += blocoAtendente(p) + blocoAdiant(p);
@@ -1323,6 +1334,36 @@
         if (!mot.trim()) { alert("Escreva o motivo para excluir definitivamente."); return; }
         acaoGerente(p.id, "excluir_definitivo", null, { motivo: mot });
       }; });
+    });
+  }
+  /* ---------- mudar a situação de vários pedidos de uma vez ---------- */
+  var selPed = {};
+  function contarLote(){ var n = Object.keys(selPed).length, e = document.getElementById("loteN"), b = document.getElementById("loteAplicar"); if (e) e.textContent = n ? n + " pedido(s) marcado(s)" : "Marque os pedidos ou use \"Selecionar todos\""; if (b) b.disabled = !n; }
+  function ligarLote(box){
+    box.querySelectorAll("[data-selped]").forEach(function(c){ c.onchange = function(){ if (c.checked) selPed[c.dataset.selped] = 1; else delete selPed[c.dataset.selped]; contarLote(); }; });
+    document.getElementById("loteConf").onclick = function(){ ultimosPedidos.forEach(function(p){ if (p.status === "confirmado") selPed[p.id] = 1; }); box.querySelectorAll("[data-selped]").forEach(function(c){ c.checked = !!selPed[c.dataset.selped]; }); contarLote(); };
+    document.getElementById("loteLimpar").onclick = function(){ selPed = {}; box.querySelectorAll("[data-selped]").forEach(function(c){ c.checked = false; }); contarLote(); };
+    document.getElementById("loteAplicar").onclick = function(){ aplicarLote(this); };
+    contarLote();
+  }
+  function aplicarLote(btn){
+    var st = document.getElementById("loteStatus").value, nomeSt = statusNome(st);
+    var alvo = ultimosPedidos.filter(function(p){ return selPed[p.id] && p.status !== st; });
+    var pulados = alvo.filter(function(p){ return p.status === "cancelado" || precisaGerente(p, st); });
+    alvo = alvo.filter(function(p){ return pulados.indexOf(p) < 0; });
+    if (!alvo.length) { alert(pulados.length ? "Os pedidos marcados precisam de autorização do gerente ou estão cancelados. Mude um por um." : "Os pedidos marcados já estão em \"" + nomeSt + "\"."); return; }
+    if (!confirm("Mudar " + alvo.length + " pedido(s) para \"" + nomeSt + "\"?\n\n" + alvo.map(function(p){ return p.numero + " — " + p.cliente_nome; }).join("\n") + (pulados.length ? "\n\nFicam de fora (precisam do gerente ou estão cancelados): " + pulados.map(function(p){ return p.numero; }).join(", ") : ""))) return;
+    btn.disabled = true; btn.textContent = "Mudando…";
+    var ok = 0, falhas = [], ids = alvo.map(function(p){ return p.id; });
+    sb.from("pedidos").update({status: st}).in("id", ids).select("id").then(function(r){
+      if (r.error) { falhas.push(erroTxt(r.error)); return; }
+      var feitos = (r.data || []).map(function(x){ return x.id; }); ok = feitos.length;
+      ids.forEach(function(i){ if (feitos.indexOf(i) < 0) falhas.push(alvo.filter(function(p){ return p.id === i; })[0].numero); });
+      if (feitos.length) return sb.from("pedido_historico").insert(feitos.map(function(i){ return {pedido_id: i, status: st, por: S.usuario.email}; }));
+    }).then(function(){
+      selPed = {};
+      if (falhas.length) alert(ok + " pedido(s) mudados para \"" + nomeSt + "\". Não foi possível mudar: " + falhas.join(", "));
+      carregarPedidos();
     });
   }
   function mudarStatus(id, st, sel){
@@ -2308,13 +2349,25 @@
         var wpp = v.whatsapp ? String(v.whatsapp).replace(/^55/, "").replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : "";
         var celW = admin ? '<input type="tel" class="v-wpp" data-vwpp="' + v.id + '" value="' + esc(wpp) + '" placeholder="Usa o da loja" maxlength="16" style="width:150px" title="WhatsApp próprio: os pedidos pelo link dela vão para este número"><span class="dica" data-vwppok="' + v.id + '"></span>'
                          : (wpp ? '📱 ' + esc(wpp) : '<span class="dica">WhatsApp da loja</span>');
-        return '<tr' + (v.ativo ? '' : ' style="opacity:.55"') + '><td><strong>' + esc(v.nome) + '</strong></td><td><code>' + esc(v.codigo) + '</code></td><td><span class="dica">' + esc(link) + '</span></td><td>' + celW + '</td><td class="num">' +
+        var celNome = admin ? '<input type="text" data-vnome="' + v.id + '" value="' + esc(v.nome) + '" maxlength="80" style="width:160px;font-weight:700" title="Editar o nome (o código e o link continuam iguais)"><span class="dica" data-vnomeok="' + v.id + '"></span>' : '<strong>' + esc(v.nome) + '</strong>';
+        return '<tr' + (v.ativo ? '' : ' style="opacity:.55"') + '><td>' + celNome + '</td><td><code>' + esc(v.codigo) + '</code></td><td><span class="dica">' + esc(link) + '</span></td><td>' + celW + '</td><td class="num">' +
           '<button class="btn sec peq" type="button" data-vcopia="' + esc(link) + '">Copiar link</button> ' +
           '<button class="btn sec peq" type="button" data-vqr="' + esc(link) + '" data-vqrnome="' + esc(v.nome) + '" data-vqrcod="' + esc(v.codigo) + '">QR code</button> ' +
           (admin ? '<button class="btn sec peq" type="button" data-vativo="' + v.id + '" data-novo="' + (!v.ativo) + '">' + (v.ativo ? 'Desativar' : 'Ativar') + '</button>' : '') + '</td></tr>';
       }).join("") + '</tbody></table></div>';
       box.querySelectorAll("[data-vcopia]").forEach(function(b){ b.onclick = function(){
         var t = b.dataset.vcopia; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ b.textContent = "Copiado ✓"; }, function(){ prompt("Copie o link:", t); });
+      }; });
+      box.querySelectorAll("[data-vnome]").forEach(function(inp){ inp.onchange = function(){
+        var nome = inp.value.replace(/\s+/g, " ").trim(), ok = box.querySelector('[data-vnomeok="' + inp.dataset.vnome + '"]');
+        if (nome.length < 2) { ok.textContent = " ⚠ nome muito curto"; ok.style.color = "var(--erro)"; return; }
+        ok.textContent = " salvando…"; ok.style.color = "";
+        sb.from("vendedores").update({nome: nome}).eq("id", inp.dataset.vnome).select().then(function(x){
+          if (x.error || !x.data || !x.data.length) { ok.textContent = " ⚠ " + (x.error ? erroTxt(x.error) : "sem permissão"); ok.style.color = "var(--erro)"; return; }
+          ok.textContent = " ✓ salvo"; ok.style.color = "var(--ok, green)";
+          var b = box.querySelector('[data-vqr][data-vqrcod="' + x.data[0].codigo + '"]'); if (b) b.dataset.vqrnome = nome;
+          carregarVendNomes();
+        });
       }; });
       box.querySelectorAll("[data-vqr]").forEach(function(b){ b.onclick = function(){ abrirQrVendedor(b.dataset.vqr, b.dataset.vqrnome, b.dataset.vqrcod); }; });
       box.querySelectorAll("[data-vwpp]").forEach(function(inp){ inp.onchange = function(){

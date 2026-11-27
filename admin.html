@@ -2155,7 +2155,7 @@
     h += '<div><label for="cfgFrMin">Pedido mínimo para entrega (R$) <span class="dica">vazio = sem mínimo</span></label><input type="text" id="cfgFrMin" inputmode="decimal" value="' + rs(fr.minimo_entrega_centavos) + '"></div></div></div>';
     h += '<div id="cfgMsg"></div><button class="btn" type="submit">Salvar configurações</button></form>';
     h += '<div class="card" style="margin-top:20px"><h2>Equipe com acesso ao painel</h2><div id="equipeLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" style="margin-top:10px"><div class="cresce"><label for="eqEmail">E-mail</label><input type="email" id="eqEmail"></div><div class="cresce"><label for="eqNome">Nome</label><input type="text" id="eqNome"></div><div><label for="eqPapel">Acesso</label><select id="eqPapel"><option value="atendente">Atendente / vendedor</option><option value="gerente">Gerente (autoriza, cancela e exclui pedidos)</option><option value="admin">Administrador</option></select></div><button class="btn sec" type="button" id="eqAdd">Adicionar</button></div><p class="dica">Só administradores incluem ou removem pessoas. Depois de incluída, a pessoa entra em "Primeiro acesso? Crie sua senha" com o mesmo e-mail. E-mails fora da equipe não conseguem criar senha.</p></div>';
-    h += '<div class="card" style="margin-top:20px"><h2>Vendedores</h2><p class="dica" style="margin-top:0">O link do vendedor é o da loja com <strong>?v=código</strong>. Só códigos cadastrados e ativos são gravados no pedido. <strong>WhatsApp próprio</strong> (opcional): os pedidos e a Ajuda pelo link da vendedora vão para o celular dela; o pedido continua caindo no painel. Em branco, usa o WhatsApp da loja.</p><div id="vendLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" id="vendForm" style="margin-top:10px"><div class="cresce"><label for="vdCod">Código (ex.: ana)</label><input type="text" id="vdCod" maxlength="30" autocapitalize="off"></div><div class="cresce"><label for="vdNome">Nome</label><input type="text" id="vdNome" maxlength="80"></div><button class="btn sec" type="button" id="vdAdd">Adicionar</button></div></div>';
+    h += '<div class="card" style="margin-top:20px"><h2>Vendedores</h2><p class="dica" style="margin-top:0">O link do vendedor é o da loja com <strong>?v=código</strong>. Só códigos cadastrados e ativos são gravados no pedido. <strong>WhatsApp próprio</strong> (opcional): os pedidos e a Ajuda pelo link da vendedora vão para o celular dela; o pedido continua caindo no painel. Em branco, usa o WhatsApp da loja.</p><div id="vendLista"><p class="vazio">Carregando…</p></div><div class="barra-acoes" id="vendForm" style="margin-top:10px"><div class="cresce"><label for="vdCod">Código (ex.: ana)</label><input type="text" id="vdCod" maxlength="30" autocapitalize="off"></div><div class="cresce"><label for="vdNome">Nome</label><input type="text" id="vdNome" maxlength="80"></div><div class="cresce"><label for="vdGrupo">Grupo</label><input type="text" id="vdGrupo" maxlength="60" list="vGrupos" placeholder="Escolha ou digite"></div><button class="btn sec" type="button" id="vdAdd">Adicionar</button></div></div>';
     main.innerHTML = h;
     ["datas","horarios","pagamentos"].forEach(desenharChips);
     desenharFaixas(); desenharFrFaixas();
@@ -2441,9 +2441,12 @@
     var cod = document.getElementById("vdCod").value.trim().toLowerCase(), nome = document.getElementById("vdNome").value.trim();
     if (!/^[a-z0-9_-]{2,30}$/.test(cod)) { alert("Código: use de 2 a 30 letras minúsculas, números, - ou _ (sem espaço e sem acento)."); return; }
     if (!nome) { alert("Informe o nome do vendedor."); return; }
-    sb.from("vendedores").insert({codigo:cod, nome:nome}).then(function(r){
+    var grupo = document.getElementById("vdGrupo").value.replace(/\s+/g, " ").trim();
+    if (!grupo) { alert("Informe o grupo do vendedor."); document.getElementById("vdGrupo").focus(); return; }
+    [].forEach.call(document.querySelectorAll("#vGrupos option"), function(o){ if (o.value.toLowerCase() === grupo.toLowerCase()) grupo = o.value; });
+    sb.from("vendedores").insert({codigo:cod, nome:nome, grupo:grupo}).then(function(r){
       if (r.error) { alert(erroTxt(r.error)); return; }
-      document.getElementById("vdCod").value = ""; document.getElementById("vdNome").value = ""; carregarVendedores();
+      document.getElementById("vdCod").value = ""; document.getElementById("vdNome").value = ""; document.getElementById("vdGrupo").value = ""; carregarVendedores();
     });
   }
 

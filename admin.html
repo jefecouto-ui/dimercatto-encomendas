@@ -2344,19 +2344,33 @@
       if (r.error) { box.innerHTML = '<div class="msg erro">' + esc(erroTxt(r.error)) + '</div>'; return; }
       if (!r.data.length) { box.innerHTML = '<p class="vazio">Nenhum vendedor cadastrado.</p>'; return; }
       var admin = S.papel === "admin", base = location.href.replace(/admin\.html.*$/, "");
-      box.innerHTML = '<div class="tabela"><table><tbody>' + r.data.map(function(v){
+      var grupos = []; r.data.forEach(function(v){ if (v.grupo && grupos.indexOf(v.grupo) < 0) grupos.push(v.grupo); }); grupos.sort();
+      box.innerHTML = '<datalist id="vGrupos">' + grupos.map(function(g){ return '<option value="' + esc(g) + '">'; }).join("") + '</datalist>' +
+        '<div class="tabela"><table><thead><tr><th>Nome</th><th>Grupo</th><th>Código</th><th>Link</th><th>WhatsApp</th><th></th></tr></thead><tbody>' + r.data.map(function(v){
         var link = base + "?v=" + encodeURIComponent(v.codigo);
         var wpp = v.whatsapp ? String(v.whatsapp).replace(/^55/, "").replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : "";
         var celW = admin ? '<input type="tel" class="v-wpp" data-vwpp="' + v.id + '" value="' + esc(wpp) + '" placeholder="Usa o da loja" maxlength="16" style="width:150px" title="WhatsApp próprio: os pedidos pelo link dela vão para este número"><span class="dica" data-vwppok="' + v.id + '"></span>'
                          : (wpp ? '📱 ' + esc(wpp) : '<span class="dica">WhatsApp da loja</span>');
         var celNome = admin ? '<input type="text" data-vnome="' + v.id + '" value="' + esc(v.nome) + '" maxlength="80" style="width:160px;font-weight:700" title="Editar o nome (o código e o link continuam iguais)"><span class="dica" data-vnomeok="' + v.id + '"></span>' : '<strong>' + esc(v.nome) + '</strong>';
-        return '<tr' + (v.ativo ? '' : ' style="opacity:.55"') + '><td>' + celNome + '</td><td><code>' + esc(v.codigo) + '</code></td><td><span class="dica">' + esc(link) + '</span></td><td>' + celW + '</td><td class="num">' +
+        var celGrupo = admin ? '<input type="text" list="vGrupos" data-vgrupo="' + v.id + '" value="' + esc(v.grupo || "") + '" maxlength="60" placeholder="Sem grupo" style="width:140px" title="Grupo da vendedora: escolha um existente ou digite um novo"><span class="dica" data-vgrupook="' + v.id + '"></span>'
+                             : (v.grupo ? esc(v.grupo) : '<span class="dica">—</span>');
+        return '<tr' + (v.ativo ? '' : ' style="opacity:.55"') + '><td>' + celNome + '</td><td>' + celGrupo + '</td><td><code>' + esc(v.codigo) + '</code></td><td><span class="dica">' + esc(link) + '</span></td><td>' + celW + '</td><td class="num">' +
           '<button class="btn sec peq" type="button" data-vcopia="' + esc(link) + '">Copiar link</button> ' +
           '<button class="btn sec peq" type="button" data-vqr="' + esc(link) + '" data-vqrnome="' + esc(v.nome) + '" data-vqrcod="' + esc(v.codigo) + '">QR code</button> ' +
           (admin ? '<button class="btn sec peq" type="button" data-vativo="' + v.id + '" data-novo="' + (!v.ativo) + '">' + (v.ativo ? 'Desativar' : 'Ativar') + '</button>' : '') + '</td></tr>';
       }).join("") + '</tbody></table></div>';
       box.querySelectorAll("[data-vcopia]").forEach(function(b){ b.onclick = function(){
         var t = b.dataset.vcopia; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ b.textContent = "Copiado ✓"; }, function(){ prompt("Copie o link:", t); });
+      }; });
+      box.querySelectorAll("[data-vgrupo]").forEach(function(inp){ inp.onchange = function(){
+        var g = inp.value.replace(/\s+/g, " ").trim(), ok = box.querySelector('[data-vgrupook="' + inp.dataset.vgrupo + '"]');
+        var igual = grupos.filter(function(x){ return x.toLowerCase() === g.toLowerCase(); })[0]; if (igual) { g = igual; inp.value = g; }
+        ok.textContent = " salvando…"; ok.style.color = "";
+        sb.from("vendedores").update({grupo: g || null}).eq("id", inp.dataset.vgrupo).select("id").then(function(x){
+          if (x.error || !x.data || !x.data.length) { ok.textContent = " ⚠ " + (x.error ? erroTxt(x.error) : "sem permissão"); ok.style.color = "var(--erro)"; return; }
+          ok.textContent = " ✓"; ok.style.color = "var(--ok, green)";
+          if (g && grupos.indexOf(g) < 0) { grupos.push(g); var dl = document.getElementById("vGrupos"); if (dl) dl.insertAdjacentHTML("beforeend", '<option value="' + esc(g) + '">'); }
+        });
       }; });
       box.querySelectorAll("[data-vnome]").forEach(function(inp){ inp.onchange = function(){
         var nome = inp.value.replace(/\s+/g, " ").trim(), ok = box.querySelector('[data-vnomeok="' + inp.dataset.vnome + '"]');
